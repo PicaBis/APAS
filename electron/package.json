@@ -1,0 +1,57 @@
+{
+  "name": "apas-desktop",
+  "version": "2.0.0",
+  "description": "APAS - نظام تحليل المقذوفات بالذكاء الاصطناعي",
+  "main": "main.cjs",
+  "author": "APAS Team",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.apas.simulator",
+    "productName": "APAS",
+    "directories": {
+      "output": "../electron-dist"
+    },
+    "files": [
+      "main.cjs",
+      "../dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../public/apas-logo.png",
+        "to": "apas-logo.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "../public/apas-logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "../public/apas-logo.png",
+      "uninstallerIcon": "../public/apas-logo.png",
+      "installerHeaderIcon": "../public/apas-logo.png",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "APAS",
+      "installerLanguages": ["en_US", "ar"],
+      "language": "0x0401"
+    }
+  },
+  "dependencies": {
+    "electron": "^28.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.9.1"
+  }
+}
