@@ -1463,6 +1463,7 @@ const Index = () => {
                     </Suspense>
                     </ErrorBoundary>
                   ) : (
+                    <ErrorBoundary sectionName="2D Simulation">
                     <SimulationCanvas
                       trajectoryData={sim.trajectoryData}
                       theoreticalData={sim.theoreticalData}
@@ -1510,6 +1511,7 @@ const Index = () => {
                       relativityShowDual={relativity.showDualTrajectories}
                       relativityFrameVelocity={relativity.frameVelocity}
                     />
+                    </ErrorBoundary>
                   )}
                 </div>
 

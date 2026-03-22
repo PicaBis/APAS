@@ -2,9 +2,12 @@
  * Advanced Physics Hook for APAS
  * Integrates advanced physics features: Coriolis, Centrifugal, Magnus, Gyroscopic,
  * Buoyancy, Hydrodynamic, Relativistic, Environmental Coupling
+ *
+ * Uses useReducer to consolidate 23+ individual useState calls into a single
+ * state object, reducing the dependency list from 28 items down to 1 (state).
  */
 
-import { useState, useCallback } from 'react';
+import { useReducer, useCallback } from 'react';
 import {
   calculateCoriolisAcceleration,
   getAirDensityAtAltitude,
@@ -12,6 +15,7 @@ import {
   type AdvancedPhysicsParams,
 } from '@/utils/advancedPhysics';
 import { getWeatherData, getWeatherForCurrentLocation, type WeatherData } from '@/services/weatherService';
+import { getErrorMessage } from '@/utils/errorHandler';
 
 export interface AdvancedPhysicsState {
   // Original toggles
@@ -52,6 +56,75 @@ export interface AdvancedPhysicsState {
   weatherData: WeatherData | null;
   weatherLoading: boolean;
   weatherError: string | null;
+}
+
+// ── Reducer actions ──────────────────────────────────────────
+
+type AdvancedPhysicsAction =
+  | { type: 'SET_FIELD'; field: keyof AdvancedPhysicsState; value: AdvancedPhysicsState[keyof AdvancedPhysicsState] }
+  | { type: 'WEATHER_LOADING' }
+  | { type: 'WEATHER_SUCCESS'; data: WeatherData }
+  | { type: 'WEATHER_SUCCESS_WITH_LOCATION'; data: WeatherData }
+  | { type: 'WEATHER_ERROR'; error: string };
+
+const initialState: AdvancedPhysicsState = {
+  enableCoriolis: false,
+  enableMagnus: false,
+  enableAltitudeDensity: false,
+  enableWeatherIntegration: false,
+  enableCentrifugal: false,
+  enableRelativeMotion: false,
+  enableBuoyancy: false,
+  enableHydrodynamicDrag: false,
+  enableFluidPressure: false,
+  isUnderwater: false,
+  enableGyroscopic: false,
+  enableBallisticStability: false,
+  enableRelativistic: false,
+  enableEnvironmentalCoupling: false,
+  latitude: 0,
+  longitude: 0,
+  diameter: 0.045,
+  dragCoefficient: 0.47,
+  spinRate: 0,
+  frameVx: 0,
+  frameVy: 0,
+  frameAx: 0,
+  frameAy: 0,
+  frameOmega: 0,
+  fluidDensity: 1000,
+  environmentTemperature: 15,
+  environmentPressure: 101325,
+  environmentHumidity: 0.5,
+  weatherData: null,
+  weatherLoading: false,
+  weatherError: null,
+};
+
+function advancedPhysicsReducer(
+  state: AdvancedPhysicsState,
+  action: AdvancedPhysicsAction
+): AdvancedPhysicsState {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value };
+    case 'WEATHER_LOADING':
+      return { ...state, weatherLoading: true, weatherError: null };
+    case 'WEATHER_SUCCESS':
+      return { ...state, weatherLoading: false, weatherData: action.data };
+    case 'WEATHER_SUCCESS_WITH_LOCATION':
+      return {
+        ...state,
+        weatherLoading: false,
+        weatherData: action.data,
+        latitude: action.data.latitude,
+        longitude: action.data.longitude,
+      };
+    case 'WEATHER_ERROR':
+      return { ...state, weatherLoading: false, weatherError: action.error };
+    default:
+      return state;
+  }
 }
 
 export interface UseAdvancedPhysicsReturn extends AdvancedPhysicsState {
@@ -101,190 +174,140 @@ export interface UseAdvancedPhysicsReturn extends AdvancedPhysicsState {
 }
 
 export function useAdvancedPhysics(): UseAdvancedPhysicsReturn {
-  // Original toggles
-  const [enableCoriolis, setEnableCoriolis] = useState(false);
-  const [enableMagnus, setEnableMagnus] = useState(false);
-  const [enableAltitudeDensity, setEnableAltitudeDensity] = useState(false);
-  const [enableWeatherIntegration, setEnableWeatherIntegration] = useState(false);
-  // New toggles
-  const [enableCentrifugal, setEnableCentrifugal] = useState(false);
-  const [enableRelativeMotion, setEnableRelativeMotion] = useState(false);
-  const [enableBuoyancy, setEnableBuoyancy] = useState(false);
-  const [enableHydrodynamicDrag, setEnableHydrodynamicDrag] = useState(false);
-  const [enableFluidPressure, setEnableFluidPressure] = useState(false);
-  const [isUnderwater, setIsUnderwater] = useState(false);
-  const [enableGyroscopic, setEnableGyroscopic] = useState(false);
-  const [enableBallisticStability, setEnableBallisticStability] = useState(false);
-  const [enableRelativistic, setEnableRelativistic] = useState(false);
-  const [enableEnvironmentalCoupling, setEnableEnvironmentalCoupling] = useState(false);
+  const [state, dispatch] = useReducer(advancedPhysicsReducer, initialState);
 
-  // Original parameters
-  const [latitude, setLatitude] = useState(0);
-  const [longitude, setLongitude] = useState(0);
-  const [diameter, setDiameter] = useState(0.045);
-  const [dragCoefficient, setDragCoefficient] = useState(0.47);
-  const [spinRate, setSpinRate] = useState(0);
-  // New parameters
-  const [frameVx, setFrameVx] = useState(0);
-  const [frameVy, setFrameVy] = useState(0);
-  const [frameAx, setFrameAx] = useState(0);
-  const [frameAy, setFrameAy] = useState(0);
-  const [frameOmega, setFrameOmega] = useState(0);
-  const [fluidDensity, setFluidDensity] = useState(1000); // water
-  const [environmentTemperature, setEnvironmentTemperature] = useState(15);
-  const [environmentPressure, setEnvironmentPressure] = useState(101325);
-  const [environmentHumidity, setEnvironmentHumidity] = useState(0.5);
+  // Setters (stable references — dispatch identity never changes)
+  const setEnableCoriolis = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableCoriolis', value: v }), []);
+  const setEnableMagnus = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableMagnus', value: v }), []);
+  const setEnableAltitudeDensity = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableAltitudeDensity', value: v }), []);
+  const setEnableWeatherIntegration = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableWeatherIntegration', value: v }), []);
+  const setEnableCentrifugal = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableCentrifugal', value: v }), []);
+  const setEnableRelativeMotion = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableRelativeMotion', value: v }), []);
+  const setEnableBuoyancy = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableBuoyancy', value: v }), []);
+  const setEnableHydrodynamicDrag = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableHydrodynamicDrag', value: v }), []);
+  const setEnableFluidPressure = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableFluidPressure', value: v }), []);
+  const setIsUnderwater = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'isUnderwater', value: v }), []);
+  const setEnableGyroscopic = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableGyroscopic', value: v }), []);
+  const setEnableBallisticStability = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableBallisticStability', value: v }), []);
+  const setEnableRelativistic = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableRelativistic', value: v }), []);
+  const setEnableEnvironmentalCoupling = useCallback((v: boolean) => dispatch({ type: 'SET_FIELD', field: 'enableEnvironmentalCoupling', value: v }), []);
+  const setLatitude = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'latitude', value: v }), []);
+  const setLongitude = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'longitude', value: v }), []);
+  const setDiameter = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'diameter', value: v }), []);
+  const setDragCoefficient = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'dragCoefficient', value: v }), []);
+  const setSpinRate = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'spinRate', value: v }), []);
+  const setFrameVx = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'frameVx', value: v }), []);
+  const setFrameVy = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'frameVy', value: v }), []);
+  const setFrameAx = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'frameAx', value: v }), []);
+  const setFrameAy = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'frameAy', value: v }), []);
+  const setFrameOmega = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'frameOmega', value: v }), []);
+  const setFluidDensity = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'fluidDensity', value: v }), []);
+  const setEnvironmentTemperature = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'environmentTemperature', value: v }), []);
+  const setEnvironmentPressure = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'environmentPressure', value: v }), []);
+  const setEnvironmentHumidity = useCallback((v: number) => dispatch({ type: 'SET_FIELD', field: 'environmentHumidity', value: v }), []);
 
-  // Weather data
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [weatherLoading, setWeatherLoading] = useState(false);
-  const [weatherError, setWeatherError] = useState<string | null>(null);
-
+  // Async actions
   const fetchWeatherData = useCallback(async () => {
-    setWeatherLoading(true);
-    setWeatherError(null);
+    dispatch({ type: 'WEATHER_LOADING' });
     try {
-      const data = await getWeatherData(latitude, longitude);
+      const data = await getWeatherData(state.latitude, state.longitude);
       if (data) {
-        setWeatherData(data);
+        dispatch({ type: 'WEATHER_SUCCESS', data });
       } else {
-        setWeatherError('Failed to fetch weather data');
+        dispatch({ type: 'WEATHER_ERROR', error: 'Failed to fetch weather data' });
       }
     } catch (error) {
-      setWeatherError(error instanceof Error ? error.message : 'Unknown error');
-    } finally {
-      setWeatherLoading(false);
+      dispatch({ type: 'WEATHER_ERROR', error: getErrorMessage(error) });
     }
-  }, [latitude, longitude]);
+  }, [state.latitude, state.longitude]);
 
   const fetchWeatherForCurrentLocation = useCallback(async () => {
-    setWeatherLoading(true);
-    setWeatherError(null);
+    dispatch({ type: 'WEATHER_LOADING' });
     try {
       const data = await getWeatherForCurrentLocation();
       if (data) {
-        setWeatherData(data);
-        setLatitude(data.latitude);
-        setLongitude(data.longitude);
+        dispatch({ type: 'WEATHER_SUCCESS_WITH_LOCATION', data });
       } else {
-        setWeatherError('Could not get current location weather');
+        dispatch({ type: 'WEATHER_ERROR', error: 'Could not get current location weather' });
       }
     } catch (error) {
-      setWeatherError(error instanceof Error ? error.message : 'Unknown error');
-    } finally {
-      setWeatherLoading(false);
+      dispatch({ type: 'WEATHER_ERROR', error: getErrorMessage(error) });
     }
   }, []);
 
+  // Derived callbacks (depend on consolidated state)
   const buildAdvancedPhysicsParams = useCallback(
     (gravity: number, mass: number, airDensity: number, windSpeed: number): AdvancedPhysicsParams => {
       let effectiveAirDensity = airDensity;
       let effectiveWindSpeed = windSpeed;
 
-      if (enableWeatherIntegration && weatherData) {
-        effectiveAirDensity = weatherData.airDensity;
-        effectiveWindSpeed = weatherData.windSpeed;
+      if (state.enableWeatherIntegration && state.weatherData) {
+        effectiveAirDensity = state.weatherData.airDensity;
+        effectiveWindSpeed = state.weatherData.windSpeed;
       }
 
       return {
         gravity,
         mass,
-        diameter,
-        dragCoefficient,
+        diameter: state.diameter,
+        dragCoefficient: state.dragCoefficient,
         airDensity: effectiveAirDensity,
         windSpeed: effectiveWindSpeed,
-        latitude,
-        spinRate,
-        enableCoriolis,
-        enableMagnus,
-        enableAltitudeDensity,
-        // New fields
-        enableCentrifugal,
-        enableRelativeMotion,
-        frameVx,
-        frameVy,
-        frameAx,
-        frameAy,
-        frameOmega,
-        enableBuoyancy,
-        enableHydrodynamicDrag,
-        enableFluidPressure,
-        isUnderwater,
-        fluidDensity,
-        enableGyroscopic,
-        enableBallisticStability,
-        enableRelativistic,
-        enableEnvironmentalCoupling,
-        environmentTemperature,
-        environmentPressure,
-        environmentHumidity,
+        latitude: state.latitude,
+        spinRate: state.spinRate,
+        enableCoriolis: state.enableCoriolis,
+        enableMagnus: state.enableMagnus,
+        enableAltitudeDensity: state.enableAltitudeDensity,
+        enableCentrifugal: state.enableCentrifugal,
+        enableRelativeMotion: state.enableRelativeMotion,
+        frameVx: state.frameVx,
+        frameVy: state.frameVy,
+        frameAx: state.frameAx,
+        frameAy: state.frameAy,
+        frameOmega: state.frameOmega,
+        enableBuoyancy: state.enableBuoyancy,
+        enableHydrodynamicDrag: state.enableHydrodynamicDrag,
+        enableFluidPressure: state.enableFluidPressure,
+        isUnderwater: state.isUnderwater,
+        fluidDensity: state.fluidDensity,
+        enableGyroscopic: state.enableGyroscopic,
+        enableBallisticStability: state.enableBallisticStability,
+        enableRelativistic: state.enableRelativistic,
+        enableEnvironmentalCoupling: state.enableEnvironmentalCoupling,
+        environmentTemperature: state.environmentTemperature,
+        environmentPressure: state.environmentPressure,
+        environmentHumidity: state.environmentHumidity,
       };
     },
-    [enableCoriolis, enableMagnus, enableAltitudeDensity, enableWeatherIntegration,
-     diameter, dragCoefficient, latitude, spinRate, weatherData,
-     enableCentrifugal, enableRelativeMotion, frameVx, frameVy, frameAx, frameAy, frameOmega,
-     enableBuoyancy, enableHydrodynamicDrag, enableFluidPressure, isUnderwater, fluidDensity,
-     enableGyroscopic, enableBallisticStability, enableRelativistic,
-     enableEnvironmentalCoupling, environmentTemperature, environmentPressure, environmentHumidity]
+    [state]
   );
 
   const calculateCoriolisEffect = useCallback(
     (vx: number, vy: number) => {
-      if (!enableCoriolis) return { ax: 0, ay: 0 };
-      return calculateCoriolisAcceleration(vx, vy, latitude);
+      if (!state.enableCoriolis) return { ax: 0, ay: 0 };
+      return calculateCoriolisAcceleration(vx, vy, state.latitude);
     },
-    [enableCoriolis, latitude]
+    [state.enableCoriolis, state.latitude]
   );
 
   const calculateAltitudeDensity = useCallback(
     (altitude: number, baseDensity: number) => {
-      if (!enableAltitudeDensity) return baseDensity;
+      if (!state.enableAltitudeDensity) return baseDensity;
       return getAirDensityAtAltitude(altitude, baseDensity);
     },
-    [enableAltitudeDensity]
+    [state.enableAltitudeDensity]
   );
 
   const calculateMagnusForce = useCallback(
     (velocity: number, density: number) => {
-      if (!enableMagnus || spinRate === 0) return 0;
-      return calculateMagnusAcceleration(velocity, spinRate, diameter, density);
+      if (!state.enableMagnus || state.spinRate === 0) return 0;
+      return calculateMagnusAcceleration(velocity, state.spinRate, state.diameter, density);
     },
-    [enableMagnus, spinRate, diameter]
+    [state.enableMagnus, state.spinRate, state.diameter]
   );
 
   return {
-    // State
-    enableCoriolis,
-    enableMagnus,
-    enableAltitudeDensity,
-    enableWeatherIntegration,
-    enableCentrifugal,
-    enableRelativeMotion,
-    enableBuoyancy,
-    enableHydrodynamicDrag,
-    enableFluidPressure,
-    isUnderwater,
-    enableGyroscopic,
-    enableBallisticStability,
-    enableRelativistic,
-    enableEnvironmentalCoupling,
-    latitude,
-    longitude,
-    diameter,
-    dragCoefficient,
-    spinRate,
-    frameVx,
-    frameVy,
-    frameAx,
-    frameAy,
-    frameOmega,
-    fluidDensity,
-    environmentTemperature,
-    environmentPressure,
-    environmentHumidity,
-    weatherData,
-    weatherLoading,
-    weatherError,
+    ...state,
 
     // Setters
     setEnableCoriolis,

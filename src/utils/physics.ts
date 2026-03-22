@@ -1,6 +1,14 @@
 // ═══ Math Helpers & ML Models for Projectile Simulation ═══
 
 import { advancedPhysicsStep, type AdvancedPhysicsParams } from './advancedPhysics';
+import {
+  DEFAULT_TIME_STEP,
+  MAX_SIMULATION_TIME,
+  SEA_LEVEL_AIR_DENSITY,
+  AIR_KINEMATIC_VISCOSITY,
+  FLOAT_EPSILON,
+  MIN_BOUNCE_VELOCITY,
+} from '@/constants/physics';
 
 export interface TrajectoryPoint {
   x: number; y: number; time: number;
@@ -36,7 +44,7 @@ const solve3x3 = (A: number[][], b: number[]): number[] => {
     for (let r = col + 1; r < 3; r++) if (Math.abs(m[r][col]) > Math.abs(m[maxR][col])) maxR = r;
     [m[col], m[maxR]] = [m[maxR], m[col]];
     for (let r = col + 1; r < 3; r++) {
-      if (Math.abs(m[col][col]) < 1e-12) continue;
+      if (Math.abs(m[col][col]) < FLOAT_EPSILON) continue;
       const f = m[r][col] / m[col][col];
       for (let k = col; k <= 3; k++) m[r][k] -= f * m[col][k];
     }
@@ -45,7 +53,7 @@ const solve3x3 = (A: number[][], b: number[]): number[] => {
   for (let i = 2; i >= 0; i--) {
     x[i] = m[i][3];
     for (let j = i + 1; j < 3; j++) x[i] -= m[i][j] * x[j];
-    if (Math.abs(m[i][i]) > 1e-12) x[i] /= m[i][i];
+    if (Math.abs(m[i][i]) > FLOAT_EPSILON) x[i] /= m[i][i];
   }
   return x;
 };
@@ -165,6 +173,45 @@ export const calcMetrics = (pts: Array<{ y: number; yPred: number }>): MetricsRe
   return { r2: +Math.min(1, Math.max(0, r2Raw)).toFixed(4), mae: +mae.toFixed(4), rmse: +rmse.toFixed(4), mse: +mse.toFixed(4) };
 };
 
+/** Configuration object for trajectory calculation — reduces 15 positional args to a single object. */
+export interface TrajectoryConfig {
+  velocity: number;
+  angle: number;
+  height: number;
+  gravity: number;
+  airResistance: number;
+  mass: number;
+  enableBounce?: boolean;
+  bounceCOR?: number;
+  maxBounces?: number;
+  windSpeed?: number;
+  integrationMethod?: 'euler' | 'rk4' | 'ai-apas';
+  initialX?: number;
+  spinRate?: number;
+  projectileRadius?: number;
+  advancedParams?: AdvancedPhysicsParams | null;
+}
+
+/** Convenience wrapper that accepts a single config object instead of 15 positional args. */
+export const calculateTrajectoryFromConfig = (config: TrajectoryConfig) =>
+  calculateTrajectory(
+    config.velocity,
+    config.angle,
+    config.height,
+    config.gravity,
+    config.airResistance,
+    config.mass,
+    config.enableBounce,
+    config.bounceCOR,
+    config.maxBounces,
+    config.windSpeed,
+    config.integrationMethod,
+    config.initialX,
+    config.spinRate,
+    config.projectileRadius,
+    config.advancedParams,
+  );
+
 // Check if any advanced physics effect is active
 const hasActiveAdvancedPhysics = (params: AdvancedPhysicsParams): boolean => {
   return params.enableCoriolis || params.enableMagnus || params.enableAltitudeDensity ||
@@ -199,7 +246,7 @@ export const calculateTrajectory = (
   const angleRad = (angle * Math.PI) / 180;
   const vx0 = velocity * Math.cos(angleRad);
   const vy0 = velocity * Math.sin(angleRad);
-  const dt = 0.02;
+  const dt = DEFAULT_TIME_STEP;
   const points: TrajectoryPoint[] = [];
   let t = 0, x = initialX, y = height, vx = vx0, vy = vy0;
   let bounces = 0;
@@ -209,7 +256,7 @@ export const calculateTrajectory = (
   // S = 0.5 * Cl * rho * A, simplified as proportional to spin * speed * radius
   // In 2D: spin axis is perpendicular to plane (z-axis), so:
   //   F_magnus_x = -S * omega * vy, F_magnus_y = S * omega * vx
-  const magnusCoeff = spinRate !== 0 ? 0.5 * 1.225 * Math.PI * projectileRadius * projectileRadius * projectileRadius * Math.abs(spinRate) / mass : 0;
+  const magnusCoeff = spinRate !== 0 ? 0.5 * SEA_LEVEL_AIR_DENSITY * Math.PI * projectileRadius * projectileRadius * projectileRadius * Math.abs(spinRate) / mass : 0;
   const magnusSign = spinRate >= 0 ? 1 : -1;
 
   // Integration methods
@@ -298,7 +345,7 @@ export const calculateTrajectory = (
     let effectiveDrag = airResistance;
     if (airResistance > 0 && speedRel > 0.01) {
       // Estimate Reynolds number (assuming sphere with projectileRadius)
-      const kinematicViscosity = 1.5e-5; // air at ~20C
+      const kinematicViscosity = AIR_KINEMATIC_VISCOSITY;
       const Re = Math.max(1, (speedRel * projectileRadius * 2) / kinematicViscosity);
       // Schiller-Naumann correction for sphere drag
       let CdCorrection = 1.0;
@@ -349,11 +396,15 @@ export const calculateTrajectory = (
   let ax = 0, ay = 0;
 
   // For zero gravity with no air resistance, use a reasonable max time/distance
-  const maxTime = gravity === 0 ? Math.min(100, 2000 / Math.max(velocity, 1)) : 100;
+  const maxTime = gravity === 0 ? Math.min(MAX_SIMULATION_TIME, 2000 / Math.max(velocity, 1)) : MAX_SIMULATION_TIME;
   // Track if projectile was ever above ground (to detect ground crossing)
   let wasAboveGround = y >= 0;
+  // Safeguard: cap total iterations to prevent infinite loops (Issue 2.5)
+  const MAX_ITERATIONS = 500_000;
+  let iterations = 0;
 
-  while (t < maxTime) {
+  while (t < maxTime && iterations < MAX_ITERATIONS) {
+    iterations++;
     // Use advanced physics step if params are provided and any effect is enabled
     let result;
     if (advancedParams && hasActiveAdvancedPhysics(advancedParams)) {
@@ -398,7 +449,7 @@ export const calculateTrajectory = (
       }
       y = 0;
 
-      if (enableBounce && bounces < maxBounces && Math.abs(vy) > 0.3) {
+      if (enableBounce && bounces < maxBounces && Math.abs(vy) > MIN_BOUNCE_VELOCITY) {
         vy = -vy * bounceCOR; // reverse and dampen
         vx = vx * (0.9 + bounceCOR * 0.1); // friction
         bounces++;

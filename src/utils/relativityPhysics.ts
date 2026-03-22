@@ -15,12 +15,10 @@ import {
   relativisticVelocityAddition,
   timeDilationFactor,
 } from './advancedPhysics';
+import { SPEED_OF_LIGHT } from '@/constants/physics';
 
-// ═══════════════════════════════════════════════════════════════
-// CONSTANTS
-// ═══════════════════════════════════════════════════════════════
-
-export const SPEED_OF_LIGHT = 299792458; // m/s
+// Re-export for consumers that imported SPEED_OF_LIGHT from this module
+export { SPEED_OF_LIGHT } from '@/constants/physics';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES

@@ -6,6 +6,19 @@
  * Environmental Physics Coupling
  */
 
+import {
+  OMEGA_EARTH,
+  EARTH_RADIUS,
+  SPEED_OF_LIGHT,
+  ATMOSPHERIC_SCALE_HEIGHT,
+  AIR_DYNAMIC_VISCOSITY,
+  MAGNUS_COEFFICIENT,
+  R_DRY_AIR,
+  R_WATER_VAPOR,
+  WATER_KINEMATIC_VISCOSITY,
+  AIR_KINEMATIC_VISCOSITY,
+} from '@/constants/physics';
+
 // ═══════════════════════════════════════════════════════════════
 // 1. ROTATIONAL AND NON-INERTIAL EFFECTS
 // ═══════════════════════════════════════════════════════════════
@@ -16,7 +29,6 @@ export const calculateCoriolisAcceleration = (
   vy: number,
   latitude: number
 ): { ax: number; ay: number } => {
-  const OMEGA_EARTH = 7.2921e-5;
   const latRad = (latitude * Math.PI) / 180;
   const f = 2 * OMEGA_EARTH * Math.sin(latRad);
   return { ax: f * vy, ay: -f * vx };
@@ -26,8 +38,6 @@ export const calculateCoriolisAcceleration = (
 export const calculateCentrifugalAcceleration = (
   latitude: number
 ): { ax: number; ay: number } => {
-  const OMEGA_EARTH = 7.2921e-5;
-  const EARTH_RADIUS = 6.371e6;
   const latRad = (latitude * Math.PI) / 180;
   const centrifugalMag = OMEGA_EARTH * OMEGA_EARTH * EARTH_RADIUS * Math.cos(latRad);
   return {
@@ -103,7 +113,7 @@ export const calculateHydrodynamicDrag = (
   const area = Math.PI * radius * radius;
 
   // Reynolds number for flow regime detection
-  const kinematicViscosity = fluidDensity > 500 ? 1.0e-6 : 1.5e-5; // water vs air
+  const kinematicViscosity = fluidDensity > 500 ? WATER_KINEMATIC_VISCOSITY : AIR_KINEMATIC_VISCOSITY;
   const Re = Math.max(1, (velocity * diameter) / kinematicViscosity);
 
   // Form drag (pressure drag) - dominant at higher Re
@@ -152,7 +162,6 @@ export const calculateMagnusAcceleration = (
   density: number
 ): number => {
   if (velocity < 0.1 || spinRate === 0) return 0;
-  const MAGNUS_COEFFICIENT = 0.25;
   const area = Math.PI * (diameter / 2) ** 2;
   const spinParameter = (spinRate * diameter) / velocity;
   const liftCoefficient = MAGNUS_COEFFICIENT * Math.min(1, spinParameter);
@@ -230,7 +239,6 @@ export const getStabilityDragModifier = (
 // 4. RELATIVISTIC MOTION (Special Relativity)
 // ═══════════════════════════════════════════════════════════════
 
-const SPEED_OF_LIGHT = 299792458;
 
 export const lorentzFactor = (velocity: number): number => {
   const beta2 = (velocity * velocity) / (SPEED_OF_LIGHT * SPEED_OF_LIGHT);
@@ -284,8 +292,8 @@ export const calculateAirDensityFromEnvironment = (
   pressure: number,
   humidity: number
 ): number => {
-  const R_dry = 287.058;
-  const R_vapor = 461.495;
+  const R_dry = R_DRY_AIR;
+  const R_vapor = R_WATER_VAPOR;
   const T_kelvin = temperature + 273.15;
   const e_sat = 611.21 * Math.exp((18.678 - temperature / 234.5) * (temperature / (257.14 + temperature)));
   const e_vapor = humidity * e_sat;
@@ -316,8 +324,7 @@ export const getAirDensityAtAltitude = (
   altitude: number,
   seaLevelDensity: number = 1.225
 ): number => {
-  const SCALE_HEIGHT = 8500;
-  return Math.max(0, seaLevelDensity * Math.exp(-altitude / SCALE_HEIGHT));
+  return Math.max(0, seaLevelDensity * Math.exp(-altitude / ATMOSPHERIC_SCALE_HEIGHT));
 };
 
 
@@ -336,7 +343,7 @@ export const calculateAdvancedDrag = (
   const area = Math.PI * (diameter / 2) ** 2;
   const dragForce = 0.5 * density * velocity * velocity * dragCoefficient * area;
   const dragAccel = dragForce / mass;
-  const kinematicViscosity = 1.81e-5;
+  const kinematicViscosity = AIR_DYNAMIC_VISCOSITY;
   const reynoldsNumber = (velocity * diameter) / kinematicViscosity;
   let correctionFactor = 1.0;
   if (reynoldsNumber < 1) {
