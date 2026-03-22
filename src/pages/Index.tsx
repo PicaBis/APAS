@@ -604,7 +604,7 @@ const Index = () => {
     })).filter((d) => d.xVal !== undefined && d.yVal !== undefined);
   }, [chartAxisX, chartAxisY, sim.trajectoryData]);
 
-  const fmtTick = (v: number) => typeof v === 'number' ? Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1) : v;
+  const fmtTick = (v: number) => (typeof v === 'number' && v !== null) ? Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1) : String(v ?? '');
 
   // ── Stroboscopic mark generation ──
   // Compute marks from trajectory data based on deltaT
@@ -821,13 +821,13 @@ const Index = () => {
             <div className="flex items-center gap-2 sm:gap-3 shrink-0" dir={T.dir}>
               {canAccessRestrictedFeature ? (
                 <Suspense fallback={null}>
-                  <PhysicsTutor lang={lang} hasModel={sim.trajectoryData.length > 0 && !!sim.prediction} simulationContext={{
-                    velocity: sim.velocity, angle: sim.angle, height: sim.height,
-                    gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass,
-                    range: sim.prediction?.range?.toFixed(2),
-                    maxHeight: sim.prediction?.maxHeight?.toFixed(2),
-                    flightTime: sim.prediction?.timeOfFlight?.toFixed(2),
-                  }} />
+                    <PhysicsTutor lang={lang} hasModel={sim.trajectoryData.length > 0 && !!sim.prediction} simulationContext={{
+                      velocity: sim.velocity, angle: sim.angle, height: sim.height,
+                      gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass,
+                      range: (sim.prediction?.range ?? 0).toFixed(2),
+                      maxHeight: (sim.prediction?.maxHeight ?? 0).toFixed(2),
+                      flightTime: (sim.prediction?.timeOfFlight ?? 0).toFixed(2),
+                    }} />
                 </Suspense>
               ) : (
                 <button
@@ -847,9 +847,9 @@ const Index = () => {
                     simulationContext={{
                       velocity: sim.velocity, angle: sim.angle, height: sim.height,
                       gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass,
-                      range: sim.prediction?.range?.toFixed(2),
-                      maxHeight: sim.prediction?.maxHeight?.toFixed(2),
-                      flightTime: sim.prediction?.timeOfFlight?.toFixed(2),
+                      range: (sim.prediction?.range ?? 0).toFixed(2),
+                      maxHeight: (sim.prediction?.maxHeight ?? 0).toFixed(2),
+                      flightTime: (sim.prediction?.timeOfFlight ?? 0).toFixed(2),
                       environmentId: currentEnvId,
                       integrationMethod: sim.selectedIntegrationMethod,
                     }}
