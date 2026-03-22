@@ -12,9 +12,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, simulationContext } = await req.json();
+    const { messages, simulationContext, systemPrompt: clientSystemPrompt } = await req.json();
 
-    const systemPrompt = `You are APAS Physics Tutor — an expert, passionate physics teacher specializing in projectile motion, kinematics, and classical mechanics.
+    const defaultSystemPrompt = `You are APAS Physics Tutor — an expert, passionate physics teacher specializing in projectile motion, kinematics, and classical mechanics.
 
 LANGUAGE RULES (CRITICAL):
 - You MUST respond ONLY in the same language the student uses: Arabic or English.
@@ -68,10 +68,14 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
 
 Use these values to give contextual explanations when relevant.` : "No simulation is currently active."}`;
 
+    // Use client-provided systemPrompt if available (e.g. from ApasRecommendations),
+    // otherwise use the default physics tutor prompt
+    const finalSystemPrompt = clientSystemPrompt || defaultSystemPrompt;
+
     const { body } = await aiStream({
       modelType: "chat",
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: finalSystemPrompt },
         ...messages,
       ],
     });
