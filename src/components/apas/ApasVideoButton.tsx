@@ -10,8 +10,8 @@ import { analyzeBatchInWorker, getVideoQualityMessage, terminateVideoWorker } fr
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-analyze`;
 
 const CONFIDENCE_THRESHOLD = 60;
-const MAX_FRAMES_TO_SEND = 12; // Max frames to send to API (more frames = better detection)
-const FRAME_QUALITY = 0.7; // JPEG quality for extracted frames
+const MAX_FRAMES_TO_SEND = 6; // Max frames to send to API (balanced: enough for detection, avoids payload limits)
+const FRAME_QUALITY = 0.5; // JPEG quality for extracted frames (lower = smaller payload, still sufficient for AI analysis)
 
 interface Props {
   lang: string;
@@ -415,6 +415,26 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
         setProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 5);
       }, 500);
 
+      // Check payload size before sending (Supabase Edge Functions have ~6MB body limit)
+      const buildPayload = () => JSON.stringify({
+        frames,
+        lang,
+        videoName: sourceName,
+        totalFrames,
+        fps,
+        hint: 'Look carefully for any moving object (ball, projectile, stone, etc.) across frames. Even small or partially visible objects count as projectiles. Analyze position changes between frames to estimate velocity and angle.',
+      });
+      let payloadBody = buildPayload();
+      const payloadSizeMB = new Blob([payloadBody]).size / (1024 * 1024);
+      if (payloadSizeMB > 5) {
+        // Payload too large — reduce frames to fit within limits
+        const keepCount = Math.max(3, Math.floor(frames.length * (4 / payloadSizeMB)));
+        const step = Math.max(1, Math.floor(frames.length / keepCount));
+        frames = frames.filter((_, i) => i % step === 0).slice(0, keepCount);
+        payloadBody = buildPayload(); // Rebuild with reduced frames
+        toast.warning(isAr ? `\u062a\u0645 \u062a\u0642\u0644\u064a\u0644 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0625\u0644\u0649 ${frames.length} \u0628\u0633\u0628\u0628 \u062d\u062c\u0645 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a` : `Reduced to ${frames.length} frames due to payload size`);
+      }
+
       const edgeResp = await fetch(EDGE_VIDEO_ANALYZE_URL, {
         method: 'POST',
         headers: {
@@ -422,14 +442,7 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({
-          frames,
-          lang,
-          videoName: sourceName,
-          totalFrames,
-          fps,
-          hint: 'Look carefully for any moving object (ball, projectile, stone, etc.) across frames. Even small or partially visible objects count as projectiles. Analyze position changes between frames to estimate velocity and angle.',
-        }),
+        body: payloadBody,
       });
 
       clearInterval(progressInterval);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, ChevronDown, Globe, Volume2, VolumeX, Moon, Sun, Palette, Info, FileText, Wrench, Calculator, Ruler, Settings, Compass, Filter, Crosshair, Shield } from 'lucide-react';
+import { X, ChevronDown, Globe, Volume2, VolumeX, Moon, Sun, Palette, Info, FileText, Wrench, Calculator, Ruler, Settings, Compass, Filter, Crosshair, Shield, Box } from 'lucide-react';
 import { playNav, playUIClick, playToggle } from '@/utils/sound';
+import type { Theme3DId } from '@/simulation/sceneBuilder3D';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -33,6 +34,9 @@ interface SettingsPanelProps {
   onOpenNoiseFilter: () => void;
   onOpenLiveCalibration: () => void;
   onOpenSecurityPrivacy: () => void;
+  // 3D Theme
+  theme3d?: Theme3DId;
+  onTheme3dChange?: (id: Theme3DId) => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -58,6 +62,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onOpenNoiseFilter,
   onOpenLiveCalibration,
   onOpenSecurityPrivacy,
+  theme3d = 'refined-lab',
+  onTheme3dChange,
 }) => {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     language: false,
@@ -218,6 +224,51 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       style={{ backgroundColor: `hsl(${c.hsl})` }}
                     />
                     <span className="font-medium truncate">{c.label}</span>
+                  </button>
+                ))}
+              </div>
+            </SettingsSection>
+
+            {/* ── 3D Theme Section ── */}
+            <SettingsSection
+              title={t('ثيم 3D', '3D Theme', 'Thème 3D')}
+              icon={<Box className="w-4 h-4" />}
+              expanded={expandedSections.theme3d}
+              onToggle={() => toggleSection('theme3d')}
+              preview={
+                theme3d === 'academic-white'
+                  ? t('أكاديمي أبيض', 'Academic White', 'Blanc Académique')
+                  : theme3d === 'technical-dark'
+                    ? t('تقني داكن', 'Technical Dark', 'Technique Sombre')
+                    : t('مختبر محسّن', 'Refined Lab', 'Labo Raffiné')
+              }
+            >
+              <div className="space-y-1">
+                {([
+                  { id: 'refined-lab' as Theme3DId, label: t('مختبر محسّن', 'Refined Lab', 'Labo Raffiné'), desc: t('المظهر الحالي محسّن', 'Current look, refined', 'Apparence actuelle améliorée'), color: '#D3D3D3' },
+                  { id: 'academic-white' as Theme3DId, label: t('أكاديمي أبيض', 'Academic White', 'Blanc Académique'), desc: t('للنشر والطباعة', 'For publication & print', 'Pour publication et impression'), color: '#FFFFFF' },
+                  { id: 'technical-dark' as Theme3DId, label: t('تقني داكن', 'Technical Dark', 'Technique Sombre'), desc: t('وضع مظلم عالي التقنية', 'High-tech dark mode', 'Mode sombre haute technologie'), color: '#212121' },
+                ]).map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { onTheme3dChange?.(item.id); playUIClick(isMuted); }}
+                    className={`w-full text-left rtl:text-right px-3 py-2.5 text-xs rounded-lg flex items-center gap-2.5 transition-all duration-200 ${
+                      theme3d === item.id
+                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                        : 'text-foreground hover:bg-primary/5 border border-transparent hover:border-border/30'
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 rounded shrink-0 border ${
+                        theme3d === item.id ? 'ring-2 ring-offset-1 ring-primary/50 ring-offset-background border-primary/30' : 'border-border/50'
+                      }`}
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <div>
+                      <div className="font-medium">{item.label}</div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">{item.desc}</div>
+                    </div>
+                    {theme3d === item.id && <span className="text-primary ml-auto rtl:mr-auto rtl:ml-0">✓</span>}
                   </button>
                 ))}
               </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Lang } from '@/constants/translations';
+import { playLoadingSound } from '@/utils/sound';
 
 interface SplashScreenProps {
   lang: Lang;
@@ -232,6 +233,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
     // Loading progress — starts at 1500ms (after phase 2 at 1200ms), guaranteed to reach 100%
     let progress = 0;
     const loadingTimer = setTimeout(() => {
+      // Play a pleasant ambient loading sound
+      playLoadingSound(false);
       loadingIntervalRef.current = setInterval(() => {
         const increment = Math.random() * 4 + 2;
         progress += increment;

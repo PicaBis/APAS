@@ -13,8 +13,9 @@ import {
   buildProjectile,
   buildProjectile3D,
   project3D,
+  getTheme3DConfig,
 } from '@/simulation/sceneBuilder3D';
-import type { TrajectoryMeshes } from '@/simulation/sceneBuilder3D';
+import type { TrajectoryMeshes, Theme3DId } from '@/simulation/sceneBuilder3D';
 
 interface SimulationCanvas3DProps {
   trajectoryData: TrajectoryPoint[];
@@ -40,6 +41,9 @@ interface SimulationCanvas3DProps {
   activePresetEmoji?: string;
   onWebglError?: (message: string) => void;
   showGrid?: boolean;
+  enableMagnusSpin?: boolean;
+  spinRate?: number;
+  theme3d?: Theme3DId;
 }
 
 /** Linearly interpolate between two trajectory points */
@@ -80,11 +84,12 @@ interface PersistentArrows {
   Vy: THREE.ArrowHelper;
   Fg: THREE.ArrowHelper;
   Fd: THREE.ArrowHelper;
+  Ffluid: THREE.ArrowHelper;
   Fnet: THREE.ArrowHelper;
   acc: THREE.ArrowHelper;
 }
 
-function createPersistentArrows(scene: THREE.Scene, nightMode: boolean): PersistentArrows {
+function createPersistentArrows(scene: THREE.Scene, nightMode: boolean, themeId: Theme3DId = 'refined-lab'): PersistentArrows {
   const d = new THREE.Vector3(1, 0, 0);
   const o = new THREE.Vector3(0, 0, 0);
   const make = (color: number) => {
@@ -93,11 +98,12 @@ function createPersistentArrows(scene: THREE.Scene, nightMode: boolean): Persist
     scene.add(a);
     return a;
   };
-  // V (velocity) arrow: use white in night mode so it's visible on dark backgrounds
-  const vColor = nightMode ? 0xf0f0f0 : 0x000000;
+  // V (velocity) arrow: adapt to theme for visibility
+  const tc = getTheme3DConfig(themeId);
+  const vColor = nightMode ? 0xf0f0f0 : tc.velocityColor;
   return {
     V: make(vColor), Vx: make(0x3b82f6), Vy: make(0x22c55e),
-    Fg: make(0xef4444), Fd: make(0xf59e0b), Fnet: make(0x8b5cf6), acc: make(0x06b6d4),
+    Fg: make(0xef4444), Fd: make(0xf59e0b), Ffluid: make(0x14b8a6), Fnet: make(0x8b5cf6), acc: make(0x06b6d4),
   };
 }
 
@@ -117,24 +123,44 @@ function syncArrows(
 ) {
   if (!show) {
     ar.V.visible = ar.Vx.visible = ar.Vy.visible = false;
-    ar.Fg.visible = ar.Fd.visible = ar.Fnet.visible = ar.acc.visible = false;
+    ar.Fg.visible = ar.Fd.visible = ar.Ffluid.visible = ar.Fnet.visible = ar.acc.visible = false;
     return;
   }
   const o = originOverride || new THREE.Vector3(pt.x, pt.y, 0);
-  const vs = span * 0.12, fs = span * 0.08, sp = pt.speed;
-  setArrow(ar.V, o, new THREE.Vector3(pt.vx, pt.vy, 0), Math.min(vs, sp * vs / 50), vis.V && sp > 0.1);
-  setArrow(ar.Vx, o, new THREE.Vector3(pt.vx, 0, 0), Math.min(vs * 0.7, Math.abs(pt.vx) * vs / 50), vis.Vx && Math.abs(pt.vx) > 0.01);
-  setArrow(ar.Vy, o, new THREE.Vector3(0, pt.vy, 0), Math.min(vs * 0.7, Math.abs(pt.vy) * vs / 50), vis.Vy && Math.abs(pt.vy) > 0.01);
+  const vs = span * 0.15, fs = span * 0.10, sp = pt.speed;
+  const minVel = span * 0.03; // minimum arrow length for velocity vectors
+  const minForce = span * 0.025; // minimum arrow length for force vectors
+
+  // Normalize velocity arrows relative to max speed for consistent scaling
+  // Use span/10 as a reference speed so arrows are visible even at low speeds
+  const refSpeed = Math.max(sp, 1);
+  const vLen = Math.max(minVel, Math.min(vs, sp * vs / Math.max(refSpeed * 2, 5)));
+  setArrow(ar.V, o, new THREE.Vector3(pt.vx, pt.vy, 0), vLen, vis.V && sp > 0.005);
+
+  const vxLen = Math.max(minVel, Math.min(vs * 0.85, Math.abs(pt.vx) * vs / Math.max(refSpeed * 2, 5)));
+  setArrow(ar.Vx, o, new THREE.Vector3(pt.vx, 0, 0), vxLen, vis.Vx && Math.abs(pt.vx) > 0.005);
+
+  const vyLen = Math.max(minVel, Math.min(vs * 0.85, Math.abs(pt.vy) * vs / Math.max(refSpeed * 2, 5)));
+  setArrow(ar.Vy, o, new THREE.Vector3(0, pt.vy, 0), vyLen, vis.Vy && Math.abs(pt.vy) > 0.005);
+
   const wf = Math.max(mass * gravity, 0.01);
-  setArrow(ar.Fg, o, new THREE.Vector3(0, -1, 0), gravity > 0.001 ? fs : 0, vis.Fg && gravity > 0.001);
-  if (vis.Fd && airR > 0 && sp > 0.1) {
+  setArrow(ar.Fg, o, new THREE.Vector3(0, -1, 0), gravity > 0.001 ? Math.max(minForce, fs) : 0, vis.Fg && gravity > 0.001);
+  if (vis.Fd && airR > 0 && sp > 0.05) {
     const dm = airR * sp * sp;
-    setArrow(ar.Fd, o, new THREE.Vector3(-pt.vx / sp, -pt.vy / sp, 0), Math.min(fs * 0.6, dm * fs / wf), true);
+    const fdLen = Math.max(minForce, Math.min(fs * 0.7, dm * fs / wf));
+    setArrow(ar.Fd, o, new THREE.Vector3(-pt.vx / sp, -pt.vy / sp, 0), fdLen, true);
   } else { ar.Fd.visible = false; }
+  // Fluid resistance vector (Ffluid) — shown when underwater/hydrodynamic drag is active
+  if (vis.Ffluid && sp > 0.05) {
+    // Ffluid opposes velocity, magnitude proportional to speed^2 in fluid
+    const fluidDm = 998 * sp * sp * 0.001; // approximate fluid drag
+    const fluidLen = Math.max(minForce, Math.min(fs * 0.8, fluidDm * fs / wf));
+    setArrow(ar.Ffluid, o, new THREE.Vector3(-pt.vx / sp, -pt.vy / sp, 0), fluidLen, true);
+  } else { ar.Ffluid.visible = false; }
   const nfx = mass * pt.ax, nfy = mass * pt.ay, nm = Math.sqrt(nfx * nfx + nfy * nfy);
-  setArrow(ar.Fnet, o, new THREE.Vector3(nfx, nfy, 0), Math.min(fs, nm * fs / wf), vis.Fnet && nm > 0.01);
+  setArrow(ar.Fnet, o, new THREE.Vector3(nfx, nfy, 0), Math.max(minForce, Math.min(fs, nm * fs / wf)), vis.Fnet && nm > 0.005);
   const am = Math.sqrt(pt.ax * pt.ax + pt.ay * pt.ay);
-  setArrow(ar.acc, o, new THREE.Vector3(pt.ax, pt.ay, 0), Math.min(fs * 0.8, am * fs / Math.max(gravity, 0.01)), vis.acc && am > 0.01);
+  setArrow(ar.acc, o, new THREE.Vector3(pt.ax, pt.ay, 0), Math.max(minForce, Math.min(fs * 0.8, am * fs / Math.max(gravity, 0.01))), vis.acc && am > 0.005);
 }
 
 /** Get sky/clear color for the 3D scene based on environment and night mode */
@@ -518,6 +544,173 @@ function buildEnvironmentSky(scene: THREE.Scene, envId: string, span: number, ni
   }
 }
 
+/** Build animated wind particles for 3D environments (except vacuum) */
+function buildWindParticles(scene: THREE.Scene, span: number, envId: string, airRes: number): THREE.Points | null {
+  // No wind in vacuum chamber
+  if (envId === 'vacuum' || envId === 'moon') return null;
+  // Only show if air resistance is > 0
+  if (airRes <= 0) return null;
+
+  const count = envId === 'underwater' ? 0 : 300; // underwater uses waves instead
+  if (count === 0) return null;
+
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (Math.random() - 0.3) * span * 3;
+    positions[i * 3 + 1] = span * 0.1 + Math.random() * span * 2.5;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * span * 3;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+  // Color varies by environment
+  let color = 0xcccccc;
+  let opacity = 0.35;
+  let size = span * 0.015;
+  switch (envId) {
+    case 'mars': color = 0xd4956a; opacity = 0.4; size = span * 0.02; break;
+    case 'sun': color = 0xffaa44; opacity = 0.3; size = span * 0.018; break;
+    case 'jupiter': color = 0xc88040; opacity = 0.3; size = span * 0.02; break;
+    case 'saturn': color = 0xd4c8a0; opacity = 0.3; size = span * 0.018; break;
+    case 'earth': default: color = 0xbbbbbb; opacity = 0.25; size = span * 0.012; break;
+  }
+
+  const mat = new THREE.PointsMaterial({
+    color, size, transparent: true, opacity,
+    sizeAttenuation: true, depthWrite: false,
+  });
+  const points = new THREE.Points(geo, mat);
+  points.name = 'wind-particles';
+  scene.add(points);
+  return points;
+}
+
+/** Build animated water wave meshes for underwater 3D environment */
+function buildWaterWaves(scene: THREE.Scene, span: number): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'water-waves';
+
+  // Create several horizontal wave planes at different heights
+  for (let i = 0; i < 5; i++) {
+    const waveGeo = new THREE.PlaneGeometry(span * 4, span * 4, 32, 32);
+    const waveMat = new THREE.MeshBasicMaterial({
+      color: 0x2288cc,
+      transparent: true,
+      opacity: 0.06 + i * 0.01,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      wireframe: true,
+    });
+    const wave = new THREE.Mesh(waveGeo, waveMat);
+    wave.rotation.x = -Math.PI / 2;
+    wave.position.y = span * (0.3 + i * 0.4);
+    wave.userData.waveIndex = i;
+    wave.userData.baseY = wave.position.y;
+    group.add(wave);
+  }
+
+  // Add animated current streaks (line segments showing water flow)
+  const streakCount = 60;
+  const streakPositions = new Float32Array(streakCount * 6); // 2 points per line
+  for (let i = 0; i < streakCount; i++) {
+    const x = (Math.random() - 0.3) * span * 3;
+    const y = span * 0.1 + Math.random() * span * 2;
+    const z = (Math.random() - 0.5) * span * 3;
+    const len = span * (0.05 + Math.random() * 0.1);
+    streakPositions[i * 6] = x;
+    streakPositions[i * 6 + 1] = y;
+    streakPositions[i * 6 + 2] = z;
+    streakPositions[i * 6 + 3] = x + len;
+    streakPositions[i * 6 + 4] = y + (Math.random() - 0.5) * span * 0.02;
+    streakPositions[i * 6 + 5] = z;
+  }
+  const streakGeo = new THREE.BufferGeometry();
+  streakGeo.setAttribute('position', new THREE.Float32BufferAttribute(streakPositions, 3));
+  const streakMat = new THREE.LineBasicMaterial({
+    color: 0x66bbdd, transparent: true, opacity: 0.3, linewidth: 1,
+  });
+  const streaks = new THREE.LineSegments(streakGeo, streakMat);
+  streaks.name = 'water-streaks';
+  group.add(streaks);
+
+  scene.add(group);
+  return group;
+}
+
+/** Animate wind particles each frame */
+function animateWindParticles(points: THREE.Points, span: number, deltaTime: number, envId: string) {
+  const positions = points.geometry.attributes.position;
+  if (!positions) return;
+  const arr = positions.array as Float32Array;
+  const count = arr.length / 3;
+  // Wind speed varies by environment
+  let windSpeedX = span * 0.3;
+  let windSpeedZ = span * 0.05;
+  switch (envId) {
+    case 'mars': windSpeedX = span * 0.5; windSpeedZ = span * 0.15; break;
+    case 'sun': windSpeedX = span * 0.2; windSpeedZ = span * 0.08; break;
+    case 'jupiter': windSpeedX = span * 0.6; windSpeedZ = span * 0.2; break;
+    case 'saturn': windSpeedX = span * 0.4; windSpeedZ = span * 0.12; break;
+  }
+  for (let i = 0; i < count; i++) {
+    arr[i * 3] += windSpeedX * deltaTime;
+    arr[i * 3 + 2] += windSpeedZ * deltaTime * Math.sin(i * 0.1);
+    // Wrap around when particles go too far
+    if (arr[i * 3] > span * 2) arr[i * 3] = -span * 1.5;
+    if (arr[i * 3 + 2] > span * 1.5) arr[i * 3 + 2] = -span * 1.5;
+    if (arr[i * 3 + 2] < -span * 1.5) arr[i * 3 + 2] = span * 1.5;
+  }
+  positions.needsUpdate = true;
+}
+
+/** Animate water waves each frame */
+function animateWaterWaves(group: THREE.Group, _span: number, time: number) {
+  group.children.forEach((child) => {
+    if (child instanceof THREE.Mesh && child.userData.waveIndex !== undefined) {
+      const idx = child.userData.waveIndex as number;
+      const baseY = child.userData.baseY as number;
+      // Gentle vertical oscillation
+      child.position.y = baseY + Math.sin(time * 0.8 + idx * 1.2) * 0.15;
+      // Slight horizontal drift
+      child.position.x = Math.sin(time * 0.3 + idx * 0.7) * 0.5;
+      // Wave deformation via vertex animation
+      const geo = child.geometry as THREE.PlaneGeometry;
+      const posAttr = geo.attributes.position;
+      if (posAttr) {
+        const posArr = posAttr.array as Float32Array;
+        const vertCount = posArr.length / 3;
+        for (let v = 0; v < vertCount; v++) {
+          const origX = posArr[v * 3];
+          const origZ = posArr[v * 3 + 1]; // in plane geometry, Y maps to Z before rotation
+          posArr[v * 3 + 2] = Math.sin(origX * 2 + time * 1.5 + idx) * 0.3
+            + Math.cos(origZ * 1.5 + time * 0.8 + idx * 0.5) * 0.2;
+        }
+        posAttr.needsUpdate = true;
+      }
+    }
+    // Animate streaks
+    if (child instanceof THREE.LineSegments && child.name === 'water-streaks') {
+      const posAttr = child.geometry.attributes.position;
+      if (posAttr) {
+        const arr = posAttr.array as Float32Array;
+        const lineCount = arr.length / 6;
+        for (let i = 0; i < lineCount; i++) {
+          arr[i * 6] += 0.02;
+          arr[i * 6 + 3] += 0.02;
+          // Wrap
+          if (arr[i * 6] > 10) {
+            const resetX = -8 + Math.random() * 2;
+            const len = arr[i * 6 + 3] - arr[i * 6];
+            arr[i * 6] = resetX;
+            arr[i * 6 + 3] = resetX + len;
+          }
+        }
+        posAttr.needsUpdate = true;
+      }
+    }
+  });
+}
+
 const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   trajectoryData, prediction, currentTime, height,
   showCriticalPoints, showExternalForces, vectorVisibility,
@@ -525,6 +718,8 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   playbackSpeed, bounceCoefficient = 0.8, phi = 0, showLiveData = true,
   stroboscopicMarks = [], showStroboscopicProjections = false,
   environmentId = 'earth', activePresetEmoji, showGrid = true, onWebglError,
+  enableMagnusSpin = false, spinRate = 0,
+  theme3d = 'refined-lab',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -555,8 +750,18 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   const gridRef = useRef<THREE.GridHelper | null>(null);
   const phiRef = useRef(phi);
   const onWebglErrorRef = useRef(onWebglError);
+  const windParticlesRef = useRef<THREE.Points | null>(null);
+  const waterWavesRef = useRef<THREE.Group | null>(null);
+  const environmentIdRef = useRef(environmentId);
+  const enableMagnusSpinRef = useRef(enableMagnusSpin);
+  const spinRateRef = useRef(spinRate);
+  const theme3dRef = useRef(theme3d);
+  theme3dRef.current = theme3d;
   onWebglErrorRef.current = onWebglError;
   phiRef.current = phi;
+  environmentIdRef.current = environmentId;
+  enableMagnusSpinRef.current = enableMagnusSpin;
+  spinRateRef.current = spinRate;
 
   // Keep refs in sync
   currentTimeRef.current = currentTime;
@@ -624,7 +829,10 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     rendererRef.current = renderer;
     renderer.setSize(w, h, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
-    renderer.setClearColor(getSceneClearColor(environmentId, nightMode));
+    // Apply theme clear color override, or use environment default
+    const themeConfig = getTheme3DConfig(theme3d);
+    const clearColor = themeConfig.clearColorOverride ?? getSceneClearColor(environmentId, nightMode);
+    renderer.setClearColor(clearColor);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = false;
     // Let CSS control the canvas size so it always fills its container
@@ -642,11 +850,16 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     boundsRef.current = bounds;
 
     // Lighting: simple, efficient setup
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    // When a theme overrides the clear color (e.g. academic-white, technical-dark),
+    // use neutral lighting to avoid blue/yellow tinting from the hemisphere light.
+    const hasThemeBg = themeConfig.clearColorOverride !== null;
+    scene.add(new THREE.AmbientLight(0xffffff, hasThemeBg ? 1.1 : 0.9));
+    const dirLight = new THREE.DirectionalLight(0xffffff, hasThemeBg ? 0.9 : 0.7);
     dirLight.position.set(5, 12, 8);
     scene.add(dirLight);
-    scene.add(new THREE.HemisphereLight(0x87ceeb, 0xf0e68c, 0.2));
+    if (!hasThemeBg) {
+      scene.add(new THREE.HemisphereLight(0x87ceeb, 0xf0e68c, 0.2));
+    }
 
     // Camera
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, bounds.span * 20);
@@ -660,23 +873,41 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
 
     const phiRad = (phiRef.current * Math.PI) / 180;
 
-    // Environment fog for atmosphere
-    const fogColor = getSceneFogColor(environmentId, nightMode);
-    if (fogColor !== null) {
-      scene.fog = new THREE.FogExp2(fogColor, 0.003 / Math.max(bounds.span, 1));
+    // Environment fog for atmosphere — skip when theme overrides background
+    if (!hasThemeBg) {
+      const fogColor = getSceneFogColor(environmentId, nightMode);
+      if (fogColor !== null) {
+        scene.fog = new THREE.FogExp2(fogColor, 0.003 / Math.max(bounds.span, 1));
+      } else {
+        scene.fog = null;
+      }
     } else {
       scene.fog = null;
     }
 
     // Environment sky decorations (stars, celestial bodies, clouds, etc.)
-    buildEnvironmentSky(scene, environmentId, bounds.span, nightMode);
+    // Skip sky sphere when theme overrides the background color to avoid
+    // the sky sphere covering the theme's intended background.
+    if (!hasThemeBg) {
+      buildEnvironmentSky(scene, environmentId, bounds.span, nightMode);
+    }
+
+    // Dynamic 3D environment effects: wind particles and water waves
+    const windPts = buildWindParticles(scene, bounds.span, environmentId, airResistance);
+    windParticlesRef.current = windPts;
+    if (environmentId === 'underwater') {
+      const waves = buildWaterWaves(scene, bounds.span);
+      waterWavesRef.current = waves;
+    } else {
+      waterWavesRef.current = null;
+    }
 
     // Static scene elements
-    const groundGrid = buildGround(scene, bounds, nightMode);
+    const groundGrid = buildGround(scene, bounds, nightMode, theme3d);
     groundGrid.visible = showGrid;
     gridRef.current = groundGrid;
-    buildAxes(scene, bounds, nightMode);
-    const trajMeshes = buildTrajectory(scene, trajectoryData, nightMode, bounds, phiRad);
+    buildAxes(scene, bounds, nightMode, theme3d);
+    const trajMeshes = buildTrajectory(scene, trajectoryData, nightMode, bounds, phiRad, theme3d);
     trajectoryMeshesRef.current = trajMeshes;
 
     if (showCriticalPoints && prediction) {
@@ -697,7 +928,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     projectile.position.copy(initPos3D);
 
     // Persistent vector arrows (created once, updated in-place each frame)
-    const arrows = createPersistentArrows(scene, nightMode);
+    const arrows = createPersistentArrows(scene, nightMode, theme3d);
     arrowsRef.current = arrows;
 
     // Controls -- smooth damping for stable camera
@@ -839,6 +1070,22 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
         }
       }
 
+      // Animate dynamic 3D environment effects
+      const dtSec = lastTickTsRef.current > 0 ? Math.min((timestamp - lastTickTsRef.current) / 1000, 0.1) : 0.016;
+      const elapsedSec = timestamp / 1000;
+      if (windParticlesRef.current) {
+        animateWindParticles(windParticlesRef.current, bounds.span, dtSec, environmentIdRef.current);
+      }
+      if (waterWavesRef.current) {
+        animateWaterWaves(waterWavesRef.current, bounds.span, elapsedSec);
+      }
+
+      // Real rotation (Magnus spin) — spin the projectile around its velocity axis
+      if (enableMagnusSpinRef.current && spinRateRef.current !== 0 && projectile) {
+        const spinAngle = spinRateRef.current * dtSec * Math.PI * 2;
+        projectile.rotateZ(spinAngle);
+      }
+
       renderer.render(scene, camera);
     };
     frameRef.current = requestAnimationFrame(tick);
@@ -890,7 +1137,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
       projectileRef.current = null;
       rendererRef.current = null;
     };
-  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji]);
+  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance, theme3d]);
 
   // ── Toggle 3D grid visibility ──
   useEffect(() => {

@@ -4,6 +4,85 @@
 import * as THREE from 'three';
 import type { TrajectoryPoint, PredictionResult } from '@/utils/physics';
 
+/** 3D visual theme preset identifiers */
+export type Theme3DId = 'refined-lab' | 'academic-white' | 'technical-dark';
+
+/** Configuration derived from the active 3D theme */
+export interface Theme3DConfig {
+  /** Ground plane gradient stops (center → edge) */
+  groundColors: [string, string, string, string];
+  /** Grid line primary/secondary hex colors */
+  gridColor1: number;
+  gridColor2: number;
+  /** Grid opacity */
+  gridOpacity: number;
+  /** Grid divisions (higher = thinner lines) */
+  gridDivisions: number;
+  /** Trajectory tube color */
+  tubeColor: number;
+  /** Trajectory tube emissive intensity */
+  tubeEmissive: number;
+  /** Dashed future-path color */
+  dashColor: number;
+  /** Scene clear (sky) color override — null means use environment default */
+  clearColorOverride: number | null;
+  /** Label/tick color */
+  tickLabelColor: string;
+  /** Tick mark hex color */
+  tickHex: number;
+  /** Velocity arrow color (V) */
+  velocityColor: number;
+}
+
+const THEME_CONFIGS: Record<Theme3DId, Theme3DConfig> = {
+  'refined-lab': {
+    groundColors: ['#f5f5f3', '#eeeeec', '#e8e8e6', '#e0e0de'],
+    gridColor1: 0x222222,
+    gridColor2: 0x333333,
+    gridOpacity: 0.25,
+    gridDivisions: 24,
+    tubeColor: 0x1a1a2e,
+    tubeEmissive: 0.05,
+    dashColor: 0x888888,
+    clearColorOverride: null,
+    tickLabelColor: '#666666',
+    tickHex: 0x666666,
+    velocityColor: 0x000000,
+  },
+  'academic-white': {
+    groundColors: ['#ffffff', '#ffffff', '#ffffff', '#ffffff'],
+    gridColor1: 0x000000,
+    gridColor2: 0x000000,
+    gridOpacity: 0.35,
+    gridDivisions: 24,
+    tubeColor: 0x111111,
+    tubeEmissive: 0.02,
+    dashColor: 0x999999,
+    clearColorOverride: 0xffffff,
+    tickLabelColor: '#000000',
+    tickHex: 0x000000,
+    velocityColor: 0x111111,
+  },
+  'technical-dark': {
+    groundColors: ['#2a2a2a', '#242424', '#212121', '#1a1a1a'],
+    gridColor1: 0xffffff,
+    gridColor2: 0xffffff,
+    gridOpacity: 0.30,
+    gridDivisions: 24,
+    tubeColor: 0x00e5ff,
+    tubeEmissive: 0.25,
+    dashColor: 0x4dd0e1,
+    clearColorOverride: 0x121218,
+    tickLabelColor: '#b0bec5',
+    tickHex: 0x90a4ae,
+    velocityColor: 0xf0f0f0,
+  },
+};
+
+export function getTheme3DConfig(themeId: Theme3DId): Theme3DConfig {
+  return THEME_CONFIGS[themeId];
+}
+
 /* ── helpers ── */
 
 function makeTextSprite(text: string, color = '#000000', scale = 1) {
@@ -79,20 +158,22 @@ export function computeBounds(trajectoryData: TrajectoryPoint[], height: number)
   return { maxX, maxY, span, pad };
 }
 
-export function buildAxes(scene: THREE.Scene, bounds: SceneBounds, nightMode: boolean) {
+export function buildAxes(scene: THREE.Scene, bounds: SceneBounds, nightMode: boolean, themeId: Theme3DId = 'refined-lab') {
   const { maxX, maxY, span, pad } = bounds;
   const axisLen = span + pad;
   const tickLen = span * 0.012;
   const labelSize = span * 0.012;
   const axisRadius = span * 0.003;
+  const tc = getTheme3DConfig(themeId);
+  const isDark = themeId === 'technical-dark';
 
-  // Axis colors adapt to night mode for visibility
-  const xAxisColor = nightMode ? 0xf87171 : 0xdc2626; // brighter red in dark
-  const yAxisColor = nightMode ? 0x4ade80 : 0x16a34a; // brighter green in dark
-  const zAxisColor = nightMode ? 0x60a5fa : 0x2563eb; // brighter blue in dark
-  const xLabelColor = nightMode ? '#f87171' : '#dc2626';
-  const yLabelColor = nightMode ? '#4ade80' : '#16a34a';
-  const zLabelColor = nightMode ? '#60a5fa' : '#2563eb';
+  // Axis colors: keep RGB axes accurate across all themes
+  const xAxisColor = (nightMode || isDark) ? 0xf87171 : 0xdc2626;
+  const yAxisColor = (nightMode || isDark) ? 0x4ade80 : 0x16a34a;
+  const zAxisColor = (nightMode || isDark) ? 0x60a5fa : 0x2563eb;
+  const xLabelColor = (nightMode || isDark) ? '#f87171' : '#dc2626';
+  const yLabelColor = (nightMode || isDark) ? '#4ade80' : '#16a34a';
+  const zLabelColor = (nightMode || isDark) ? '#60a5fa' : '#2563eb';
 
   // Axis lines using cylinder geometry for visible thickness
   scene.add(makeCylinderLine(
@@ -118,9 +199,9 @@ export function buildAxes(scene: THREE.Scene, bounds: SceneBounds, nightMode: bo
   zL.position.set(0, 0, axisLen * 0.35 + pad * 0.25);
   scene.add(zL);
 
-  // Tick marks & numeric labels -- adapt to day/night
-  const tickColor = nightMode ? '#aabbcc' : '#666666';
-  const tickHex = nightMode ? 0xaabbcc : 0x666666;
+  // Tick marks & numeric labels -- adapt to theme
+  const tickColor = (nightMode || isDark) ? tc.tickLabelColor : tc.tickLabelColor;
+  const tickHex = (nightMode || isDark) ? tc.tickHex : tc.tickHex;
   const tickRadius = axisRadius * 0.5;
   const stepX = niceStep(maxX, 8);
   const stepY = niceStep(maxY, 6);
@@ -144,30 +225,30 @@ export function buildAxes(scene: THREE.Scene, bounds: SceneBounds, nightMode: bo
   }
 }
 
-export function buildGround(scene: THREE.Scene, bounds: SceneBounds, nightMode: boolean): THREE.GridHelper {
+export function buildGround(scene: THREE.Scene, bounds: SceneBounds, nightMode: boolean, themeId: Theme3DId = 'refined-lab'): THREE.GridHelper {
   const { span } = bounds;
+  const tc = getTheme3DConfig(themeId);
 
-  // Realistic white lab/testing room floor
+  // Ground plane with theme-specific colors
   const planeGeo = new THREE.PlaneGeometry(span * 3, span * 3);
   const groundCanvas = document.createElement('canvas');
   groundCanvas.width = 512;
   groundCanvas.height = 512;
   const gctx = groundCanvas.getContext('2d')!;
-  // Create a radial gradient from center (bright) to edges (slightly darker)
   const grad = gctx.createRadialGradient(256, 256, 0, 256, 256, 360);
-  // Same white lab floor for both day and night modes for consistency
-  grad.addColorStop(0, '#f5f5f3');
-  grad.addColorStop(0.4, '#eeeeec');
-  grad.addColorStop(0.7, '#e8e8e6');
-  grad.addColorStop(1, '#e0e0de');
+  grad.addColorStop(0, tc.groundColors[0]);
+  grad.addColorStop(0.4, tc.groundColors[1]);
+  grad.addColorStop(0.7, tc.groundColors[2]);
+  grad.addColorStop(1, tc.groundColors[3]);
   gctx.fillStyle = grad;
   gctx.fillRect(0, 0, 512, 512);
   // Add subtle noise pattern for realistic surface texture
+  const noiseColor = themeId === 'technical-dark' ? '255,255,255' : '0,0,0';
   for (let i = 0; i < 3000; i++) {
     const x = Math.random() * 512;
     const y = Math.random() * 512;
     const alpha = Math.random() * 0.04;
-    gctx.fillStyle = `rgba(0,0,0,${alpha + 0.01})`;
+    gctx.fillStyle = `rgba(${noiseColor},${alpha + 0.01})`;
     gctx.fillRect(x, y, 2, 2);
   }
   const groundTex = new THREE.CanvasTexture(groundCanvas);
@@ -184,12 +265,9 @@ export function buildGround(scene: THREE.Scene, bounds: SceneBounds, nightMode: 
   plane.receiveShadow = true;
   scene.add(plane);
 
-  // Black grid lines for lab/testing room look
-  // Same grid colors for both modes for visual consistency
-  const gridColor1 = 0x222222;
-  const gridColor2 = 0x333333;
-  const grid = new THREE.GridHelper(span * 3, 24, gridColor1, gridColor2);
-  (grid.material as THREE.Material).opacity = 0.25;
+  // Grid lines with theme-specific colors and opacity
+  const grid = new THREE.GridHelper(span * 3, tc.gridDivisions, tc.gridColor1, tc.gridColor2);
+  (grid.material as THREE.Material).opacity = tc.gridOpacity;
   (grid.material as THREE.Material).transparent = true;
   grid.position.y = 0;
   scene.add(grid);
@@ -212,14 +290,16 @@ export function buildTrajectory(
   nightMode: boolean,
   bounds: SceneBounds,
   phiRad = 0,
+  themeId: Theme3DId = 'refined-lab',
 ): TrajectoryMeshes | null {
   if (trajectoryData.length < 2) return null;
+  const tc = getTheme3DConfig(themeId);
 
   const curvePts = trajectoryData.map(p => project3D(p.x, p.y, phiRad));
   const curve = new THREE.CatmullRomCurve3(curvePts, false, 'catmullrom', 0.3);
 
-  // Solid tube for the completed (trail) portion — adapt color for night mode
-  const tubeColor = nightMode ? 0xc8d0e0 : 0x1a1a2e;
+  // Solid tube for the completed (trail) portion — adapt color for theme
+  const tubeColor = nightMode ? 0xc8d0e0 : tc.tubeColor;
   const tubeRadius = bounds.span * 0.0035;
   const radialSegments = 12;
   const tubeSegments = Math.min(curvePts.length * 4, 800);
@@ -229,11 +309,10 @@ export function buildTrajectory(
     roughness: 0.3,
     metalness: 0.15,
     emissive: tubeColor,
-    emissiveIntensity: nightMode ? 0.15 : 0.05,
+    emissiveIntensity: nightMode ? 0.15 : tc.tubeEmissive,
   });
   const solidTube = new THREE.Mesh(tube, mat);
   solidTube.castShadow = true;
-  // Start with nothing drawn (will be updated in tick)
   solidTube.geometry.setDrawRange(0, 0);
   scene.add(solidTube);
 
@@ -241,7 +320,6 @@ export function buildTrajectory(
   const dashGeo = new THREE.BufferGeometry();
   const dashVerts: number[] = [];
   const totalPts = curvePts.length;
-  // Create dashed segments: draw every other segment
   for (let i = 0; i < totalPts - 1; i += 2) {
     const a = curvePts[i];
     const b = curvePts[Math.min(i + 1, totalPts - 1)];
@@ -249,7 +327,7 @@ export function buildTrajectory(
   }
   dashGeo.setAttribute('position', new THREE.Float32BufferAttribute(dashVerts, 3));
   const dashMat = new THREE.LineBasicMaterial({
-    color: nightMode ? 0xaabbcc : 0x888888,
+    color: nightMode ? 0xaabbcc : tc.dashColor,
     transparent: true,
     opacity: 0.5,
   });

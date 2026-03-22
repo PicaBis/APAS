@@ -249,7 +249,7 @@ const ScientificCalculator: React.FC<ScientificCalculatorProps> = ({ open, onClo
         cursor: isDragging ? 'grabbing' : 'default',
       }}
     >
-      <div className="w-[320px] bg-card/98 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl shadow-black/30 overflow-hidden">
+      <div className="w-[320px] bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
         {/* Title bar - draggable */}
         <div
           className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-primary/10 to-transparent border-b border-border/30 cursor-grab active:cursor-grabbing"

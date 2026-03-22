@@ -434,16 +434,9 @@ export const advancedPhysicsStep = (
     density = getAirDensityAtAltitude(y, params.airDensity);
   }
 
-  // Environmental Physics Coupling
+  // Environmental Physics Coupling — temperature and pressure are informational only;
+  // they do NOT modify the simulation density or drag coefficient.
   let effectiveCd = params.dragCoefficient;
-  if (params.enableEnvironmentalCoupling) {
-    density = calculateAirDensityFromEnvironment(
-      params.environmentTemperature,
-      params.environmentPressure,
-      params.environmentHumidity
-    );
-    effectiveCd = getMachDragCoefficient(speed, params.environmentTemperature, params.dragCoefficient);
-  }
 
   // Underwater / hydrodynamic effects — realistic multi-directional resistance
   const isInFluid = params.isUnderwater;

@@ -4,14 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import { Lightbulb, X, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { playClick } from '@/utils/sound';
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY ?? '';
-const GEMINI_API_KEY_BACKUP = import.meta.env.VITE_GEMINI_API_KEY_BACKUP ?? '';
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+// AI calls go through edge functions which handle Groq→Mistral fallback internally
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
-
-function makeGeminiUrl(model: string, apiKey: string = GEMINI_API_KEY) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
-}
 
 function cleanLatex(text: string): string {
   let s = text;
@@ -49,10 +43,7 @@ async function consumeStream(
       if (raw === '[DONE]') return;
       try {
         const json = JSON.parse(raw);
-        const content =
-          json?.candidates?.[0]?.content?.parts?.[0]?.text ||
-          json?.choices?.[0]?.delta?.content ||
-          '';
+        const content = json?.choices?.[0]?.delta?.content || '';
         if (content) onChunk(content);
       } catch { /* skip */ }
     }
@@ -149,60 +140,31 @@ Format the output beautifully and clearly:
     };
 
     try {
-      // 1) Try direct Gemini API first (more reliable)
-      if (GEMINI_API_KEY || GEMINI_API_KEY_BACKUP) {
-        const apiKeys = GEMINI_API_KEY ? [GEMINI_API_KEY, GEMINI_API_KEY_BACKUP].filter(Boolean) : [GEMINI_API_KEY_BACKUP].filter(Boolean);
-        
-        for (const apiKey of apiKeys) {
-          for (const model of GEMINI_MODELS) {
-            try {
-              const resp = await fetch(makeGeminiUrl(model, apiKey), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  systemInstruction: { parts: [{ text: systemPrompt }] },
-                  contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-                }),
-              });
-              if (resp.ok && resp.body) {
-                await consumeStream(resp.body, onChunk);
-                handled = true;
-                break;
-              }
-              if (resp.status === 403) continue; // Try next model
-              if (resp.status !== 429) break; // For other errors, try next API key
-            } catch {
-              continue;
-            }
-          }
-          if (handled) break;
+      // 1) Try edge function first
+      try {
+        const edgeResp = await fetch(EDGE_TUTOR_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: userMessage }],
+            simulationContext,
+            systemPrompt,
+          }),
+        });
+        if (edgeResp.ok && edgeResp.body) {
+          await consumeStream(edgeResp.body, onChunk);
+          handled = true;
         }
+      } catch {
+        // fall through to Groq
       }
 
-      // 2) Fallback to edge function
-      if (!handled) {
-        try {
-          const edgeResp = await fetch(EDGE_TUTOR_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              messages: [{ role: 'user', content: userMessage }],
-              simulationContext,
-              systemPrompt,
-            }),
-          });
-          if (edgeResp.ok && edgeResp.body) {
-            await consumeStream(edgeResp.body, onChunk);
-            handled = true;
-          }
-        } catch {
-          // fall through to local fallback
-        }
-      }
+      // Edge function handles Groq→Mistral fallback internally
+      // No direct API calls needed from the client
 
       if (!handled && !accumulated) {
         // Local fallback

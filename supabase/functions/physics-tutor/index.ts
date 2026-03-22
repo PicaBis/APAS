@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { aiStream } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,20 +12,33 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, simulationContext } = await req.json();
+    const { messages, simulationContext, systemPrompt: clientSystemPrompt } = await req.json();
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+    const defaultSystemPrompt = `You are APAS Physics Tutor — an expert, passionate physics teacher specializing in projectile motion, kinematics, and classical mechanics.
 
-    const systemPrompt = `You are APAS Physics Tutor — an expert physics teacher specializing in projectile motion, kinematics, and classical mechanics.
+LANGUAGE RULES (CRITICAL):
+- You MUST respond ONLY in the same language the student uses: Arabic or English.
+- NEVER use Russian, French, Chinese, or any other language. Not even a single word.
+- If the student writes in Arabic, respond entirely in Arabic.
+- If the student writes in English, respond entirely in English.
 
 Your personality:
-- Patient, encouraging, and enthusiastic about physics
-- Use analogies and real-world examples
-- Respond in the same language the student uses (Arabic or English)
-- Keep answers concise but thorough
-- Format responses with bullet points and clear structure
-- Each point on a separate line with short, clear sentences
+- You are lively, enthusiastic, and interactive! Show genuine excitement about physics! 🚀
+- Use emojis generously to make responses engaging and fun (🎯 📐 🔬 💡 ⚡ 🌟 📊 🎓 ✨ 🔥 👏 etc.)
+- Start each response with a friendly greeting or encouraging reaction
+- Use analogies and real-world examples to explain concepts
+- Be warm and motivating — make the student feel excited about learning
+- Ask follow-up questions to keep the conversation going
+- Celebrate good questions with phrases like "سؤال ممتاز! 🌟" or "Great question! 🎯"
+
+FORMATTING RULES:
+- Use **bold** for key terms and important concepts
+- Use bullet points (- ) for lists, one idea per bullet
+- Add blank lines between sections for visual breathing room
+- Use ## for section headings with an emoji before each heading
+- Keep each point concise (1-2 sentences max)
+- Make the text scannable — avoid long dense paragraphs
+- Use numbered lists (1. 2. 3.) for step-by-step explanations
 
 EQUATION FORMATTING RULES (VERY IMPORTANT):
 - NEVER use LaTeX notation like $, \\, \\frac, \\cdot, \\theta, \\sqrt, etc.
@@ -54,125 +68,21 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
 
 Use these values to give contextual explanations when relevant.` : "No simulation is currently active."}`;
 
-    // Convert messages from OpenAI format to Gemini format
-    const contents = messages.map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }));
+    // Use client-provided systemPrompt if available (e.g. from ApasRecommendations),
+    // otherwise use the default physics tutor prompt
+    const finalSystemPrompt = clientSystemPrompt || defaultSystemPrompt;
 
-    // Try Gemini 2.0 Flash first, then fallback to 1.5 Flash
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
-    let lastError: Error | null = null;
+    const { body } = await aiStream({
+      modelType: "chat",
+      messages: [
+        { role: "system", content: finalSystemPrompt },
+        ...messages,
+      ],
+    });
 
-    for (const model of models) {
-      try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: contents,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Gemini API error (${model}):`, response.status, errorText);
-          
-          if (response.status === 429) {
-            // Rate limit - try next model
-            continue;
-          }
-          if (response.status === 400 || response.status === 403) {
-            // Bad request or forbidden - don't try other models
-            return new Response(
-              JSON.stringify({ error: "Invalid API request or insufficient permissions" }),
-              { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-          // Other errors - try next model
-          lastError = new Error(`Gemini API error: ${response.status} ${errorText}`);
-          continue;
-        }
-
-        // Convert Gemini SSE format to OpenAI-like format for client compatibility
-        const reader = response.body?.getReader();
-        if (!reader) {
-          throw new Error("No response body");
-        }
-
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-          async start(controller) {
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-
-                for (const line of lines) {
-                  if (!line.startsWith('data: ')) continue;
-                  const data = line.slice(6).trim();
-                  if (!data || data === '[DONE]') continue;
-
-                  try {
-                    const parsed = JSON.parse(data);
-                    const content = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (content) {
-                      // Format as OpenAI-style SSE for client compatibility
-                      const sseData = JSON.stringify({
-                        choices: [{ delta: { content } }]
-                      });
-                      controller.enqueue(encoder.encode(`data: ${sseData}\n\n`));
-                    }
-                  } catch (parseError) {
-                    console.warn('Failed to parse Gemini response:', parseError);
-                  }
-                }
-              }
-            } finally {
-              reader.releaseLock();
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-              controller.close();
-            }
-          }
-        });
-
-        return new Response(stream, {
-          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-        });
-
-      } catch (error) {
-        console.error(`Error with model ${model}:`, error);
-        lastError = error instanceof Error ? error : new Error(`Unknown error with ${model}`);
-        continue;
-      }
-    }
-
-    // All models failed
-    const errorMessage = lastError?.message || "All Gemini models failed";
-    console.error("All Gemini models failed:", errorMessage);
-    
-    // Check if it's a rate limit issue
-    if (errorMessage.includes('429')) {
-      return new Response(
-        JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    return new Response(
-      JSON.stringify({ error: "AI service temporarily unavailable" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
   } catch (e) {
     console.error("physics-tutor error:", e);
     return new Response(

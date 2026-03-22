@@ -1,7 +1,7 @@
 import React from 'react';
 import { Play, Pause, RotateCcw } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import { playSliderChange } from '@/utils/sound';
+import { playSliderChange, playSpeedChange, playResetSound } from '@/utils/sound';
 import type { TrajectoryPoint } from '@/utils/physics';
 
 interface CanvasToolbarProps {
@@ -30,7 +30,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       : 'mt-3 space-y-2'
     }>
       <div className="flex items-center gap-2">
-        <button onClick={onReset}
+        <button onClick={() => { onReset(); playResetSound(isMuted); }}
           className="group apas-btn p-2.5 rounded-xl border border-border/50 hover:border-primary/30 bg-card/60 hover:bg-primary/10 flex items-center justify-center transition-all duration-300">
           <RotateCcw className="w-4 h-4 text-foreground transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-180" />
         </button>
@@ -61,7 +61,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       <div className="flex items-center gap-1 sm:gap-1.5 text-xs text-muted-foreground flex-wrap">
         <span className="text-[10px] sm:text-xs">{T.playbackSpeed}</span>
         {[0.25, 0.5, 1, 2, 4].map((s) => (
-          <button key={s} onClick={() => onSetPlaybackSpeed(s)}
+          <button key={s} onClick={() => { onSetPlaybackSpeed(s); playSpeedChange(isMuted); }}
             className={`apas-btn px-1.5 sm:px-2 py-0.5 rounded-lg text-[10px] sm:text-xs font-mono border transition-all duration-300 ${playbackSpeed === s ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20' : 'hover:bg-primary/10 border-transparent hover:border-primary/20'}`}>
             {s}x
           </button>

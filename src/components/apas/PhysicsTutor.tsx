@@ -26,8 +26,7 @@ interface Props {
   hasModel?: boolean;
 }
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY ?? '';
-const GEMINI_API_KEY_BACKUP = import.meta.env.VITE_GEMINI_API_KEY_BACKUP ?? '';
+// AI calls go through edge functions which handle Groq→Mistral fallback internally
 
 /** Strip LaTeX artifacts from AI responses */
 function cleanLatex(text: string): string {
@@ -67,105 +66,36 @@ function cleanLatex(text: string): string {
   s = s.replace(/ᵧ/g, 'y');
   return s;
 }
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
-
-function makeGeminiUrl(model: string, apiKey: string = GEMINI_API_KEY) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
-}
 
 function getGracefulFallback(text: string, lang: string) {
   const local = getLocalFallback(text, lang);
   if (local) return local;
 
-  // Check for common questions and provide immediate helpful answers
-  const lowerText = text.toLowerCase();
-  
-  if (lowerText.includes('how are you') || lowerText.includes('كيف حال') || lowerText.includes('كيف الحال')) {
-    return lang === 'ar'
-      ? `أنا بخير ومستعد للمساعدة! 🤖
-
-أنا مساعد APAS الذكي، يمكنني مساعدتك في:
-- **أسئلة الفيزياء**: حركة المقذوفات، المدى، السرعة، الزوايا
-- **استخدام التطبيق**: كيفية استخدام الميزات المختلفة
-- **تحليل الصور**: رفع صور لتحليلها فيزيائياً
-- **توصيات ذكية**: الحصول على نصائح لتحسين المحاكاة
-
-ما الذي تريد معرفته اليوم؟`
-      : `I'm doing great and ready to help! 🤖
-
-I'm APAS AI Assistant, I can help you with:
-- **Physics questions**: Projectile motion, range, velocity, angles
-- **App usage**: How to use different features
-- **Image analysis**: Upload images for physics analysis
-- **Smart recommendations**: Get tips to improve simulations
-
-What would you like to know today?`;
-  }
-
-  if (lowerText.includes('hello') || lowerText.includes('hi') || lowerText.includes('مرحبا')) {
-    return lang === 'ar'
-      ? `مرحباً بك! أنا مساعد APAS الذكي 🚀
-
-يمكنني مساعدتك في:
-- شرح مفاهيم الفيزياء والمقذوفات
-- تحليل الصور الفيزيائية
-- إعطاء توصيات لتحسين محاكاتك
-- إرشادك حول استخدام التطبيق
-
-اسألني أي شيء!`
-      : `Hello! I'm APAS AI Assistant 🚀
-
-I can help you with:
-- Explaining physics and projectile concepts
-- Analyzing physics images
-- Giving recommendations to improve your simulations
-- Guiding you through app features
-
-Ask me anything!`;
-  }
-
   return lang === 'ar'
     ? `أفهم سؤالك 👍
 
-- **يبدو أن اتصال Gemini مشغول الآن**
-- **لكن يمكنني مساعدتك بطرق أخرى!**
+- يبدو أن اتصال AI مشغول الآن.
+- أعد إرسال نفس السؤال خلال ثوانٍ.
+- أو اسألني بصيغة أقصر وسأجيبك مباشرة.
 
-**يمكنك سؤالي عن:**
-- 🔬 **المدى، زاوية الإطلاق، السرعة الابتدائية**
-- 📐 **تأثير الجاذبية ومقاومة الهواء**
-- 📱 **كيفية استخدام التطبيق وميزاته**
-- 📸 **تحليل الصور الفيزيائية**
+يمكنك أيضًا السؤال عن: **المدى، زاوية الإطلاق، السرعة الابتدائية، وتأثير الجاذبية**.
 
-**أو جرب:**
-- أعد إرسال سؤالك بعد ثوانٍ
-- اسأل بصيغة أقصر
-- ارفع صورة لتحليلها
-
-💡 **أنا هنا للمساعدة!**`
+💡 يمكنك أيضًا سؤالي عن **كيفية استخدام التطبيق** وميزاته!`
     : `I understand your question 👍
 
-- **Gemini seems busy right now**
-- **But I can still help you in other ways!**
+- AI is temporarily busy right now.
+- Please resend the same question in a few seconds.
+- Or ask in a shorter form and I will answer directly.
 
-**You can ask me about:**
-- 🔬 **Range, launch angle, initial velocity**
-- 📐 **Gravity effects and air resistance**
-- 📱 **How to use the app and its features**
-- 📸 **Physics image analysis**
+You can also ask about: **range, launch angle, initial velocity, and gravity effects**.
 
-**Or try:**
-- Resend your question in a few seconds
-- Ask in a shorter form
-- Upload an image for analysis
-
-💡 **I'm here to help!**`;
+💡 You can also ask me about **how to use the app** and its features!`;
 }
 
-async function consumeGeminiStream(
+async function consumeGroqStream(
   body: ReadableStream<Uint8Array>,
   onChunk: (content: string) => void,
-  mode: 'google' | 'openai' = 'google',
 ) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -188,9 +118,7 @@ async function consumeGeminiStream(
 
       try {
         const parsed = JSON.parse(json);
-        const content = mode === 'google'
-          ? parsed?.candidates?.[0]?.content?.parts?.[0]?.text
-          : parsed?.choices?.[0]?.delta?.content;
+        const content = parsed?.choices?.[0]?.delta?.content;
         if (content) onChunk(content);
       } catch {
         buf = line + '\n' + buf;
@@ -477,32 +405,14 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
         });
 
         if (resp.ok && resp.body) {
-          await consumeGeminiStream(resp.body, (chunk) => {
+          await consumeGroqStream(resp.body, (chunk) => {
             analysisResult += chunk;
             setVoiceAnalysisText(analysisResult);
-          }, 'openai');
+          });
         }
       } catch {
-        // Fallback to direct Gemini
-        for (const model of GEMINI_MODELS) {
-          const resp = await fetch(makeGeminiUrl(model), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: 'You are APAS Assistant, an expert physics tutor. Respond concisely for text-to-speech.' }] },
-              contents: [{ role: 'user', parts: [{ text: voicePrompt }] }],
-            }),
-          });
-
-          if (resp.ok && resp.body) {
-            await consumeGeminiStream(resp.body, (chunk) => {
-              analysisResult += chunk;
-              setVoiceAnalysisText(analysisResult);
-            }, 'google');
-            break;
-          }
-          if (resp.status !== 429) break;
-        }
+        // Edge function handles Groq→Mistral fallback internally
+        // No direct API calls needed from the client
       }
 
       if (analysisResult) {
@@ -569,26 +479,38 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
     let assistantSoFar = '';
     const allMessages = [...messages, userMsg];
 
-    const systemPrompt = `You are APAS Assistant — an expert physics teacher AND application guide for the APAS projectile motion simulator.
+    const systemPrompt = `You are APAS Assistant — an expert, passionate physics teacher AND application guide for the APAS projectile motion simulator.
+
+LANGUAGE RULES (CRITICAL):
+- You MUST respond ONLY in ${lang === 'ar' ? 'Arabic' : 'English'}. NEVER use Russian, French, Chinese, or any other language. Not even a single word.
 
 You have TWO roles:
 1. **Physics Tutor:** Answer questions about projectile motion, kinematics, and classical mechanics
 2. **App Guide:** Help users navigate and use the APAS application features
 
 Your personality:
-- Patient, encouraging, and enthusiastic about physics
-- Use analogies and real-world examples
-- Respond in ${lang === 'ar' ? 'Arabic' : 'English'}
+- You are lively, enthusiastic, and interactive! Show genuine excitement about physics! 🚀
+- Use emojis generously to make responses engaging and fun (🎯 📐 🔬 💡 ⚡ 🌟 📊 🎓 ✨ 🔥 👏 etc.)
+- Start each response with a friendly greeting or encouraging reaction
+- Use analogies and real-world examples to explain concepts
+- Be warm and motivating — make the student feel excited about learning
+- Ask follow-up questions to keep the conversation going
+- Celebrate good questions with phrases like "${lang === 'ar' ? 'سؤال ممتاز! 🌟' : 'Great question! 🎯'}"
+
+FORMATTING RULES:
+- Use **bold** for key terms and important concepts
+- Use bullet points (- ) for lists, one idea per bullet
+- Add blank lines between sections for visual breathing room
+- Use ## for section headings with an emoji before each heading
+- Keep each point concise (1-2 sentences max)
+- Make the text scannable — avoid long dense paragraphs
+- Use numbered lists (1. 2. 3.) for step-by-step explanations
+
+EQUATION FORMATTING RULES:
 - Use equations in VERY SIMPLE format like: vy = v0 * sin(theta) - g * t
 - NEVER use LaTeX notation like $v_y = v_0 \\cdot \\sin(\\theta) - g \\cdot t$
 - NEVER use complex symbols like v₀, θ, ·, etc.
 - Use only basic characters: v0, theta, sin, cos, *, /, +, -, ^
-- Format equations as: vy = v0 * sin(theta) - g * t
-- Keep answers concise but thorough
-- Format responses with bullet points and clear structure
-- Each point should be on a separate line
-- Use short, clear sentences
-- Avoid long paragraphs
 
 **APAS Application Features (use this to answer app questions):**
 - **Left Panel:** Contains parameter inputs (velocity, angle, height, mass, gravity, air resistance), equations panel, export section, and display options
@@ -635,76 +557,35 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
     try {
       let handled = false;
 
-      // 1) PRIMARY: Direct Gemini API (more reliable)
-      if (!handled && (GEMINI_API_KEY || GEMINI_API_KEY_BACKUP)) {
-        const contents = allMessages.map(m => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }],
-        }));
+      // 1) PRIMARY: Groq API via edge function
+      try {
+        const backupResp = await fetch(EDGE_TUTOR_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: allMessages,
+            simulationContext,
+            systemPrompt,
+          }),
+        });
 
-        // Try primary API key first, then backup
-        const apiKeys = GEMINI_API_KEY ? [GEMINI_API_KEY, GEMINI_API_KEY_BACKUP].filter(Boolean) : [GEMINI_API_KEY_BACKUP].filter(Boolean);
-        
-        for (const apiKey of apiKeys) {
-          for (const model of GEMINI_MODELS) {
-            try {
-              const resp = await fetch(makeGeminiUrl(model, apiKey), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  systemInstruction: { parts: [{ text: systemPrompt }] },
-                  contents,
-                }),
-              });
-
-              if (resp.ok && resp.body) {
-                await consumeGeminiStream(resp.body, upsertAssistant, 'google');
-                handled = true;
-                break;
-              }
-              if (resp.status === 403) {
-                console.warn(`API key forbidden for model ${model}, trying next...`);
-                continue; // Try next model
-              }
-              if (resp.status !== 429) break; // For other errors, try next API key
-            } catch {
-              continue;
-            }
-          }
-          if (handled) break;
+        if (backupResp.ok && backupResp.body) {
+          await consumeGroqStream(backupResp.body, upsertAssistant);
+          handled = true;
         }
+      } catch (edgeErr) {
+        console.warn('Edge function failed, trying direct Groq:', edgeErr);
       }
 
-      // 2) FALLBACK: Edge function (if direct API fails)
-      if (!handled) {
-        try {
-          const backupResp = await fetch(EDGE_TUTOR_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              messages: allMessages,
-              simulationContext,
-            }),
-          });
-
-          if (backupResp.ok && backupResp.body) {
-            await consumeGeminiStream(backupResp.body, upsertAssistant, 'openai');
-            handled = true;
-          }
-        } catch (edgeErr) {
-          console.warn('Edge function failed:', edgeErr);
-        }
-      }
-
-      // 3) Final graceful fallback
+      // 2) Final graceful fallback (edge function handles Groq→Mistral internally)
       if (!handled) {
         const graceful = getGracefulFallback(text, lang);
         setMessages(prev => [...prev, { role: 'assistant', content: graceful }]);
-        toast.warning(lang === 'ar' ? 'Gemini مشغول حالياً' : 'Gemini is busy right now');
+        toast.warning(lang === 'ar' ? 'AI مشغول حالياً' : 'AI is busy right now');
       }
     } catch (e) {
       console.error(e);

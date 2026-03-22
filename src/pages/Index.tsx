@@ -8,7 +8,7 @@ import GuestRestrictionOverlay from '@/components/auth/GuestRestrictionOverlay';
 import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 import { calcMetrics, type ModelData } from '@/utils/physics';
 import { useAdvancedPhysics } from '@/hooks/useAdvancedPhysics';
-import { playClick, playUIClick, playToggle, playNav, vibrate, playSectionToggle, playSliderChange, playTutorialClick } from '@/utils/sound';
+import { playClick, playUIClick, playToggle, playNav, vibrate, playSectionToggle, playSliderChange, playTutorialClick, playLoadingSound, playSnapshotSound, playModeSwitch, playZoomSound, playResetSound, playSpeedChange, playSuccessChime } from '@/utils/sound';
 import { TRANSLATIONS } from '@/constants/translations';
 
 import SplashScreen from '@/components/apas/SplashScreen';
@@ -68,6 +68,7 @@ import type { EquationTrajectoryPoint } from '@/components/apas/EquationEngine';
 import type { TrajectoryPoint } from '@/utils/physics';
 const ApasRecommendations = lazy(() => import('@/components/apas/ApasRecommendations'));
 import SensorLab from '@/components/apas/SensorLab';
+import BugReportButton from '@/components/apas/BugReportButton';
 const LensDistortionCorrection = lazy(() => import('@/components/apas/LensDistortionCorrection'));
 const ExplainableAI = lazy(() => import('@/components/apas/ExplainableAI'));
 const CrowdsourcedAccuracy = lazy(() => import('@/components/apas/CrowdsourcedAccuracy'));
@@ -242,6 +243,9 @@ const Index = () => {
   const [showComparisonSection, setShowComparisonSection] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
+  const [theme3d, setTheme3d] = useState<'refined-lab' | 'academic-white' | 'technical-dark'>(() => {
+    try { return (localStorage.getItem('apas_theme3d') as 'refined-lab' | 'academic-white' | 'technical-dark') || 'refined-lab'; } catch { return 'refined-lab'; }
+  });
   const [equationTrajectory, setEquationTrajectory] = useState<EquationTrajectoryPoint[] | null>(null);
 
   // ── Undo/Redo History ──
@@ -327,7 +331,7 @@ const Index = () => {
 
   // Vector visibility for individual toggle
   const [vectorVisibility, setVectorVisibility] = useState<VectorVisibility>({
-    V: true, Vx: true, Vy: true, Fg: true, Fd: true, Fw: false, Fnet: false, acc: false,
+    V: true, Vx: true, Vy: true, Fg: true, Fd: true, Fw: false, Ffluid: false, Fnet: false, acc: false,
   });
 
   // Unit selections (store selected unit key per param)
@@ -370,6 +374,10 @@ const Index = () => {
   useEffect(() => {
     try { localStorage.setItem('apas_accentColor', accentColor); } catch { /* ignore */ }
   }, [accentColor]);
+
+  useEffect(() => {
+    try { localStorage.setItem('apas_theme3d', theme3d); } catch { /* ignore */ }
+  }, [theme3d]);
   useEffect(() => {
     try { localStorage.setItem('apas_units', JSON.stringify(selectedUnits)); } catch { /* ignore */ }
   }, [selectedUnits]);
@@ -505,8 +513,17 @@ const Index = () => {
     if (env.fluidDensity === 0) {
       sim.setAirResistance(0);
     } else if (env.id === 'underwater') {
+      // Water environment: enable underwater physics so water resistance affects simulation
       sim.setAirResistance(0);
+      advancedPhysics.setIsUnderwater(true);
+      advancedPhysics.setEnableBuoyancy(true);
+      advancedPhysics.setEnableHydrodynamicDrag(true);
+      advancedPhysics.setFluidDensity(env.fluidDensity);
     } else {
+      // Non-water environment: disable underwater physics
+      advancedPhysics.setIsUnderwater(false);
+      advancedPhysics.setEnableBuoyancy(false);
+      advancedPhysics.setEnableHydrodynamicDrag(false);
       if (sim.airResistance === 0 && env.fluidDensity > 0) sim.setAirResistance(0.02);
     }
     playUIClick(sim.isMuted);
@@ -519,6 +536,7 @@ const Index = () => {
     link.download = `APAS_Simulation_${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
+    playSnapshotSound(sim.isMuted);
   };
 
   const toggleFullscreen = () => {
@@ -567,6 +585,7 @@ const Index = () => {
       } else if (e.code === 'KeyR') {
         e.preventDefault();
         sim.resetAnimation();
+        playResetSound(sim.isMuted);
       } else if (e.code === 'KeyG') {
         e.preventDefault();
         setShowGrid(g => !g);
@@ -577,19 +596,20 @@ const Index = () => {
       } else if (e.code === 'Equal' || e.code === 'NumpadAdd') {
         e.preventDefault();
         setCanvasZoom(z => Math.min(3, z + 0.25));
-        playUIClick(sim.isMuted);
+        playZoomSound(sim.isMuted, true);
       } else if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
         e.preventDefault();
         setCanvasZoom(z => Math.max(0.5, z - 0.25));
-        playUIClick(sim.isMuted);
+        playZoomSound(sim.isMuted, false);
       } else if (e.code === 'Digit3') {
         e.preventDefault();
         if (is3DMode) {
           setIs3DMode(false);
+          playModeSwitch(sim.isMuted, false);
         } else if (!webglError) {
           setIs3DMode(true);
+          playModeSwitch(sim.isMuted, true);
         }
-        playUIClick(sim.isMuted);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -604,7 +624,7 @@ const Index = () => {
     })).filter((d) => d.xVal !== undefined && d.yVal !== undefined);
   }, [chartAxisX, chartAxisY, sim.trajectoryData]);
 
-  const fmtTick = (v: number) => typeof v === 'number' ? Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1) : v;
+  const fmtTick = (v: number) => (typeof v === 'number' && v !== null) ? Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1) : String(v ?? '');
 
   // ── Stroboscopic mark generation ──
   // Compute marks from trajectory data based on deltaT
@@ -821,13 +841,13 @@ const Index = () => {
             <div className="flex items-center gap-2 sm:gap-3 shrink-0" dir={T.dir}>
               {canAccessRestrictedFeature ? (
                 <Suspense fallback={null}>
-                  <PhysicsTutor lang={lang} hasModel={sim.trajectoryData.length > 0 && !!sim.prediction} simulationContext={{
-                    velocity: sim.velocity, angle: sim.angle, height: sim.height,
-                    gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass,
-                    range: sim.prediction?.range?.toFixed(2),
-                    maxHeight: sim.prediction?.maxHeight?.toFixed(2),
-                    flightTime: sim.prediction?.timeOfFlight?.toFixed(2),
-                  }} />
+                    <PhysicsTutor lang={lang} hasModel={sim.trajectoryData.length > 0 && !!sim.prediction} simulationContext={{
+                      velocity: sim.velocity, angle: sim.angle, height: sim.height,
+                      gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass,
+                      range: (sim.prediction?.range ?? 0).toFixed(2),
+                      maxHeight: (sim.prediction?.maxHeight ?? 0).toFixed(2),
+                      flightTime: (sim.prediction?.timeOfFlight ?? 0).toFixed(2),
+                    }} />
                 </Suspense>
               ) : (
                 <button
@@ -847,9 +867,9 @@ const Index = () => {
                     simulationContext={{
                       velocity: sim.velocity, angle: sim.angle, height: sim.height,
                       gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass,
-                      range: sim.prediction?.range?.toFixed(2),
-                      maxHeight: sim.prediction?.maxHeight?.toFixed(2),
-                      flightTime: sim.prediction?.timeOfFlight?.toFixed(2),
+                      range: (sim.prediction?.range ?? 0).toFixed(2),
+                      maxHeight: (sim.prediction?.maxHeight ?? 0).toFixed(2),
+                      flightTime: (sim.prediction?.timeOfFlight ?? 0).toFixed(2),
                       environmentId: currentEnvId,
                       integrationMethod: sim.selectedIntegrationMethod,
                     }}
@@ -1125,6 +1145,8 @@ const Index = () => {
                       onToggle={() => { sim.setShowExternalForces(!sim.showExternalForces); playClick(sim.isMuted); }}
                       vectorVisibility={vectorVisibility}
                       onVectorToggle={(key) => { setVectorVisibility(prev => ({ ...prev, [key]: !prev[key] })); playClick(sim.isMuted); }}
+                      isWaterEnvironment={currentEnvId === 'underwater'}
+                      hydrodynamicEnabled={advancedPhysics.enableHydrodynamicDrag || advancedPhysics.isUnderwater}
                     />
                     <button
                       onClick={() => { setShowStroboscopicModal(true); playClick(sim.isMuted); }}
@@ -1320,13 +1342,13 @@ const Index = () => {
                     {lang === 'ar' ? 'مسار المقذوف' : lang === 'fr' ? 'Trajectoire du Projectile' : 'Projectile Path'}
                   </h2>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setCanvasZoom(z => Math.max(0.5, z - 0.25))}
+                    <button onClick={() => { setCanvasZoom(z => Math.max(0.5, z - 0.25)); playZoomSound(sim.isMuted, false); }}
                       className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
                       title={lang === 'ar' ? 'تصغير' : 'Zoom Out'}>
                       <ZoomOut className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
                     </button>
                     <span className="text-[10px] font-mono text-muted-foreground w-8 text-center">{Math.round(canvasZoom * 100)}%</span>
-                    <button onClick={() => setCanvasZoom(z => Math.min(3, z + 0.25))}
+                    <button onClick={() => { setCanvasZoom(z => Math.min(3, z + 0.25)); playZoomSound(sim.isMuted, true); }}
                       className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
                       title={lang === 'ar' ? 'تكبير' : 'Zoom In'}>
                       <ZoomIn className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
@@ -1334,10 +1356,11 @@ const Index = () => {
                     <button onClick={() => {
                         if (is3DMode) {
                           setIs3DMode(false);
+                          playModeSwitch(sim.isMuted, false);
                         } else if (!webglError) {
                           setIs3DMode(true);
+                          playModeSwitch(sim.isMuted, true);
                         }
-                        playUIClick(sim.isMuted);
                       }}
                       className={is3DMode ? 'group p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary hover:shadow-md transition-all duration-300' : 'group p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300'}
                       title={lang === 'ar' ? 'وضع ثلاثي الأبعاد' : '3D Mode'}>
@@ -1407,6 +1430,9 @@ const Index = () => {
                         environmentId={currentEnvId}
                         activePresetEmoji={activePresetEmoji}
                         showGrid={showGrid}
+                        enableMagnusSpin={advancedPhysics.enableMagnus && advancedPhysics.spinRate !== 0}
+                        spinRate={advancedPhysics.spinRate}
+                        theme3d={theme3d}
                         onWebglError={(msg) => {
                           setWebglError(msg);
                           setIs3DMode(false);
@@ -1466,6 +1492,7 @@ const Index = () => {
                       fluidFrictionRay={advancedPhysics.enableHydrodynamicDrag || advancedPhysics.isUnderwater}
                       isUnderwater={advancedPhysics.isUnderwater}
                       fluidDensity={advancedPhysics.isUnderwater ? advancedPhysics.fluidDensity : 1.225}
+                      calibrationScale={calibrationScale}
                     />
                   )}
                 </div>
@@ -2330,6 +2357,8 @@ const Index = () => {
         onOpenNoiseFilter={() => setShowNoiseFilter(true)}
         onOpenLiveCalibration={() => setShowLiveCalibration(true)}
         onOpenSecurityPrivacy={() => setShowSecurityPrivacy(true)}
+        theme3d={theme3d}
+        onTheme3dChange={(id) => setTheme3d(id)}
       />
 
       {/* ── Scientific Calculator (floating, draggable) ── */}
@@ -2411,6 +2440,9 @@ const Index = () => {
 
       {/* ── Keyboard Shortcuts Help ── */}
       <KeyboardShortcutsHelp lang={lang} muted={sim.isMuted} />
+
+      {/* ── Bug Report Button ── */}
+      <BugReportButton lang={lang} />
     </PageTransition>
   );
 };
