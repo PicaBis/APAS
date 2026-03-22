@@ -850,11 +850,16 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     boundsRef.current = bounds;
 
     // Lighting: simple, efficient setup
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    // When a theme overrides the clear color (e.g. academic-white, technical-dark),
+    // use neutral lighting to avoid blue/yellow tinting from the hemisphere light.
+    const hasThemeBg = themeConfig.clearColorOverride !== null;
+    scene.add(new THREE.AmbientLight(0xffffff, hasThemeBg ? 1.1 : 0.9));
+    const dirLight = new THREE.DirectionalLight(0xffffff, hasThemeBg ? 0.9 : 0.7);
     dirLight.position.set(5, 12, 8);
     scene.add(dirLight);
-    scene.add(new THREE.HemisphereLight(0x87ceeb, 0xf0e68c, 0.2));
+    if (!hasThemeBg) {
+      scene.add(new THREE.HemisphereLight(0x87ceeb, 0xf0e68c, 0.2));
+    }
 
     // Camera
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, bounds.span * 20);
@@ -868,16 +873,24 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
 
     const phiRad = (phiRef.current * Math.PI) / 180;
 
-    // Environment fog for atmosphere
-    const fogColor = getSceneFogColor(environmentId, nightMode);
-    if (fogColor !== null) {
-      scene.fog = new THREE.FogExp2(fogColor, 0.003 / Math.max(bounds.span, 1));
+    // Environment fog for atmosphere — skip when theme overrides background
+    if (!hasThemeBg) {
+      const fogColor = getSceneFogColor(environmentId, nightMode);
+      if (fogColor !== null) {
+        scene.fog = new THREE.FogExp2(fogColor, 0.003 / Math.max(bounds.span, 1));
+      } else {
+        scene.fog = null;
+      }
     } else {
       scene.fog = null;
     }
 
     // Environment sky decorations (stars, celestial bodies, clouds, etc.)
-    buildEnvironmentSky(scene, environmentId, bounds.span, nightMode);
+    // Skip sky sphere when theme overrides the background color to avoid
+    // the sky sphere covering the theme's intended background.
+    if (!hasThemeBg) {
+      buildEnvironmentSky(scene, environmentId, bounds.span, nightMode);
+    }
 
     // Dynamic 3D environment effects: wind particles and water waves
     const windPts = buildWindParticles(scene, bounds.span, environmentId, airResistance);
