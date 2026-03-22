@@ -4,7 +4,7 @@
  */
 
 import React, { useState, Suspense, lazy } from 'react';
-import { ChevronDown, Cloud, Zap, Droplets, RotateCw, Atom, Thermometer } from 'lucide-react';
+import { ChevronDown, Cloud, Zap, Droplets, RotateCw, Thermometer } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,6 @@ const translations = {
     hydrodynamicDrag: 'السحب الهيدروديناميكي',
     fluidPressure: 'تأثيرات ضغط المائع',
     underwater: 'بيئة تحت الماء',
-    relativistic: 'النسبية الخاصة',
     environmentCoupling: 'اقتران الفيزياء البيئية',
     latitude: 'خط العرض',
     longitude: 'خط الطول',
@@ -73,7 +72,6 @@ const translations = {
     sectionRotational: 'التأثيرات الدورانية وغير القصورية',
     sectionHydrodynamic: 'التأثيرات الهيدروديناميكية',
     sectionRotDynamics: 'ديناميكا الدوران',
-    sectionRelativistic: 'الحركة النسبية',
     sectionEnvironmental: 'اقتران البيئة',
     radPerSec: 'راد/ث',
     ms2: 'م/ث²',
@@ -94,7 +92,6 @@ const translations = {
     hydrodynamicDrag: 'Hydrodynamic Drag',
     fluidPressure: 'Fluid Pressure Effects',
     underwater: 'Underwater Environment',
-    relativistic: 'Special Relativity',
     environmentCoupling: 'Environmental Physics Coupling',
     latitude: 'Latitude',
     longitude: 'Longitude',
@@ -129,7 +126,6 @@ const translations = {
     sectionRotational: 'Rotational & Non-Inertial Effects',
     sectionHydrodynamic: 'Hydrodynamic Effects',
     sectionRotDynamics: 'Rotational Dynamics',
-    sectionRelativistic: 'Relativistic Motion',
     sectionEnvironmental: 'Environmental Coupling',
     radPerSec: 'rad/s',
     ms2: 'm/s²',
@@ -150,7 +146,6 @@ const translations = {
     hydrodynamicDrag: 'Traînée Hydrodynamique',
     fluidPressure: 'Effets de Pression du Fluide',
     underwater: 'Environnement Sous-marin',
-    relativistic: 'Relativité Restreinte',
     environmentCoupling: 'Couplage Physique Environnemental',
     latitude: 'Latitude',
     longitude: 'Longitude',
@@ -185,7 +180,6 @@ const translations = {
     sectionRotational: 'Effets Rotationnels et Non-Inertiels',
     sectionHydrodynamic: 'Effets Hydrodynamiques',
     sectionRotDynamics: 'Dynamique de Rotation',
-    sectionRelativistic: 'Mouvement Relativiste',
     sectionEnvironmental: 'Couplage Environnemental',
     radPerSec: 'rad/s',
     ms2: 'm/s²',
@@ -220,7 +214,6 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
   const [sectionRotational, setSectionRotational] = useState(false);
   const [sectionHydro, setSectionHydro] = useState(false);
   const [sectionRotDyn, setSectionRotDyn] = useState(false);
-  const [sectionRelativistic, setSectionRelativistic] = useState(false);
   const [sectionEnv, setSectionEnv] = useState(false);
   const internalAdvanced = useAdvancedPhysics();
   const advanced = advancedPhysicsInstance ?? internalAdvanced;
@@ -496,31 +489,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
             </div>
           )}
 
-          {/* ═══ SECTION 4: Relativistic Motion ═══ */}
-          <SectionHeader
-            icon={<Atom className="w-3.5 h-3.5 text-amber-500" />}
-            label={T('sectionRelativistic', lang)}
-            open={sectionRelativistic}
-            onToggle={() => { setSectionRelativistic(!sectionRelativistic); playSectionToggle(false); }}
-          />
-          {sectionRelativistic && (
-            <div className="space-y-3 pl-1 animate-slideDown">
-              <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-border/50 hover:bg-primary/5 hover:border-primary/20 transition-all duration-200">
-                <span className="text-xs font-medium text-foreground">{T('relativistic', lang)}</span>
-                <Switch
-                  checked={advanced.enableRelativistic}
-                  onCheckedChange={() => handleToggle(advanced.setEnableRelativistic, advanced.enableRelativistic)}
-                />
-              </div>
-              {advanced.enableRelativistic && (
-                <div className="pl-2 border-l-2 border-amber-500 text-[10px] text-muted-foreground">
-                  <p>{lang === 'ar' ? 'تصحيحات لتحويل السرعة النسبية وتمدد الزمن' : lang === 'fr' ? 'Corrections pour la transformation de vitesse relativiste et la dilatation du temps' : 'Relativistic velocity transformations and time dilation corrections'}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ═══ SECTION 5: Environmental Coupling ═══ */}
+          {/* ═══ SECTION 4: Environmental Coupling ═══ */}
           <SectionHeader
             icon={<Thermometer className="w-3.5 h-3.5 text-green-500" />}
             label={T('sectionEnvironmental', lang)}
