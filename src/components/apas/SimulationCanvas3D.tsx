@@ -1101,7 +1101,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
       projectileRef.current = null;
       rendererRef.current = null;
     };
-  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji]);
+  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance]);
 
   // ── Toggle 3D grid visibility ──
   useEffect(() => {

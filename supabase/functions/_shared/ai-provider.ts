@@ -138,6 +138,8 @@ export async function aiStream(
         body: JSON.stringify({
           model,
           messages: options.messages,
+          temperature: options.temperature ?? 0.4,
+          max_tokens: options.max_tokens ?? 2000,
           stream: true,
         }),
       });
