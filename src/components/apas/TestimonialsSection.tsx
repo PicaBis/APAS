@@ -1,12 +1,27 @@
 import React from 'react';
 
+type Platform = 'x' | 'facebook';
+
 interface Testimonial {
   name: string;
   handle: string;
   avatar: string;
   text: string;
   lang: 'ar' | 'en';
+  platform: Platform;
 }
+
+const XIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
+
+const FacebookIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </svg>
+);
 
 const TESTIMONIALS_ROW1: Testimonial[] = [
   {
@@ -15,6 +30,7 @@ const TESTIMONIALS_ROW1: Testimonial[] = [
     avatar: '/avatars/ahmed_k.jpg',
     text: 'APAS غيّر طريقة تدريسي للفيزياء بالكامل. الطلاب أصبحوا أكثر تفاعلاً مع المحاكاة التفاعلية، والنتائج الأكاديمية تحسنت بشكل ملحوظ.',
     lang: 'ar',
+    platform: 'x',
   },
   {
     name: 'Emily Carter',
@@ -22,6 +38,7 @@ const TESTIMONIALS_ROW1: Testimonial[] = [
     avatar: '/avatars/emily_c.jpg',
     text: "I've tried PhET and GeoGebra, but APAS is on another level. The AI predictions and 3D simulations make it feel like a real lab experience. Highly recommended for physics educators.",
     lang: 'en',
+    platform: 'facebook',
   },
   {
     name: 'فاطمة الزهراء',
@@ -29,13 +46,15 @@ const TESTIMONIALS_ROW1: Testimonial[] = [
     avatar: '/avatars/fatima_z.jpg',
     text: 'أداة رائعة! الواجهة بالعربية ممتازة والرؤية الحاسوبية تستخرج المعاملات من الصور تلقائياً. أتمنى لو كانت متوفرة عندما كنت طالبة.',
     lang: 'ar',
+    platform: 'x',
   },
   {
     name: 'David Laurent',
-    handle: '@davidlaurent',
+    handle: 'David Laurent',
     avatar: '/avatars/david_l.jpg',
     text: "The stroboscopic photography feature is genius. My students can now compare their real lab photos with the simulation results side by side. Minor UI lag on mobile, but overall excellent.",
     lang: 'en',
+    platform: 'facebook',
   },
   {
     name: 'عمر بن علي',
@@ -43,23 +62,26 @@ const TESTIMONIALS_ROW1: Testimonial[] = [
     avatar: '/avatars/omar_b.jpg',
     text: 'استخدمت APAS في مشروع التخرج وكانت النتائج مبهرة. تحليل الأخطاء R² و RMSE ساعدني كثيراً في المقارنة بين النماذج. تطبيق أكاديمي بامتياز.',
     lang: 'ar',
+    platform: 'x',
   },
   {
     name: 'James Wilson',
-    handle: '@jameswilson_sci',
+    handle: 'James Wilson',
     avatar: '/avatars/james_w.jpg',
     text: "APAS brings something unique to physics education. The equation engine lets students input custom equations and see trajectories rendered live. Could use more documentation though.",
     lang: 'en',
+    platform: 'facebook',
   },
 ];
 
 const TESTIMONIALS_ROW2: Testimonial[] = [
   {
     name: 'سارة محمدي',
-    handle: '@sarah_mohamedi',
+    handle: 'سارة محمدي',
     avatar: '/avatars/sarah_m.jpg',
     text: 'نظام إدارة الفصول ممتاز! أنشأت فصلاً لطلابي وهم يرفعون تجاربهم والنتائج تظهر مباشرة. يوفر وقت كبير في التقييم.',
     lang: 'ar',
+    platform: 'facebook',
   },
   {
     name: 'Maria Garcia',
@@ -67,13 +89,15 @@ const TESTIMONIALS_ROW2: Testimonial[] = [
     avatar: '/avatars/maria_g.jpg',
     text: "What impressed me most is the planetary environments feature. Launching a projectile on Mars with real gravity values makes physics tangible for students. The Arabic support is a nice touch too.",
     lang: 'en',
+    platform: 'x',
   },
   {
     name: 'يوسف حداد',
-    handle: '@youssef_haddad',
+    handle: 'يوسف حداد',
     avatar: '/avatars/youssef_h.jpg',
     text: 'المقارنة بين Euler و RK4 و AI APAS فتحت عيني على الفرق الحقيقي بين طرق التكامل العددي. أداة تعليمية من الطراز الأول، لكن أتمنى إضافة المزيد من الأمثلة.',
     lang: 'ar',
+    platform: 'facebook',
   },
   {
     name: 'خالد سعيدي',
@@ -81,13 +105,15 @@ const TESTIMONIALS_ROW2: Testimonial[] = [
     avatar: '/avatars/khalid_s.jpg',
     text: 'تطبيق APAS يستحق الاهتمام. المحاكاة ثلاثية الأبعاد واقعية جداً والذكاء الاصطناعي يتنبأ بالمسارات بدقة عالية. فخور أنه منتج جزائري.',
     lang: 'ar',
+    platform: 'x',
   },
   {
     name: 'Nadia Rehmani',
-    handle: '@nadia_rehmani',
+    handle: 'Nadia Rehmani',
     avatar: '/avatars/nadia_r.jpg',
     text: "APAS solved a real problem in our department. We needed a tool that supports Arabic and handles projectile analysis beyond simple calculators. The computer vision feature is a game changer.",
     lang: 'en',
+    platform: 'facebook',
   },
   {
     name: 'أمينة دحماني',
@@ -95,12 +121,20 @@ const TESTIMONIALS_ROW2: Testimonial[] = [
     avatar: '/avatars/amina_d.jpg',
     text: 'كأستاذة فيزياء، أقدّر كثيراً الجهد المبذول في APAS. التصميم أنيق والميزات متقدمة. بعض الخيارات كثيرة للمبتدئين لكن التطبيق ممتاز بشكل عام.',
     lang: 'ar',
+    platform: 'x',
   },
 ];
 
 interface TestimonialsSectionProps {
   lang: 'ar' | 'en' | 'fr';
 }
+
+const PlatformIcon: React.FC<{ platform: Platform }> = ({ platform }) => {
+  if (platform === 'facebook') {
+    return <FacebookIcon className="w-5 h-5 text-[#1877F2] flex-shrink-0" />;
+  }
+  return <XIcon className="w-5 h-5 text-muted-foreground/50 flex-shrink-0" />;
+};
 
 const TestimonialCard: React.FC<{ testimonial: Testimonial }> = ({ testimonial }) => (
   <div
@@ -117,42 +151,41 @@ const TestimonialCard: React.FC<{ testimonial: Testimonial }> = ({ testimonial }
         <h4 className="text-sm font-semibold text-foreground truncate">{testimonial.name}</h4>
         <p className="text-xs text-muted-foreground truncate">{testimonial.handle}</p>
       </div>
-      <svg className="w-5 h-5 text-muted-foreground/50 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-      </svg>
+      <PlatformIcon platform={testimonial.platform} />
     </div>
     <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{testimonial.text}</p>
   </div>
 );
 
 const marqueeStyles = `
-@keyframes marquee-scroll-left {
+@keyframes testimonials-scroll-left {
   0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  100% { transform: translateX(calc(-50% - 0.5rem)); }
 }
-@keyframes marquee-scroll-right {
-  0% { transform: translateX(-50%); }
+@keyframes testimonials-scroll-right {
+  0% { transform: translateX(calc(-50% - 0.5rem)); }
   100% { transform: translateX(0); }
 }
-.marquee-row {
+.testimonials-marquee-row {
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to right, transparent, black 60px, black calc(100% - 60px), transparent);
-  mask-image: linear-gradient(to right, transparent, black 60px, black calc(100% - 60px), transparent);
+  width: 100%;
 }
-.marquee-track-left {
+.testimonials-track-left {
   display: flex;
   gap: 1rem;
   width: max-content;
-  animation: marquee-scroll-left 45s linear infinite;
+  animation: testimonials-scroll-left 35s linear infinite;
+  will-change: transform;
 }
-.marquee-track-right {
+.testimonials-track-right {
   display: flex;
   gap: 1rem;
   width: max-content;
-  animation: marquee-scroll-right 45s linear infinite;
+  animation: testimonials-scroll-right 35s linear infinite;
+  will-change: transform;
 }
-.marquee-row:hover .marquee-track-left,
-.marquee-row:hover .marquee-track-right {
+.testimonials-marquee-row:hover .testimonials-track-left,
+.testimonials-marquee-row:hover .testimonials-track-right {
   animation-play-state: paused;
 }
 `;
@@ -161,14 +194,14 @@ const ScrollingRow: React.FC<{ testimonials: Testimonial[]; direction: 'left' | 
   testimonials,
   direction,
 }) => {
-  // Duplicate testimonials for seamless infinite loop
-  const doubled = [...testimonials, ...testimonials];
+  // Duplicate the list multiple times to ensure no gaps at any screen size
+  const items = [...testimonials, ...testimonials, ...testimonials, ...testimonials];
 
   return (
-    <div className="marquee-row py-2">
-      <div className={direction === 'left' ? 'marquee-track-left' : 'marquee-track-right'}>
-        {doubled.map((t, i) => (
-          <TestimonialCard key={`${t.handle}-${i}`} testimonial={t} />
+    <div className="testimonials-marquee-row py-2">
+      <div className={direction === 'left' ? 'testimonials-track-left' : 'testimonials-track-right'}>
+        {items.map((t, i) => (
+          <TestimonialCard key={`${direction}-${t.handle}-${i}`} testimonial={t} />
         ))}
       </div>
     </div>
@@ -187,7 +220,7 @@ const TestimonialsSection: React.FC<TestimonialsSectionProps> = ({ lang }) => {
         <p className="text-muted-foreground">{subtitle}</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         <ScrollingRow testimonials={TESTIMONIALS_ROW1} direction="left" />
         <ScrollingRow testimonials={TESTIMONIALS_ROW2} direction="right" />
       </div>
