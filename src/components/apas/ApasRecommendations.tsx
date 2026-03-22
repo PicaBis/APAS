@@ -161,7 +161,7 @@ Format the output beautifully and clearly:
           handled = true;
         }
       } catch {
-        // fall through to Gemini
+        // fall through to OpenRouter
       }
 
       // 2) Fallback to direct OpenRouter API
