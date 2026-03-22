@@ -33,7 +33,6 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
               <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
             </span>
             <h3 className="text-sm font-bold text-foreground tracking-wide">{T.aiPredictions}</h3>
-            <span className="text-[10px] font-mono font-semibold text-green-500 animate-pulse">online</span>
             <div className="flex-1 h-px bg-gradient-to-r from-primary/30 to-transparent" />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 stagger-children">
@@ -91,16 +90,8 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
         </div>
       </div>
 
-      {/* Online indicator badge next to animated border */}
-      <div className="absolute -top-2 right-4 flex items-center gap-1.5 bg-background/95 backdrop-blur-sm rounded-full px-2.5 py-0.5 border border-green-500/30 shadow-sm z-20">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-        </span>
-        <span className="text-[10px] font-mono font-semibold text-green-500 online-text-pulse">online</span>
-      </div>
 
-      {/* Animated border and online text styles */}
+      {/* Animated border styles */}
       <style>{`
         .ai-predictions-border {
           position: relative;
@@ -136,13 +127,6 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
           syntax: '<angle>';
           initial-value: 0deg;
           inherits: false;
-        }
-        .online-text-pulse {
-          animation: onlineTextPulse 2s ease-in-out infinite;
-        }
-        @keyframes onlineTextPulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
         }
       `}</style>
     </div>

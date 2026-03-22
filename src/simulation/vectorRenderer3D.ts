@@ -80,6 +80,16 @@ export function buildVectorArrows(
     }
   }
 
+  // Fluid resistance force (teal) — shown in water environment
+  if (visibility.Ffluid && vectors.velocity.magnitude > 0.1) {
+    const sp = vectors.velocity.magnitude;
+    const fluidDragMag = 998 * sp * sp * 0.001;
+    const dir = new THREE.Vector3(-vectors.velocity.x / sp, -vectors.velocity.y / sp, 0);
+    const len = Math.min(forceScale * 0.7, fluidDragMag * forceScale / Math.max(mass * gravity, 0.01));
+    const a = makeArrow(origin, dir, len, 0x14b8a6);
+    if (a) { scene.add(a); arrows.push(a); }
+  }
+
   // Net force (purple)
   if (visibility.Fnet && vectors.netForce.magnitude > 0.01) {
     const dir = new THREE.Vector3(vectors.netForce.x, vectors.netForce.y, 0);

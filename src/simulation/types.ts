@@ -8,6 +8,7 @@ export interface VectorVisibility {
   Fg: boolean;
   Fd: boolean;
   Fw: boolean;
+  Ffluid: boolean;
   Fnet: boolean;
   acc: boolean;
 }

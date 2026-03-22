@@ -8,9 +8,11 @@ interface Props {
   onToggle: () => void;
   vectorVisibility: VectorVisibility;
   onVectorToggle: (key: keyof VectorVisibility) => void;
+  isWaterEnvironment?: boolean;
+  hydrodynamicEnabled?: boolean;
 }
 
-const VECTORS: { key: keyof VectorVisibility; color: string; labelAr: string; labelEn: string }[] = [
+const BASE_VECTORS: { key: keyof VectorVisibility; color: string; labelAr: string; labelEn: string }[] = [
   { key: 'V', color: '#1a1a1a', labelAr: 'متجه السرعة V', labelEn: 'Velocity V' },
   { key: 'Vx', color: '#3b82f6', labelAr: 'السرعة الأفقية Vx', labelEn: 'Horizontal Vx' },
   { key: 'Vy', color: '#22c55e', labelAr: 'السرعة الرأسية Vy', labelEn: 'Vertical Vy' },
@@ -21,8 +23,16 @@ const VECTORS: { key: keyof VectorVisibility; color: string; labelAr: string; la
   { key: 'acc', color: '#06b6d4', labelAr: 'متجه التسارع a', labelEn: 'Acceleration a' },
 ];
 
-export default function ForceVectorsSection({ lang, showExternalForces, onToggle, vectorVisibility, onVectorToggle }: Props) {
+const FLUID_VECTOR: { key: keyof VectorVisibility; color: string; labelAr: string; labelEn: string } = {
+  key: 'Ffluid', color: '#14b8a6', labelAr: 'قوة مقاومة المائع Ffluid', labelEn: 'Fluid Resistance Ffluid',
+};
+
+export default function ForceVectorsSection({ lang, showExternalForces, onToggle, vectorVisibility, onVectorToggle, isWaterEnvironment = false, hydrodynamicEnabled = false }: Props) {
   const isAr = lang === 'ar';
+  const showFluidVector = isWaterEnvironment && hydrodynamicEnabled;
+  const vectors = showFluidVector
+    ? [...BASE_VECTORS.slice(0, 6), FLUID_VECTOR, ...BASE_VECTORS.slice(6)]
+    : BASE_VECTORS;
 
   return (
     <div className="rounded overflow-hidden">
@@ -38,7 +48,7 @@ export default function ForceVectorsSection({ lang, showExternalForces, onToggle
 
       {showExternalForces && (
         <div className="border border-t-0 border-border/50 rounded-b-lg px-3 py-2 space-y-1">
-          {VECTORS.map((v) => (
+          {vectors.map((v) => (
             <label key={v.key} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-secondary/50 rounded px-1 transition-colors">
               <input
                 type="checkbox"

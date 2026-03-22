@@ -328,7 +328,7 @@ const Index = () => {
 
   // Vector visibility for individual toggle
   const [vectorVisibility, setVectorVisibility] = useState<VectorVisibility>({
-    V: true, Vx: true, Vy: true, Fg: true, Fd: true, Fw: false, Fnet: false, acc: false,
+    V: true, Vx: true, Vy: true, Fg: true, Fd: true, Fw: false, Ffluid: false, Fnet: false, acc: false,
   });
 
   // Unit selections (store selected unit key per param)
@@ -506,8 +506,17 @@ const Index = () => {
     if (env.fluidDensity === 0) {
       sim.setAirResistance(0);
     } else if (env.id === 'underwater') {
+      // Water environment: enable underwater physics so water resistance affects simulation
       sim.setAirResistance(0);
+      advancedPhysics.setIsUnderwater(true);
+      advancedPhysics.setEnableBuoyancy(true);
+      advancedPhysics.setEnableHydrodynamicDrag(true);
+      advancedPhysics.setFluidDensity(env.fluidDensity);
     } else {
+      // Non-water environment: disable underwater physics
+      advancedPhysics.setIsUnderwater(false);
+      advancedPhysics.setEnableBuoyancy(false);
+      advancedPhysics.setEnableHydrodynamicDrag(false);
       if (sim.airResistance === 0 && env.fluidDensity > 0) sim.setAirResistance(0.02);
     }
     playUIClick(sim.isMuted);
@@ -1126,6 +1135,8 @@ const Index = () => {
                       onToggle={() => { sim.setShowExternalForces(!sim.showExternalForces); playClick(sim.isMuted); }}
                       vectorVisibility={vectorVisibility}
                       onVectorToggle={(key) => { setVectorVisibility(prev => ({ ...prev, [key]: !prev[key] })); playClick(sim.isMuted); }}
+                      isWaterEnvironment={currentEnvId === 'underwater'}
+                      hydrodynamicEnabled={advancedPhysics.enableHydrodynamicDrag || advancedPhysics.isUnderwater}
                     />
                     <button
                       onClick={() => { setShowStroboscopicModal(true); playClick(sim.isMuted); }}
@@ -1408,6 +1419,8 @@ const Index = () => {
                         environmentId={currentEnvId}
                         activePresetEmoji={activePresetEmoji}
                         showGrid={showGrid}
+                        enableMagnusSpin={advancedPhysics.enableMagnus && advancedPhysics.spinRate !== 0}
+                        spinRate={advancedPhysics.spinRate}
                         onWebglError={(msg) => {
                           setWebglError(msg);
                           setIs3DMode(false);
