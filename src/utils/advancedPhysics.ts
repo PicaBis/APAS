@@ -436,7 +436,7 @@ export const advancedPhysicsStep = (
 
   // Environmental Physics Coupling — temperature and pressure are informational only;
   // they do NOT modify the simulation density or drag coefficient.
-  const effectiveCd = params.dragCoefficient;
+  let effectiveCd = params.dragCoefficient;
 
   // Underwater / hydrodynamic effects — realistic multi-directional resistance
   const isInFluid = params.isUnderwater;
