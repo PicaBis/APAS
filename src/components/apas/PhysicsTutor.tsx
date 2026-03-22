@@ -26,7 +26,7 @@ interface Props {
   hasModel?: boolean;
 }
 
-const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY ?? '';
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY ?? '';
 
 /** Strip LaTeX artifacts from AI responses */
 function cleanLatex(text: string): string {
@@ -66,7 +66,7 @@ function cleanLatex(text: string): string {
   s = s.replace(/ᵧ/g, 'y');
   return s;
 }
-const OPENROUTER_MODEL = 'google/gemini-2.5-flash';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function getGracefulFallback(text: string, lang: string) {
@@ -94,7 +94,7 @@ You can also ask about: **range, launch angle, initial velocity, and gravity eff
 💡 You can also ask me about **how to use the app** and its features!`;
 }
 
-async function consumeOpenRouterStream(
+async function consumeGroqStream(
   body: ReadableStream<Uint8Array>,
   onChunk: (content: string) => void,
 ) {
@@ -406,22 +406,22 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
         });
 
         if (resp.ok && resp.body) {
-          await consumeOpenRouterStream(resp.body, (chunk) => {
+          await consumeGroqStream(resp.body, (chunk) => {
             analysisResult += chunk;
             setVoiceAnalysisText(analysisResult);
           });
         }
       } catch {
-        // Fallback to direct OpenRouter API
+        // Fallback to direct Groq API
         try {
-          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              Authorization: `Bearer ${GROQ_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: OPENROUTER_MODEL,
+              model: GROQ_MODEL,
               stream: true,
               messages: [
                 { role: 'system', content: 'You are APAS Assistant, an expert physics tutor. Respond concisely for text-to-speech.' },
@@ -431,7 +431,7 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
           });
 
           if (resp.ok && resp.body) {
-            await consumeOpenRouterStream(resp.body, (chunk) => {
+            await consumeGroqStream(resp.body, (chunk) => {
               analysisResult += chunk;
               setVoiceAnalysisText(analysisResult);
             });
@@ -571,7 +571,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
     try {
       let handled = false;
 
-      // 1) PRIMARY: OpenRouter API via edge function
+      // 1) PRIMARY: Groq API via edge function
       try {
         const backupResp = await fetch(EDGE_TUTOR_URL, {
           method: 'POST',
@@ -587,24 +587,24 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
         });
 
         if (backupResp.ok && backupResp.body) {
-          await consumeOpenRouterStream(backupResp.body, upsertAssistant);
+          await consumeGroqStream(backupResp.body, upsertAssistant);
           handled = true;
         }
       } catch (edgeErr) {
-        console.warn('Edge function failed, trying direct OpenRouter:', edgeErr);
+        console.warn('Edge function failed, trying direct Groq:', edgeErr);
       }
 
-      // 2) FALLBACK: Direct OpenRouter API
-      if (!handled && OPENROUTER_API_KEY) {
+      // 2) FALLBACK: Direct Groq API
+      if (!handled && GROQ_API_KEY) {
         try {
-          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              Authorization: `Bearer ${GROQ_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: OPENROUTER_MODEL,
+              model: GROQ_MODEL,
               stream: true,
               messages: [
                 { role: 'system', content: systemPrompt },
@@ -614,7 +614,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
           });
 
           if (resp.ok && resp.body) {
-            await consumeOpenRouterStream(resp.body, upsertAssistant);
+            await consumeGroqStream(resp.body, upsertAssistant);
             handled = true;
           }
         } catch {

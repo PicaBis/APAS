@@ -13,8 +13,8 @@ serve(async (req) => {
   try {
     const { messages, simulationContext } = await req.json();
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
 
     const systemPrompt = `You are APAS Physics Tutor — an expert physics teacher specializing in projectile motion, kinematics, and classical mechanics.
 
@@ -54,14 +54,14 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
 
 Use these values to give contextual explanations when relevant.` : "No simulation is currently active."}`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
@@ -72,7 +72,7 @@ Use these values to give contextual explanations when relevant.` : "No simulatio
 
     if (!response.ok) {
       const t = await response.text();
-      console.error("OpenRouter API error:", response.status, t);
+      console.error("Groq API error:", response.status, t);
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),

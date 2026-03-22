@@ -4,8 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import { Lightbulb, X, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { playClick } from '@/utils/sound';
 
-const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY ?? '';
-const OPENROUTER_MODEL = 'google/gemini-2.5-flash';
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY ?? '';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function cleanLatex(text: string): string {
@@ -161,20 +161,20 @@ Format the output beautifully and clearly:
           handled = true;
         }
       } catch {
-        // fall through to OpenRouter
+        // fall through to Groq
       }
 
-      // 2) Fallback to direct OpenRouter API
-      if (!handled && OPENROUTER_API_KEY) {
+      // 2) Fallback to direct Groq API
+      if (!handled && GROQ_API_KEY) {
         try {
-          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              Authorization: `Bearer ${GROQ_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: OPENROUTER_MODEL,
+              model: GROQ_MODEL,
               stream: true,
               messages: [
                 { role: 'system', content: systemPrompt },
