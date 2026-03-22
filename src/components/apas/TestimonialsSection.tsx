@@ -158,17 +158,22 @@ const TestimonialCard: React.FC<{ testimonial: Testimonial }> = ({ testimonial }
 );
 
 /*
- * Marquee CSS: uses margin-right on each card (NOT flex gap)
- * so translateX(-50%) = exactly one set's width for a perfect seamless loop.
- * No hover pause — continuous movement always, like Windsurf.
+ * Marquee: each card has margin-right for spacing.
+ * We render N copies where N = COPY_COUNT. The keyframe scrolls
+ * exactly (100/N)% so one copy scrolls off and the next takes over
+ * → seamless infinite loop with no gaps, like Windsurf.
+ * No hover pause — continuous movement always.
  */
+const COPY_COUNT = 4; // 4 copies ensures full coverage on ultra-wide screens
+
+const pct = 100 / COPY_COUNT; // 25%
 const marqueeStyles = `
 @keyframes apas-marquee-left {
   from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  to { transform: translateX(-${pct}%); }
 }
 @keyframes apas-marquee-right {
-  from { transform: translateX(-50%); }
+  from { transform: translateX(-${pct}%); }
   to { transform: translateX(0); }
 }
 .apas-marquee-container {
@@ -184,10 +189,10 @@ const marqueeStyles = `
   margin-right: 1rem;
 }
 .apas-marquee-track--left {
-  animation: apas-marquee-left 40s linear infinite;
+  animation: apas-marquee-left 30s linear infinite;
 }
 .apas-marquee-track--right {
-  animation: apas-marquee-right 40s linear infinite;
+  animation: apas-marquee-right 30s linear infinite;
 }
 `;
 
@@ -195,8 +200,8 @@ const ScrollingRow: React.FC<{ testimonials: Testimonial[]; direction: 'left' | 
   testimonials,
   direction,
 }) => {
-  // Exactly 2 copies: translateX(-50%) scrolls exactly one copy's width for seamless loop
-  const items = [...testimonials, ...testimonials];
+  // Repeat COPY_COUNT times: animation scrolls exactly 1/COPY_COUNT of total width
+  const items = Array.from({ length: COPY_COUNT }, () => testimonials).flat();
   const trackClass = `apas-marquee-track ${direction === 'left' ? 'apas-marquee-track--left' : 'apas-marquee-track--right'}`;
 
   return (
