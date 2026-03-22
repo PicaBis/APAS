@@ -569,6 +569,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
           body: JSON.stringify({
             messages: allMessages,
             simulationContext,
+            systemPrompt,
           }),
         });
 
