@@ -138,7 +138,7 @@ const PlatformIcon: React.FC<{ platform: Platform }> = ({ platform }) => {
 
 const TestimonialCard: React.FC<{ testimonial: Testimonial }> = ({ testimonial }) => (
   <div
-    className="flex-shrink-0 w-[340px] sm:w-[380px] p-5 rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group"
+    className="testimonial-card flex-shrink-0 w-[340px] sm:w-[380px] p-5 rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group"
     dir={testimonial.lang === 'ar' ? 'rtl' : 'ltr'}
   >
     <div className="flex items-center gap-3 mb-3">
@@ -157,35 +157,38 @@ const TestimonialCard: React.FC<{ testimonial: Testimonial }> = ({ testimonial }
   </div>
 );
 
+/*
+ * Marquee CSS: uses margin-right on each card (NOT flex gap)
+ * so translateX(-50%) = exactly one set's width for a perfect seamless loop.
+ */
 const marqueeStyles = `
-@keyframes testimonials-scroll-left {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(calc(-50% - 0.5rem)); }
+@keyframes apas-marquee-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
-@keyframes testimonials-scroll-right {
-  0% { transform: translateX(calc(-50% - 0.5rem)); }
-  100% { transform: translateX(0); }
+@keyframes apas-marquee-right {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
 }
-.testimonials-marquee-row {
+.apas-marquee-container {
   overflow: hidden;
   width: 100%;
 }
-.testimonials-track-left {
+.apas-marquee-track {
   display: flex;
-  gap: 1rem;
   width: max-content;
-  animation: testimonials-scroll-left 35s linear infinite;
   will-change: transform;
 }
-.testimonials-track-right {
-  display: flex;
-  gap: 1rem;
-  width: max-content;
-  animation: testimonials-scroll-right 35s linear infinite;
-  will-change: transform;
+.apas-marquee-track .testimonial-card {
+  margin-right: 1rem;
 }
-.testimonials-marquee-row:hover .testimonials-track-left,
-.testimonials-marquee-row:hover .testimonials-track-right {
+.apas-marquee-track--left {
+  animation: apas-marquee-left 60s linear infinite;
+}
+.apas-marquee-track--right {
+  animation: apas-marquee-right 60s linear infinite;
+}
+.apas-marquee-container:hover .apas-marquee-track {
   animation-play-state: paused;
 }
 `;
@@ -194,12 +197,13 @@ const ScrollingRow: React.FC<{ testimonials: Testimonial[]; direction: 'left' | 
   testimonials,
   direction,
 }) => {
-  // Duplicate the list multiple times to ensure no gaps at any screen size
-  const items = [...testimonials, ...testimonials, ...testimonials, ...testimonials];
+  // Exactly 2 copies: translateX(-50%) scrolls exactly one copy's width for seamless loop
+  const items = [...testimonials, ...testimonials];
+  const trackClass = `apas-marquee-track ${direction === 'left' ? 'apas-marquee-track--left' : 'apas-marquee-track--right'}`;
 
   return (
-    <div className="testimonials-marquee-row py-2">
-      <div className={direction === 'left' ? 'testimonials-track-left' : 'testimonials-track-right'}>
+    <div className="apas-marquee-container py-2">
+      <div className={trackClass}>
         {items.map((t, i) => (
           <TestimonialCard key={`${direction}-${t.handle}-${i}`} testimonial={t} />
         ))}
