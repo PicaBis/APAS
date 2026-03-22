@@ -74,7 +74,6 @@ const ExplainableAI = lazy(() => import('@/components/apas/ExplainableAI'));
 const CrowdsourcedAccuracy = lazy(() => import('@/components/apas/CrowdsourcedAccuracy'));
 const AccessibilitySonification = lazy(() => import('@/components/apas/AccessibilitySonification'));
 const DevOpsTesting = lazy(() => import('@/components/apas/DevOpsTesting'));
-const RelativityPanel = lazy(() => import('@/components/apas/RelativityPanel'));
 import { useRelativity } from '@/hooks/useRelativity';
 import { computeDualFrameTrajectory, type DualFrameTrajectory } from '@/utils/relativityPhysics';
 
@@ -1185,13 +1184,8 @@ const Index = () => {
                 )}
               </div>
 
-              {/* Advanced Physics Panel */}
-              <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} />
-
-              {/* Relativity & Reference Frames Panel */}
-              <Suspense fallback={null}>
-                <RelativityPanel lang={lang} relativity={relativity} onPhysicsChange={() => sim.recalculate()} />
-              </Suspense>
+              {/* Advanced Physics Panel (includes Relativity & Reference Frames) */}
+              <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} relativity={relativity} />
 
               {/* Save/Compare — collapsible section */}
               <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">

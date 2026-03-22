@@ -1120,20 +1120,33 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       });
     }
 
-    // Main trajectory
-    const visiblePts = animIdx >= 0 ? trajectoryData.slice(0, animIdx + 1) : trajectoryData;
+    // Main trajectory — use active observer's trajectory when relativity is enabled
+    const isRelObserverSPrime = relativityEnabled && relativityActiveObserver === 'S_prime' && relativityTrajectory && relativityTrajectory.length > 1;
+    const mainTrajData = isRelObserverSPrime ? relativityTrajectory! : trajectoryData;
+    const mainAnimIdx = mainTrajData.findIndex((p) => p.time >= currentTime);
+    const mainCurPt = mainAnimIdx >= 0 ? mainTrajData[mainAnimIdx] : mainTrajData[mainTrajData.length - 1];
+    const visiblePts = mainAnimIdx >= 0 ? mainTrajData.slice(0, mainAnimIdx + 1) : mainTrajData;
 
     if (visiblePts.length > 1) {
       ctx.beginPath();
-      ctx.strokeStyle = colors.trajectory;
+      // Use observer-specific color when relativity is active
+      if (relativityEnabled && relativityShowDual) {
+        const relColor = isRelObserverSPrime
+          ? (relativityMode === 'lorentz' ? '#a855f7' : '#f97316')
+          : (nightMode ? '#22c55e' : '#16a34a');
+        ctx.strokeStyle = relColor;
+      } else {
+        ctx.strokeStyle = colors.trajectory;
+      }
       ctx.lineWidth = 3;
       visiblePts.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y)));
       ctx.stroke();
     }
 
-    // Projectile dot
-    if (curPt) {
-      const bx = toX(curPt.x), by = toY(curPt.y);
+    // Projectile dot — follows active observer's trajectory
+    const activePt = (relativityEnabled && isRelObserverSPrime) ? mainCurPt : curPt;
+    if (activePt) {
+      const bx = toX(activePt.x), by = toY(activePt.y);
 
       // Determine projectile dot state:
       // - animating → green pulsing
@@ -1160,7 +1173,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
       // Draw projectile — use emoji icon if a preset is active
       if (activePresetEmoji) {
-        const moveAngle = Math.atan2(-curPt.vy * sY, curPt.vx * sX);
+        const moveAngle = Math.atan2(-activePt.vy * sY, activePt.vx * sX);
         // Adjust rotation for emoji base orientation:
         // 🚀 points upper-right (~315° or -45°), 🏹 points right (~0°)
         // Other emojis (⚽🏀💣) are roughly symmetric so no offset needed
@@ -1252,12 +1265,12 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         //   screen_dx = vx * sX        (toX derivative)
         //   screen_dy = -vy * sY       (toY derivative, negative because canvas Y is inverted)
         // This screen-space vector is then normalized and scaled for display.
-        const screenVx = curPt.vx * sX;
-        const screenVy = -curPt.vy * sY;  // canvas Y is inverted
+        const screenVx = activePt.vx * sX;
+        const screenVy = -activePt.vy * sY;  // canvas Y is inverted
         const screenVMag = Math.sqrt(screenVx * screenVx + screenVy * screenVy);
 
         // Arrow length proportional to the physics velocity magnitude
-        const vMag = Math.sqrt(curPt.vx * curPt.vx + curPt.vy * curPt.vy);
+        const vMag = Math.sqrt(activePt.vx * activePt.vx + activePt.vy * activePt.vy);
         const vArrowLen = Math.max(1, vMag) * velScale;
 
         // Normalized screen-space direction (tangent to the drawn curve)
@@ -1272,14 +1285,14 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           drawArrow(bx, by, vTx, vTy,
             nightMode ? '#e2e8f0' : '#000000', 'V');
         }
-        if (vectorVisibility.Vx && Math.abs(curPt.vx) > 0.005) {
-          const vxLen = Math.max(minVelArrowLen, Math.abs(curPt.vx) * velScale);
-          const vxSign = curPt.vx >= 0 ? 1 : -1;
+        if (vectorVisibility.Vx && Math.abs(activePt.vx) > 0.005) {
+          const vxLen = Math.max(minVelArrowLen, Math.abs(activePt.vx) * velScale);
+          const vxSign = activePt.vx >= 0 ? 1 : -1;
           drawArrow(bx, by, bx + vxSign * vxLen, by, '#3b82f6', 'Vx');
         }
-        if (vectorVisibility.Vy && Math.abs(curPt.vy) > 0.005) {
-          const vyLen = Math.max(minVelArrowLen, Math.abs(curPt.vy) * velScale);
-          const vySign = curPt.vy >= 0 ? 1 : -1;
+        if (vectorVisibility.Vy && Math.abs(activePt.vy) > 0.005) {
+          const vyLen = Math.max(minVelArrowLen, Math.abs(activePt.vy) * velScale);
+          const vySign = activePt.vy >= 0 ? 1 : -1;
           drawArrow(bx, by, bx, by - vySign * vyLen, '#22c55e', 'Vy');
         }
 
@@ -1295,9 +1308,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
         // Air drag force: Fd = k*v², opposite to velocity direction
         let fdX = 0, fdY = 0;
-        if (airResistance > 0 && curPt.speed > 0.1) {
-          const vrx = curPt.vx - windSpeed;
-          const vry = curPt.vy;
+        if (airResistance > 0 && activePt.speed > 0.1) {
+          const vrx = activePt.vx - windSpeed;
+          const vry = activePt.vy;
           const speedRel = Math.sqrt(vrx * vrx + vry * vry);
           if (speedRel > 0.01) {
             const dragMag = airResistance * speedRel * speedRel;
@@ -1313,7 +1326,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
         // Wind force visualization: shows the wind effect direction
         // Wind creates an additional horizontal push on the projectile
-        if (vectorVisibility.Fw && Math.abs(windSpeed) > 0.01 && curPt.speed > 0.05) {
+        if (vectorVisibility.Fw && Math.abs(windSpeed) > 0.01 && activePt.speed > 0.05) {
           // Wind force component: difference between drag with wind and drag without wind
           const windFx = airResistance > 0 ? airResistance * windSpeed * Math.abs(windSpeed) * 0.5 : windSpeed * 0.1 * mass;
           const fwMag = Math.abs(windFx);
@@ -1326,9 +1339,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
         // ═══ FLUID FRICTION RAY ═══
         // Shows the fluid drag force direction with a distinctive dashed ray
-        if (fluidFrictionRay && curPt.speed > 0.1) {
-          const vrx = curPt.vx - windSpeed;
-          const vry = curPt.vy;
+        if (fluidFrictionRay && activePt.speed > 0.1) {
+          const vrx = activePt.vx - windSpeed;
+          const vry = activePt.vy;
           const speedRel = Math.sqrt(vrx * vrx + vry * vry);
           if (speedRel > 0.01) {
             // Fluid drag magnitude (proportional to v² and fluid density)
@@ -1406,8 +1419,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         // Fnet = sum of all forces (Newton's 2nd law: Fnet = m*a)
         // Use actual acceleration from physics engine for consistency
         if (vectorVisibility.Fnet) {
-          const netFx = mass * curPt.ax;
-          const netFy = mass * curPt.ay;
+          const netFx = mass * activePt.ax;
+          const netFy = mass * activePt.ay;
           const netMag = Math.sqrt(netFx * netFx + netFy * netFy);
           if (netMag > 0.005) {
             const fnetLen = Math.max(minForceArrowLen, (netMag / Math.max(weightForce, 0.01)) * forcePixelBase);
@@ -1419,10 +1432,10 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         // Use ax/ay directly from physics engine TrajectoryPoint data
         // This ensures perfect consistency with the simulation
         if (vectorVisibility.acc) {
-          const accMag = curPt.acceleration;
+          const accMag = activePt.acceleration;
           if (accMag > 0.005) {
             const accLen = Math.max(minAccArrowLen, (accMag / Math.max(gravity, 0.01)) * accPixelBase);
-            drawArrow(bx, by, bx + (curPt.ax / accMag) * accLen, by - (curPt.ay / accMag) * accLen, '#06b6d4', 'a');
+            drawArrow(bx, by, bx + (activePt.ax / accMag) * accLen, by - (activePt.ay / accMag) * accLen, '#06b6d4', 'a');
           }
         }
 
@@ -1586,18 +1599,20 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       ctx.font = `bold ${Math.round(12 * sf)}px IBM Plex Mono, monospace`; ctx.textAlign = 'left';
       const ix2 = iX + 10 * sf, iy2 = iY + headerH + 16 * sf, ls = Math.round(17 * sf);
       // Compute angle relative to horizon and slope
-      const angleHorizon = Math.atan2(curPt.vy, curPt.vx) * 180 / Math.PI;
-      const slopeValue = Math.abs(curPt.vx) > 1e-6 ? curPt.vy / curPt.vx : (curPt.vy >= 0 ? Infinity : -Infinity);
+      // Use active observer's point for info display when relativity is enabled
+      const infoPt = activePt || curPt;
+      const angleHorizon = Math.atan2(infoPt.vy, infoPt.vx) * 180 / Math.PI;
+      const slopeValue = Math.abs(infoPt.vx) > 1e-6 ? infoPt.vy / infoPt.vx : (infoPt.vy >= 0 ? Infinity : -Infinity);
       const slopeStr = isFinite(slopeValue) ? slopeValue.toFixed(3) : (slopeValue >= 0 ? '\u221e' : '-\u221e');
 
       const infoItems: [string, string][] = [
-        [`t: ${curPt.time.toFixed(3)} ${T.c_t}`, colors.infoText],
-        [`X: ${curPt.x.toFixed(2)} ${T.c_xUnit}`, colors.infoText],
-        [`Y: ${curPt.y.toFixed(2)} ${T.c_yUnit}`, colors.infoText],
-        [`V: ${curPt.speed.toFixed(2)} ${T.u_ms}`, colors.infoText],
-        [`Vx: ${curPt.vx.toFixed(2)} ${T.u_ms}`, colors.infoTextDim],
-        [`Vy: ${curPt.vy.toFixed(2)} ${T.u_ms}`, colors.infoTextDim],
-        [`a: ${curPt.acceleration.toFixed(2)} ${T.u_ms2}`, colors.infoTextDim],
+        [`t: ${infoPt.time.toFixed(3)} ${T.c_t}`, colors.infoText],
+        [`X: ${infoPt.x.toFixed(2)} ${T.c_xUnit}`, colors.infoText],
+        [`Y: ${infoPt.y.toFixed(2)} ${T.c_yUnit}`, colors.infoText],
+        [`V: ${infoPt.speed.toFixed(2)} ${T.u_ms}`, colors.infoText],
+        [`Vx: ${infoPt.vx.toFixed(2)} ${T.u_ms}`, colors.infoTextDim],
+        [`Vy: ${infoPt.vy.toFixed(2)} ${T.u_ms}`, colors.infoTextDim],
+        [`a: ${infoPt.acceleration.toFixed(2)} ${T.u_ms2}`, colors.infoTextDim],
         [`\u03b8: ${angleHorizon.toFixed(1)}\u00b0`, colors.infoText],
         [`${lang === 'ar' ? '\u0627\u0644\u0645\u064a\u0644' : 'Slope'}: ${slopeStr}`, colors.infoTextDim],
       ];

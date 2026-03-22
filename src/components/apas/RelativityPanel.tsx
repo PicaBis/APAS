@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { ChevronDown, Eye, Zap, Train, Rocket, Crosshair } from 'lucide-react';
+import { ChevronDown, Eye, Zap, Train, Rocket, Crosshair, Landmark, Car } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -282,28 +282,28 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                       relativity.setActiveObserver('S');
                       handleParamChange();
                     }}
-                    className={`px-2.5 py-2 rounded-lg text-[10px] font-medium border transition-all duration-200 flex items-center gap-1.5 ${
+                    className={`px-2 py-2 rounded-lg text-[10px] font-medium border transition-all duration-200 flex items-center gap-1 min-h-[32px] ${
                       relativity.activeObserver === 'S'
                         ? 'bg-blue-500/15 border-blue-500/40 text-blue-400'
                         : 'border-border/50 text-muted-foreground hover:bg-primary/5'
                     }`}
                   >
-                    <TreePine className="w-3 h-3" />
-                    {T('observerS', lang)}
+                    <Landmark className="w-3 h-3 shrink-0" />
+                    <span className="leading-tight">{T('observerS', lang)}</span>
                   </button>
                   <button
                     onClick={() => {
                       relativity.setActiveObserver('S_prime');
                       handleParamChange();
                     }}
-                    className={`px-2.5 py-2 rounded-lg text-[10px] font-medium border transition-all duration-200 flex items-center gap-1.5 ${
+                    className={`px-2 py-2 rounded-lg text-[10px] font-medium border transition-all duration-200 flex items-center gap-1 min-h-[32px] ${
                       relativity.activeObserver === 'S_prime'
                         ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
                         : 'border-border/50 text-muted-foreground hover:bg-primary/5'
                     }`}
                   >
-                    <Car className="w-3 h-3" />
-                    {T('observerSPrime', lang)}
+                    <Car className="w-3 h-3 shrink-0" />
+                    <span className="leading-tight">{T('observerSPrime', lang)}</span>
                   </button>
                 </div>
               </div>
@@ -330,42 +330,42 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                   {T('presets', lang)}
                 </span>
-                <div className="grid grid-cols-1 gap-1.5">
+                <div className="flex flex-col gap-1.5">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-[10px] h-7 gap-1"
+                    className="text-[10px] h-auto min-h-[28px] py-1.5 px-2 gap-1.5 justify-start w-full"
                     onClick={() => {
                       relativity.applyGalileanPreset();
                       onPhysicsChange?.();
                     }}
                   >
                     <Train className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{T('trainScenario', lang)}</span>
+                    <span className="text-left leading-tight">{T('trainScenario', lang)}</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-[10px] h-7 gap-1"
+                    className="text-[10px] h-auto min-h-[28px] py-1.5 px-2 gap-1.5 justify-start w-full"
                     onClick={() => {
                       relativity.applyMissilePreset();
                       onPhysicsChange?.();
                     }}
                   >
                     <Crosshair className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{T('missileScenario', lang)}</span>
+                    <span className="text-left leading-tight">{T('missileScenario', lang)}</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-[10px] h-7 gap-1"
+                    className="text-[10px] h-auto min-h-[28px] py-1.5 px-2 gap-1.5 justify-start w-full"
                     onClick={() => {
                       relativity.applyLorentzPreset();
                       onPhysicsChange?.();
                     }}
                   >
                     <Rocket className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{T('spaceshipScenario', lang)}</span>
+                    <span className="text-left leading-tight">{T('spaceshipScenario', lang)}</span>
                   </Button>
                 </div>
               </div>

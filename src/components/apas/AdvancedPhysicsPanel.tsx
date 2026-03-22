@@ -3,20 +3,24 @@
  * Provides UI controls for all advanced physics features
  */
 
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { ChevronDown, Cloud, Zap, Droplets, RotateCw, Atom, Thermometer } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { useAdvancedPhysics, type UseAdvancedPhysicsReturn } from '@/hooks/useAdvancedPhysics';
+import type { UseRelativityReturn } from '@/hooks/useRelativity';
 import { toast } from 'sonner';
 import { playSectionToggle, playToggle, playSliderChange } from '@/utils/sound';
+
+const RelativityPanel = lazy(() => import('@/components/apas/RelativityPanel'));
 
 interface AdvancedPhysicsPanelProps {
   lang: string;
   onPhysicsChange?: () => void;
   advancedPhysicsInstance?: UseAdvancedPhysicsReturn;
   environmentId?: string;
+  relativity?: UseRelativityReturn;
 }
 
 const translations = {
@@ -210,7 +214,7 @@ const SectionHeader: React.FC<{
   </button>
 );
 
-export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth' }) => {
+export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth', relativity }) => {
   const isWaterEnvironment = environmentId === 'underwater';
   const [isExpanded, setIsExpanded] = useState(false);
   const [sectionRotational, setSectionRotational] = useState(false);
@@ -628,6 +632,13 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 onValueChange={([v]) => { advanced.setDragCoefficient(v); handleParamChange(); }} />
             </div>
           </div>
+
+          {/* Relativity & Reference Frames (embedded) */}
+          {relativity && (
+            <Suspense fallback={null}>
+              <RelativityPanel lang={lang} relativity={relativity} onPhysicsChange={onPhysicsChange} />
+            </Suspense>
+          )}
 
           {/* Info */}
           <div className="text-[9px] text-muted-foreground text-center border-t border-border pt-2">
