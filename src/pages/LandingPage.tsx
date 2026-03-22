@@ -10,6 +10,8 @@ import ApasLogo from '@/components/apas/ApasLogo';
 import SplashScreen from '@/components/apas/SplashScreen';
 import PageTransition from '@/components/apas/PageTransition';
 import WindParticlesBackground from '@/components/apas/WindParticlesBackground';
+import TestimonialsSection from '@/components/apas/TestimonialsSection';
+import ProfessionalFooter from '@/components/apas/ProfessionalFooter';
 import { playPageTransition, playLandingNav, playThemeToggle, playLangSwitch } from '@/utils/sound';
 
 type Lang = 'ar' | 'en' | 'fr';
@@ -405,6 +407,9 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* Testimonials Section */}
+      <TestimonialsSection lang={lang} />
+
       {/* Comparison Table */}
       <section className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-16">
         <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center mb-8">{t.compTitle}</h2>
@@ -470,10 +475,8 @@ const LandingPage: React.FC = () => {
         </button>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-border/40 bg-background/80 backdrop-blur-sm py-6">
-        <p className="text-xs text-muted-foreground text-center">{t.footer}</p>
-      </footer>
+      {/* Professional Footer */}
+      <ProfessionalFooter lang={lang} />
 
       {/* About Modal */}
       <AboutModal open={showAbout} onClose={() => setShowAbout(false)} lang={lang} />
