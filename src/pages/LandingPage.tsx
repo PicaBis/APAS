@@ -529,7 +529,7 @@ const LandingPage: React.FC = () => {
             {/* Download Button */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
               <a
-                href="https://github.com/PicaBis/APAS/releases/latest/download/APAS.Setup.1.0.0.exe"
+                href="https://github.com/PicaBis/APAS/releases/latest"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-1 transition-all duration-300"
