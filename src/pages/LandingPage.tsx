@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut } from 'lucide-react';
+import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Download, Monitor } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 
@@ -37,6 +37,11 @@ interface LangData {
   compRows: (string | boolean)[][];
   ctaTitle: string;
   ctaBtn: string;
+  downloadTitle: string;
+  downloadSubtitle: string;
+  downloadBtn: string;
+  downloadNote: string;
+  downloadNav: string;
   classroomTitle: string;
   classroomDesc: string;
   classroomBtn: string;
@@ -77,6 +82,11 @@ const LANG_DATA: Record<Lang, LangData> = {
     ],
     ctaTitle: '\u062c\u0627\u0647\u0632 \u0644\u062a\u062c\u0631\u0628\u0629 \u0641\u064a\u0632\u064a\u0627\u0621 \u0627\u0644\u0645\u0642\u0630\u0648\u0641\u0627\u062a \u0628\u0637\u0631\u064a\u0642\u0629 \u062c\u062f\u064a\u062f\u0629\u061f',
     ctaBtn: '\u0627\u0628\u062f\u0623 \u0627\u0644\u0622\u0646',
+    downloadTitle: '\u062d\u0645\u0651\u0644 \u062a\u0637\u0628\u064a\u0642 APAS \u0644\u0633\u0637\u062d \u0627\u0644\u0645\u0643\u062a\u0628',
+    downloadSubtitle: '\u062a\u0637\u0628\u064a\u0642 \u0633\u0637\u062d \u0627\u0644\u0645\u0643\u062a\u0628 \u0644\u0646\u0638\u0627\u0645 Windows \u2014 \u064a\u062d\u0645\u0651\u0644 \u062f\u0627\u0626\u0645\u0627\u064b \u0622\u062e\u0631 \u0625\u0635\u062f\u0627\u0631 \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b',
+    downloadBtn: '\u062a\u062d\u0645\u064a\u0644 \u0644\u0640 Windows x64',
+    downloadNote: '\u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u064a\u062a\u0635\u0644 \u0628\u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a \u0644\u062a\u062d\u0645\u064a\u0644 \u0622\u062e\u0631 \u0627\u0644\u062a\u062d\u062f\u064a\u062b\u0627\u062a \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b',
+    downloadNav: '\u062a\u062d\u0645\u064a\u0644',
     classroomTitle: '\u0646\u0638\u0627\u0645 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0641\u0635\u0648\u0644',
     classroomDesc: '\u0627\u0644\u0623\u0633\u062a\u0627\u0630 \u064a\u0646\u0634\u0626 \u0641\u0635\u0644\u0627\u064b\u060c \u0648\u0627\u0644\u0637\u0644\u0627\u0628 \u064a\u0631\u0641\u0639\u0648\u0646 \u062a\u062c\u0627\u0631\u0628\u0647\u0645 \u2014 \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u062a\u0638\u0647\u0631 \u0645\u0628\u0627\u0634\u0631\u0629 \u0641\u064a \u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645',
     classroomBtn: '\u062f\u062e\u0648\u0644 \u0627\u0644\u0641\u0635\u0644',
@@ -115,6 +125,11 @@ const LANG_DATA: Record<Lang, LangData> = {
     ],
     ctaTitle: 'Ready to experience projectile physics in a new way?',
     ctaBtn: 'Start Now',
+    downloadTitle: 'Download APAS Desktop App',
+    downloadSubtitle: 'Desktop application for Windows — always loads the latest version automatically',
+    downloadBtn: 'Download for Windows x64',
+    downloadNote: 'The app connects to the internet to load the latest updates automatically',
+    downloadNav: 'Download',
     classroomTitle: 'Classroom Management',
     classroomDesc: 'Teachers create a classroom, students submit experiments \u2014 results appear instantly on the teacher dashboard',
     classroomBtn: 'Enter Classroom',
@@ -153,6 +168,11 @@ const LANG_DATA: Record<Lang, LangData> = {
     ],
     ctaTitle: 'Pr\u00eat \u00e0 d\u00e9couvrir la physique des projectiles autrement ?',
     ctaBtn: 'Commencer',
+    downloadTitle: 'T\u00e9l\u00e9charger APAS Desktop',
+    downloadSubtitle: 'Application de bureau pour Windows \u2014 charge toujours la derni\u00e8re version automatiquement',
+    downloadBtn: 'T\u00e9l\u00e9charger pour Windows x64',
+    downloadNote: "L'application se connecte \u00e0 Internet pour charger les derni\u00e8res mises \u00e0 jour",
+    downloadNav: 'T\u00e9l\u00e9charger',
     classroomTitle: 'Gestion de Classe',
     classroomDesc: "L'enseignant cr\u00e9e une classe, les \u00e9tudiants soumettent leurs exp\u00e9riences \u2014 les r\u00e9sultats apparaissent instantan\u00e9ment",
     classroomBtn: 'Entrer en Classe',
@@ -312,6 +332,15 @@ const LandingPage: React.FC = () => {
                 )}
               </>
             )}
+            <a
+              href="#download-section"
+              onClick={(e) => { e.preventDefault(); playLandingNav(muted); document.getElementById('download-section')?.scrollIntoView({ behavior: 'smooth' }); }}
+              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate cursor-pointer"
+              title={t.downloadNav}
+            >
+              <Download className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
+              <span className="hidden sm:inline font-medium">{t.downloadNav}</span>
+            </a>
             <button
               onClick={() => { playLandingNav(muted); setShowAbout(true); }}
               className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
@@ -473,6 +502,53 @@ const LandingPage: React.FC = () => {
           {t.ctaBtn}
           <ArrowRight className={`w-5 h-5 transition-transform duration-300 group-hover:translate-x-1 ${isRTL ? 'rotate-180 group-hover:-translate-x-1' : ''}`} />
         </button>
+      </section>
+
+      {/* Download Desktop App Section */}
+      <section id="download-section" className="relative z-10 w-full">
+        <div className="bg-gradient-to-b from-[#0a1628] to-[#0d1f3c] py-20 sm:py-28">
+          {/* Decorative top border */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+            {/* Badge */}
+            <span className="inline-block text-xs font-mono tracking-[0.3em] uppercase text-primary/80 mb-6">
+              [ {lang === 'ar' ? '\u062a\u0637\u0628\u064a\u0642 \u0633\u0637\u062d \u0627\u0644\u0645\u0643\u062a\u0628' : lang === 'fr' ? 'APPLICATION DESKTOP' : 'DESKTOP APP'} ]
+            </span>
+
+            {/* Title */}
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+              {t.downloadTitle}
+            </h2>
+
+            {/* Subtitle */}
+            <p className="text-base sm:text-lg text-gray-400 mb-10 max-w-xl mx-auto leading-relaxed">
+              {t.downloadSubtitle}
+            </p>
+
+            {/* Download Button */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+              <a
+                href="https://github.com/PicaBis/APAS/releases/latest/download/APAS.Setup.1.0.0.exe"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-1 transition-all duration-300"
+              >
+                <Monitor className="w-5 h-5" />
+                {t.downloadBtn}
+                <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
+              </a>
+            </div>
+
+            {/* Note */}
+            <p className="text-sm text-gray-500">
+              {t.downloadNote}
+            </p>
+          </div>
+
+          {/* Decorative bottom border */}
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+        </div>
       </section>
 
       {/* Professional Footer */}
