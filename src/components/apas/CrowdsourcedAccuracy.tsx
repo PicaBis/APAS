@@ -34,12 +34,6 @@ const T: Record<string, Record<string, string>> = {
     failed: 'فاشل',
     warning: 'تحذير',
     totalScore: 'النتيجة الإجمالية',
-    leaderboard: 'لوحة المتصدرين',
-    rank: 'المرتبة',
-    yourRank: 'مرتبتك',
-    globalAverage: 'المتوسط العالمي',
-    topPercent: 'أفضل من',
-    submitToLeaderboard: 'إرسال إلى لوحة المتصدرين',
     validationCriteria: 'معايير التحقق',
     criterion: 'المعيار',
     status: 'الحالة',
@@ -65,12 +59,6 @@ const T: Record<string, Record<string, string>> = {
     failed: 'Failed',
     warning: 'Warning',
     totalScore: 'Total Score',
-    leaderboard: 'Leaderboard',
-    rank: 'Rank',
-    yourRank: 'Your Rank',
-    globalAverage: 'Global Average',
-    topPercent: 'Better than',
-    submitToLeaderboard: 'Submit to Leaderboard',
     validationCriteria: 'Validation Criteria',
     criterion: 'Criterion',
     status: 'Status',
@@ -96,12 +84,6 @@ const T: Record<string, Record<string, string>> = {
     failed: 'Échoué',
     warning: 'Attention',
     totalScore: 'Score Total',
-    leaderboard: 'Classement',
-    rank: 'Rang',
-    yourRank: 'Votre Rang',
-    globalAverage: 'Moyenne Globale',
-    topPercent: 'Meilleur que',
-    submitToLeaderboard: 'Soumettre au Classement',
     validationCriteria: 'Critères de Validation',
     criterion: 'Critère',
     status: 'Statut',
@@ -285,20 +267,11 @@ const CrowdsourcedAccuracy: React.FC<CrowdsourcedAccuracyProps> = ({
                     <p className="text-[10px] text-muted-foreground mt-1">{t.totalScore}</p>
                   </div>
 
-                  {/* Leaderboard Position */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/30 text-center">
-                      <p className="text-[10px] text-muted-foreground">{t.yourRank}</p>
-                      <p className="text-lg font-bold text-primary">#{Math.max(1, Math.ceil((100 - totalScore) / 5))}</p>
-                    </div>
-                    <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/30 text-center">
-                      <p className="text-[10px] text-muted-foreground">{t.globalAverage}</p>
-                      <p className="text-lg font-bold text-foreground">72%</p>
-                    </div>
-                    <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/30 text-center">
-                      <p className="text-[10px] text-muted-foreground">{t.topPercent}</p>
-                      <p className="text-lg font-bold text-green-500">{Math.min(99, totalScore).toFixed(0)}%</p>
-                    </div>
+                  {/* Local validation notice */}
+                  <div className="p-2.5 rounded-lg bg-secondary/20 border border-border/30 text-center">
+                    <p className="text-[10px] text-muted-foreground">
+                      {lang === 'ar' ? 'تحقق محلي — يتم حساب الدقة بمقارنة النتائج مع المعادلات الفيزيائية النظرية' : 'Local validation — accuracy is calculated by comparing results against theoretical physics equations'}
+                    </p>
                   </div>
 
                   {/* Validation Details */}
