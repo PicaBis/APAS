@@ -683,6 +683,10 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     // Equation Engine trajectory is now rendered as the main trajectory directly
     // (no separate overlay — the equation sets the trajectory data on the canvas)
 
+    // ── Compute current animation point early (needed by relativity comparison box) ──
+    const animIdx = trajectoryData.findIndex((p) => p.time >= currentTime);
+    const curPt = animIdx >= 0 ? trajectoryData[animIdx] : trajectoryData[trajectoryData.length - 1];
+
     // ── Relativity: S' frame trajectory + enhanced visuals ──
     if (relativityEnabled && relativityShowDual && relativityTrajectory && relativityTrajectory.length > 1) {
       const sPrimeColor = relativityMode === 'lorentz' ? '#a855f7' : '#f97316';
@@ -1101,7 +1105,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     }
 
     // Main trajectory
-    const animIdx = trajectoryData.findIndex((p) => p.time >= currentTime);
     const visiblePts = animIdx >= 0 ? trajectoryData.slice(0, animIdx + 1) : trajectoryData;
 
     if (visiblePts.length > 1) {
@@ -1113,7 +1116,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     }
 
     // Projectile dot
-    const curPt = animIdx >= 0 ? trajectoryData[animIdx] : trajectoryData[trajectoryData.length - 1];
     if (curPt) {
       const bx = toX(curPt.x), by = toY(curPt.y);
 
