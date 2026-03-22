@@ -1453,10 +1453,6 @@ const Index = () => {
                           setWebglError(msg);
                           setIs3DMode(false);
                         }}
-                        relativityTrajectory={relativitySPrimeTrajectory}
-                        relativityEnabled={relativity.enabled}
-                        relativityMode={relativity.mode}
-                        relativityShowDual={relativity.showDualTrajectories}
                       />
                       {webglError && (
                         <div className="mt-2 p-2 text-xs text-amber-800 bg-amber-100 border border-amber-300 rounded">

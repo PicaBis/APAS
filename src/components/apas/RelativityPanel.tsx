@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { ChevronDown, Eye, Zap, Train, Rocket, TreePine, Car, Crosshair } from 'lucide-react';
+import { ChevronDown, Eye, Zap, Train, Rocket, Crosshair } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -32,9 +32,9 @@ const translations = {
     frameSPrime: 'الإطار S\' (متحرك)',
     showDual: 'عرض المسارين معاً',
     presets: 'إعدادات مسبقة',
-    trainScenario: 'قطار وكرة (غاليلي)',
+    trainScenario: 'قطار وكرة',
     missileScenario: 'صاروخ ضد طائرة',
-    spaceshipScenario: 'سفينة فضاء (لورنتز)',
+    spaceshipScenario: 'سفينة فضاء',
     speedOfLight: 'سرعة الضوء',
     gamma: 'عامل لورنتز γ',
     timeDilation: 'تمدد الزمن',
@@ -330,7 +330,7 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                   {T('presets', lang)}
                 </span>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-1 gap-1.5">
                   <Button
                     variant="outline"
                     size="sm"
@@ -340,8 +340,8 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                       onPhysicsChange?.();
                     }}
                   >
-                    <Train className="w-3 h-3" />
-                    {T('trainScenario', lang)}
+                    <Train className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{T('trainScenario', lang)}</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -352,8 +352,8 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                       onPhysicsChange?.();
                     }}
                   >
-                    <Crosshair className="w-3 h-3" />
-                    {T('missileScenario', lang)}
+                    <Crosshair className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{T('missileScenario', lang)}</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -364,8 +364,8 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                       onPhysicsChange?.();
                     }}
                   >
-                    <Rocket className="w-3 h-3" />
-                    {T('spaceshipScenario', lang)}
+                    <Rocket className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{T('spaceshipScenario', lang)}</span>
                   </Button>
                 </div>
               </div>
