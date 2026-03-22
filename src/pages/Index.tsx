@@ -243,6 +243,9 @@ const Index = () => {
   const [showComparisonSection, setShowComparisonSection] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
+  const [theme3d, setTheme3d] = useState<'refined-lab' | 'academic-white' | 'technical-dark'>(() => {
+    try { return (localStorage.getItem('apas_theme3d') as 'refined-lab' | 'academic-white' | 'technical-dark') || 'refined-lab'; } catch { return 'refined-lab'; }
+  });
   const [equationTrajectory, setEquationTrajectory] = useState<EquationTrajectoryPoint[] | null>(null);
 
   // ── Undo/Redo History ──
@@ -371,6 +374,10 @@ const Index = () => {
   useEffect(() => {
     try { localStorage.setItem('apas_accentColor', accentColor); } catch { /* ignore */ }
   }, [accentColor]);
+
+  useEffect(() => {
+    try { localStorage.setItem('apas_theme3d', theme3d); } catch { /* ignore */ }
+  }, [theme3d]);
   useEffect(() => {
     try { localStorage.setItem('apas_units', JSON.stringify(selectedUnits)); } catch { /* ignore */ }
   }, [selectedUnits]);
@@ -1421,6 +1428,7 @@ const Index = () => {
                         showGrid={showGrid}
                         enableMagnusSpin={advancedPhysics.enableMagnus && advancedPhysics.spinRate !== 0}
                         spinRate={advancedPhysics.spinRate}
+                        theme3d={theme3d}
                         onWebglError={(msg) => {
                           setWebglError(msg);
                           setIs3DMode(false);
@@ -2345,6 +2353,8 @@ const Index = () => {
         onOpenNoiseFilter={() => setShowNoiseFilter(true)}
         onOpenLiveCalibration={() => setShowLiveCalibration(true)}
         onOpenSecurityPrivacy={() => setShowSecurityPrivacy(true)}
+        theme3d={theme3d}
+        onTheme3dChange={(id) => setTheme3d(id)}
       />
 
       {/* ── Scientific Calculator (floating, draggable) ── */}

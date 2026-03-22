@@ -13,8 +13,9 @@ import {
   buildProjectile,
   buildProjectile3D,
   project3D,
+  getTheme3DConfig,
 } from '@/simulation/sceneBuilder3D';
-import type { TrajectoryMeshes } from '@/simulation/sceneBuilder3D';
+import type { TrajectoryMeshes, Theme3DId } from '@/simulation/sceneBuilder3D';
 
 interface SimulationCanvas3DProps {
   trajectoryData: TrajectoryPoint[];
@@ -42,6 +43,7 @@ interface SimulationCanvas3DProps {
   showGrid?: boolean;
   enableMagnusSpin?: boolean;
   spinRate?: number;
+  theme3d?: Theme3DId;
 }
 
 /** Linearly interpolate between two trajectory points */
@@ -87,7 +89,7 @@ interface PersistentArrows {
   acc: THREE.ArrowHelper;
 }
 
-function createPersistentArrows(scene: THREE.Scene, nightMode: boolean): PersistentArrows {
+function createPersistentArrows(scene: THREE.Scene, nightMode: boolean, themeId: Theme3DId = 'refined-lab'): PersistentArrows {
   const d = new THREE.Vector3(1, 0, 0);
   const o = new THREE.Vector3(0, 0, 0);
   const make = (color: number) => {
@@ -96,8 +98,9 @@ function createPersistentArrows(scene: THREE.Scene, nightMode: boolean): Persist
     scene.add(a);
     return a;
   };
-  // V (velocity) arrow: use white in night mode so it's visible on dark backgrounds
-  const vColor = nightMode ? 0xf0f0f0 : 0x000000;
+  // V (velocity) arrow: adapt to theme for visibility
+  const tc = getTheme3DConfig(themeId);
+  const vColor = nightMode ? 0xf0f0f0 : tc.velocityColor;
   return {
     V: make(vColor), Vx: make(0x3b82f6), Vy: make(0x22c55e),
     Fg: make(0xef4444), Fd: make(0xf59e0b), Ffluid: make(0x14b8a6), Fnet: make(0x8b5cf6), acc: make(0x06b6d4),
@@ -716,6 +719,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   stroboscopicMarks = [], showStroboscopicProjections = false,
   environmentId = 'earth', activePresetEmoji, showGrid = true, onWebglError,
   enableMagnusSpin = false, spinRate = 0,
+  theme3d = 'refined-lab',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -751,6 +755,8 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   const environmentIdRef = useRef(environmentId);
   const enableMagnusSpinRef = useRef(enableMagnusSpin);
   const spinRateRef = useRef(spinRate);
+  const theme3dRef = useRef(theme3d);
+  theme3dRef.current = theme3d;
   onWebglErrorRef.current = onWebglError;
   phiRef.current = phi;
   environmentIdRef.current = environmentId;
@@ -823,7 +829,10 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     rendererRef.current = renderer;
     renderer.setSize(w, h, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
-    renderer.setClearColor(getSceneClearColor(environmentId, nightMode));
+    // Apply theme clear color override, or use environment default
+    const themeConfig = getTheme3DConfig(theme3d);
+    const clearColor = themeConfig.clearColorOverride ?? getSceneClearColor(environmentId, nightMode);
+    renderer.setClearColor(clearColor);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = false;
     // Let CSS control the canvas size so it always fills its container
@@ -881,11 +890,11 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     }
 
     // Static scene elements
-    const groundGrid = buildGround(scene, bounds, nightMode);
+    const groundGrid = buildGround(scene, bounds, nightMode, theme3d);
     groundGrid.visible = showGrid;
     gridRef.current = groundGrid;
-    buildAxes(scene, bounds, nightMode);
-    const trajMeshes = buildTrajectory(scene, trajectoryData, nightMode, bounds, phiRad);
+    buildAxes(scene, bounds, nightMode, theme3d);
+    const trajMeshes = buildTrajectory(scene, trajectoryData, nightMode, bounds, phiRad, theme3d);
     trajectoryMeshesRef.current = trajMeshes;
 
     if (showCriticalPoints && prediction) {
@@ -906,7 +915,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     projectile.position.copy(initPos3D);
 
     // Persistent vector arrows (created once, updated in-place each frame)
-    const arrows = createPersistentArrows(scene, nightMode);
+    const arrows = createPersistentArrows(scene, nightMode, theme3d);
     arrowsRef.current = arrows;
 
     // Controls -- smooth damping for stable camera
@@ -1115,7 +1124,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
       projectileRef.current = null;
       rendererRef.current = null;
     };
-  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance]);
+  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance, theme3d]);
 
   // ── Toggle 3D grid visibility ──
   useEffect(() => {
