@@ -13,8 +13,8 @@ serve(async (req) => {
   try {
     const { imageBase64, mimeType, lang } = await req.json();
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
 
     const isAr = lang === "ar";
 
@@ -84,14 +84,14 @@ Then provide a SHORT analysis in ${isAr ? "Arabic" : "English"}:
 
 IMPORTANT: Each value MUST be justified by what you actually SEE in this specific image. Never use default/template values.`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "openai/gpt-4o",
         temperature: 0.4,
         max_tokens: 1500,
         messages: [
@@ -117,7 +117,7 @@ IMPORTANT: Each value MUST be justified by what you actually SEE in this specifi
 
     if (!response.ok) {
       const t = await response.text();
-      console.error("OpenAI API error:", response.status, t);
+      console.error("OpenRouter API error:", response.status, t);
       return new Response(
         JSON.stringify({ error: `AI error: ${response.status}` }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
