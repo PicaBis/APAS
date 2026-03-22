@@ -417,6 +417,20 @@ export const playSpeedChange = (muted: boolean) => {
   try { playTone('sine', 600, 750, 0.025, 0.06); } catch { /* ignore */ }
 };
 
+/**
+ * Explicitly close the AudioContext and clean up module-level state.
+ * Call this when the app unmounts or sound is no longer needed.
+ */
+export const cleanupAudio = () => {
+  try {
+    stopWhizz();
+    if (audioCtx) {
+      audioCtx.close().catch(() => {});
+      audioCtx = null;
+    }
+  } catch { /* ignore */ }
+};
+
 // Guided tour step transition sound (gentle chime)
 export const playTourTransition = (muted: boolean) => {
   if (muted) return;

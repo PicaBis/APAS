@@ -121,8 +121,6 @@ function createMenu() {
         { role: 'resetZoom', label: 'حجم افتراضي' },
         { type: 'separator' },
         { role: 'togglefullscreen', label: 'شاشة كاملة' },
-        { type: 'separator' },
-        { role: 'toggleDevTools', label: 'أدوات المطور' },
       ],
     },
     {

@@ -185,6 +185,17 @@ export const calculateTrajectory = (
   projectileRadius = 0.05, // m — radius for Magnus force calculation
   advancedParams?: AdvancedPhysicsParams | null // Optional advanced physics params
 ) => {
+  // Input validation: clamp to physically reasonable ranges
+  velocity = Math.max(0, isFinite(velocity) ? velocity : 0);
+  angle = isFinite(angle) ? angle : 45;
+  height = isFinite(height) ? Math.max(0, height) : 0;
+  gravity = isFinite(gravity) ? Math.max(0, gravity) : 9.81;
+  airResistance = isFinite(airResistance) ? Math.max(0, airResistance) : 0;
+  mass = isFinite(mass) ? Math.max(0.001, mass) : 1;
+  bounceCOR = isFinite(bounceCOR) ? Math.max(0, Math.min(1, bounceCOR)) : 0.6;
+  maxBounces = isFinite(maxBounces) ? Math.max(0, Math.min(100, maxBounces)) : 5;
+  windSpeed = isFinite(windSpeed) ? windSpeed : 0;
+  projectileRadius = isFinite(projectileRadius) ? Math.max(0.001, projectileRadius) : 0.05;
   const angleRad = (angle * Math.PI) / 180;
   const vx0 = velocity * Math.cos(angleRad);
   const vy0 = velocity * Math.sin(angleRad);
@@ -376,23 +387,34 @@ export const calculateTrajectory = (
     // Ground hit detection: only trigger if the projectile crosses y=0 from above
     // or started at y>=0 and comes back down
     if (y <= 0 && wasAboveGround && height >= 0) {
+      // Interpolate to find exact ground crossing point
+      const prevPt = points.length > 0 ? points[points.length - 1] : null;
+      if (prevPt && prevPt.y > 0 && y < 0) {
+        const frac = prevPt.y / (prevPt.y - y);
+        x = prevPt.x + (x - prevPt.x) * frac;
+        vx = prevPt.vx + (vx - prevPt.vx) * frac;
+        vy = prevPt.vy + (vy - prevPt.vy) * frac;
+        t = prevPt.time + (t - prevPt.time) * frac;
+      }
+      y = 0;
+
       if (enableBounce && bounces < maxBounces && Math.abs(vy) > 0.3) {
-        y = 0;
         vy = -vy * bounceCOR; // reverse and dampen
         vx = vx * (0.9 + bounceCOR * 0.1); // friction
         bounces++;
         bounceEvents.push(points.length);
       } else {
-        y = 0;
         addPoint();
         break;
       }
     }
 
-    // For downward launches from ground level, stop when projectile goes too far below
-    if (height === 0 && vy0 < 0 && y < -500) {
-      break;
-    }
+      // For downward launches from ground level, stop when projectile goes too far below
+      // Use 10x initial height (min 100m) as lower bound instead of magic -500
+      const lowerBound = -Math.max(100, height * 10);
+      if (height === 0 && vy0 < 0 && y < lowerBound) {
+        break;
+      }
 
     if (y >= 0) wasAboveGround = true;
   }
@@ -416,7 +438,8 @@ export const calculateTrajectory = (
       const yt = height + vy0 * tt - 0.5 * gravity * tt * tt;
       // For angles pointing downward (vy0 < 0), allow negative Y until a limit
       if (vy0 >= 0 && yt < 0) break;
-      if (vy0 < 0 && yt < -500) break;
+      const theoLowerBound = -Math.max(100, height * 10);
+      if (vy0 < 0 && yt < theoLowerBound) break;
       theoPoints.push({ x: r3(xt), y: r3(yt), time: r3(tt) });
       iter++;
     }

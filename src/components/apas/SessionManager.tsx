@@ -22,6 +22,25 @@ export interface SessionData {
 }
 
 const STORAGE_KEY = 'apas_sessions';
+const MAX_STRING_LENGTH = 10000;
+
+function isValidSessionData(item: unknown): item is SessionData {
+  if (typeof item !== 'object' || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  if (typeof obj.name !== 'string' || obj.name.length > MAX_STRING_LENGTH) return false;
+  if (typeof obj.timestamp !== 'number' || !isFinite(obj.timestamp)) return false;
+  if (typeof obj.params !== 'object' || obj.params === null) return false;
+  const p = obj.params as Record<string, unknown>;
+  const numFields = ['velocity', 'angle', 'height', 'gravity', 'airResistance', 'mass', 'windSpeed', 'bounceCoefficient'];
+  for (const f of numFields) {
+    if (typeof p[f] !== 'number' || !isFinite(p[f] as number)) return false;
+  }
+  if (typeof p.environmentId !== 'string' || (p.environmentId as string).length > 100) return false;
+  if (typeof p.nightMode !== 'boolean') return false;
+  if (typeof p.integrationMethod !== 'string') return false;
+  if (typeof p.enableBounce !== 'boolean') return false;
+  return true;
+}
 
 function loadSessions(): SessionData[] {
   try {
@@ -108,13 +127,14 @@ export default function SessionManager({
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const imported = JSON.parse(reader.result as string) as SessionData[];
-          if (Array.isArray(imported)) {
-            const merged = [...imported, ...sessions].slice(0, 50);
-            saveSessions(merged);
-            setSessions(merged);
-            playUIClick(muted);
-          }
+          const raw = JSON.parse(reader.result as string);
+          if (!Array.isArray(raw)) return;
+          const validated = raw.filter(isValidSessionData).slice(0, 50);
+          if (validated.length === 0) return;
+          const merged = [...validated, ...sessions].slice(0, 50);
+          saveSessions(merged);
+          setSessions(merged);
+          playUIClick(muted);
         } catch { /* ignore invalid files */ }
       };
       reader.readAsText(file);

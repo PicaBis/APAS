@@ -40,6 +40,8 @@ interface OpenWeatherResponse {
 // Cache for weather data
 const weatherCache = new Map<string, { data: WeatherData; timestamp: number }>();
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+const MIN_REQUEST_INTERVAL = 5000; // 5 seconds minimum between API calls
+let lastRequestTimestamp = 0;
 
 /**
  * Calculate air density from temperature and pressure
@@ -93,7 +95,7 @@ export const getWeatherData = async (
   longitude: number,
   apiKey?: string
 ): Promise<WeatherData | null> => {
-  const cacheKey = `${latitude.toFixed(2)}_${longitude.toFixed(2)}`;
+  const cacheKey = `${latitude.toFixed(4)}_${longitude.toFixed(4)}`;
   
   // Check cache
   const cached = weatherCache.get(cacheKey);
@@ -101,6 +103,13 @@ export const getWeatherData = async (
     return cached.data;
   }
   
+  // Rate limiting: enforce minimum interval between API calls
+  const now = Date.now();
+  if (now - lastRequestTimestamp < MIN_REQUEST_INTERVAL) {
+    return null;
+  }
+  lastRequestTimestamp = now;
+
   try {
     // Use free API if no key provided
     const url = apiKey

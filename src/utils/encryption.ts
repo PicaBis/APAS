@@ -7,8 +7,10 @@ const ALGORITHM = 'AES-GCM';
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12;
 
-// Derive a CryptoKey from a passphrase
-async function deriveKey(passphrase: string): Promise<CryptoKey> {
+const SALT_LENGTH = 16;
+
+// Derive a CryptoKey from a passphrase and salt
+async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
@@ -21,7 +23,7 @@ async function deriveKey(passphrase: string): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: encoder.encode('apas-salt-v1'),
+      salt,
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -49,7 +51,8 @@ function getPassphrase(): string {
  * Returns a base64-encoded string containing the IV + ciphertext
  */
 export async function encryptData(plaintext: string): Promise<string> {
-  const key = await deriveKey(getPassphrase());
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const key = await deriveKey(getPassphrase(), salt);
   const encoder = new TextEncoder();
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
 
@@ -59,10 +62,12 @@ export async function encryptData(plaintext: string): Promise<string> {
     encoder.encode(plaintext)
   );
 
-  // Combine IV + ciphertext
-  const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
-  combined.set(iv);
-  combined.set(new Uint8Array(ciphertext), iv.length);
+  // Combine salt + IV + ciphertext
+  const ctBytes = new Uint8Array(ciphertext);
+  const combined = new Uint8Array(salt.length + iv.length + ctBytes.length);
+  combined.set(salt);
+  combined.set(iv, salt.length);
+  combined.set(ctBytes, salt.length + iv.length);
 
   return btoa(String.fromCharCode(...combined));
 }
@@ -71,13 +76,29 @@ export async function encryptData(plaintext: string): Promise<string> {
  * Decrypt a base64-encoded AES-GCM encrypted string
  */
 export async function decryptData(encryptedBase64: string): Promise<string> {
-  const key = await deriveKey(getPassphrase());
   const combined = new Uint8Array(
     atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
   );
 
-  const iv = combined.slice(0, IV_LENGTH);
-  const ciphertext = combined.slice(IV_LENGTH);
+  // New format: salt + IV + ciphertext
+  // Legacy format (no salt): IV + ciphertext
+  const hasRandomSalt = combined.length > SALT_LENGTH + IV_LENGTH;
+  let salt: Uint8Array;
+  let iv: Uint8Array;
+  let ciphertext: Uint8Array;
+
+  if (hasRandomSalt && combined.length > SALT_LENGTH + IV_LENGTH + 1) {
+    salt = combined.slice(0, SALT_LENGTH);
+    iv = combined.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
+    ciphertext = combined.slice(SALT_LENGTH + IV_LENGTH);
+  } else {
+    // Legacy fallback: hardcoded salt
+    salt = new TextEncoder().encode('apas-salt-v1\0\0\0\0');
+    iv = combined.slice(0, IV_LENGTH);
+    ciphertext = combined.slice(IV_LENGTH);
+  }
+
+  const key = await deriveKey(getPassphrase(), salt);
 
   const plaintext = await crypto.subtle.decrypt(
     { name: ALGORITHM, iv },

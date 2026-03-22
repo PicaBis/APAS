@@ -543,13 +543,32 @@ export const advancedPhysicsStep = (
     ay = relCorr.ay;
   }
 
-  // Velocity Verlet integration (more accurate than Euler, simpler than RK4)
+  // Full Velocity Verlet integration:
   // x(t+dt) = x(t) + v(t)*dt + 0.5*a(t)*dt^2
-  // v(t+dt) = v(t) + a(t)*dt
+  // v(t+dt) = v(t) + 0.5*(a(t) + a(t+dt))*dt
+  // Step 1: Update position using current velocity and acceleration
   const newX = x + vx * dt + 0.5 * ax * dt * dt;
   const newY = y + vy * dt + 0.5 * ay * dt * dt;
-  const newVx = vx + ax * dt;
-  const newVy = vy + ay * dt;
+  // Step 2: Estimate new velocity with Euler (for computing a(t+dt))
+  const halfVx = vx + ax * dt;
+  const halfVy = vy + ay * dt;
+  // Step 3: Recompute acceleration at new position with estimated velocity
+  // We use gravity + basic drag as a lightweight re-evaluation
+  const newVrx = halfVx - params.windSpeed;
+  const newVry = halfVy;
+  const newSpeedRel = Math.sqrt(newVrx * newVrx + newVry * newVry);
+  let ax2 = 0;
+  let ay2 = -params.gravity;
+  if (!isInFluid && newSpeedRel > 0.01) {
+    const newDragAccel = calculateAdvancedDrag(
+      newSpeedRel, params.mass, params.diameter, effectiveDensity, effectiveCd
+    );
+    ax2 -= (newDragAccel * newVrx) / newSpeedRel;
+    ay2 -= (newDragAccel * newVry) / newSpeedRel;
+  }
+  // Step 4: Final velocity using average of old and new accelerations
+  const newVx = vx + 0.5 * (ax + ax2) * dt;
+  const newVy = vy + 0.5 * (ay + ay2) * dt;
 
   return { x: newX, y: newY, vx: newVx, vy: newVy, ax, ay };
 };
