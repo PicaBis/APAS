@@ -683,27 +683,136 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     // Equation Engine trajectory is now rendered as the main trajectory directly
     // (no separate overlay — the equation sets the trajectory data on the canvas)
 
-    // ── Relativity: S' frame trajectory ──
+    // ── Relativity: S' frame trajectory + enhanced visuals ──
     if (relativityEnabled && relativityShowDual && relativityTrajectory && relativityTrajectory.length > 1) {
-      // Also include S' trajectory in domain calculations is handled above
-      // Draw S' trajectory as dashed line with distinct color
-      const sPrimeColor = relativityMode === 'lorentz' ? '#a855f7' : '#f97316'; // purple for Lorentz, orange for Galilean
+      const sPrimeColor = relativityMode === 'lorentz' ? '#a855f7' : '#f97316';
+      const sColor = nightMode ? '#22c55e' : '#16a34a';
+
+      // ── Draw S' trajectory as dashed line ──
       ctx.beginPath();
       ctx.strokeStyle = sPrimeColor;
       ctx.lineWidth = 2.5;
       ctx.setLineDash([8, 5]);
-      relativityTrajectory.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y)));
+      const sPrimeAnimIdx = relativityTrajectory.findIndex((p) => p.time >= currentTime);
+      const visibleSPrime = sPrimeAnimIdx >= 0 ? relativityTrajectory.slice(0, sPrimeAnimIdx + 1) : relativityTrajectory;
+      visibleSPrime.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y)));
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Draw velocity vector indicator for frame S'
+      // ── Animated S' projectile dot ──
+      const curSPrimePt = sPrimeAnimIdx >= 0 ? relativityTrajectory[sPrimeAnimIdx] : relativityTrajectory[relativityTrajectory.length - 1];
+      if (curSPrimePt) {
+        const spx = toX(curSPrimePt.x), spy = toY(curSPrimePt.y);
+        const spPulseR = isAnimating ? 7 + 3 * Math.sin(Date.now() / 300 + 1) : 7;
+
+        // Glow ring
+        if (isAnimating) {
+          const glowA = 0.2 + 0.12 * Math.sin(Date.now() / 300 + 1);
+          ctx.beginPath();
+          ctx.fillStyle = relativityMode === 'lorentz'
+            ? `rgba(168, 85, 247, ${glowA})`
+            : `rgba(249, 115, 22, ${glowA})`;
+          ctx.arc(spx, spy, spPulseR + 6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Ring-style dot for S'
+        ctx.beginPath();
+        ctx.arc(spx, spy, spPulseR, 0, Math.PI * 2);
+        ctx.strokeStyle = sPrimeColor;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(spx, spy, spPulseR - 2, 0, Math.PI * 2);
+        ctx.fillStyle = sPrimeColor + '40';
+        ctx.fill();
+        // Label "S'"
+        ctx.fillStyle = sPrimeColor;
+        ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText("S'", spx, spy - spPulseR - 8);
+      }
+
+      // ── Moving frame S' coordinate axes (x', y') ──
+      // The origin of S' at time t is at x = frameVelocity * t in S coordinates
+      const sPrimeOriginX = relativityFrameVelocity * currentTime;
+      const sPrimeOX = toX(sPrimeOriginX);
+      const sPrimeOY = groundY;
+      // Only draw if within visible plot area
+      if (sPrimeOX > ML - 20 && sPrimeOX < ML + plotW + 20) {
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        // x' axis
+        ctx.beginPath();
+        ctx.strokeStyle = sPrimeColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        const xAxisLen = Math.min(plotW * 0.25, 120);
+        ctx.moveTo(sPrimeOX, sPrimeOY);
+        ctx.lineTo(sPrimeOX + xAxisLen, sPrimeOY);
+        ctx.stroke();
+        // x' arrowhead
+        ctx.beginPath();
+        ctx.fillStyle = sPrimeColor;
+        ctx.moveTo(sPrimeOX + xAxisLen, sPrimeOY);
+        ctx.lineTo(sPrimeOX + xAxisLen - 8, sPrimeOY - 4);
+        ctx.lineTo(sPrimeOX + xAxisLen - 8, sPrimeOY + 4);
+        ctx.closePath();
+        ctx.fill();
+        // y' axis
+        ctx.beginPath();
+        ctx.setLineDash([6, 3]);
+        const yAxisLen = Math.min(plotH * 0.25, 100);
+        ctx.moveTo(sPrimeOX, sPrimeOY);
+        ctx.lineTo(sPrimeOX, sPrimeOY - yAxisLen);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // y' arrowhead
+        ctx.beginPath();
+        ctx.moveTo(sPrimeOX, sPrimeOY - yAxisLen);
+        ctx.lineTo(sPrimeOX - 4, sPrimeOY - yAxisLen + 8);
+        ctx.lineTo(sPrimeOX + 4, sPrimeOY - yAxisLen + 8);
+        ctx.closePath();
+        ctx.fill();
+        // Labels
+        ctx.font = `bold ${Math.round(12 * sf)}px IBM Plex Mono, monospace`;
+        ctx.fillStyle = sPrimeColor;
+        ctx.textAlign = 'left';
+        ctx.fillText("x'", sPrimeOX + xAxisLen - 4, sPrimeOY - 10);
+        ctx.fillText("y'", sPrimeOX + 8, sPrimeOY - yAxisLen + 4);
+        // Origin label
+        ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText("O'", sPrimeOX, sPrimeOY + 16);
+        ctx.restore();
+      }
+
+      // ── Stationary frame S coordinate axes labels (x, y) ──
+      ctx.save();
+      ctx.globalAlpha = 0.8;
+      ctx.font = `bold ${Math.round(12 * sf)}px IBM Plex Mono, monospace`;
+      ctx.fillStyle = sColor;
+      // "x" label near the positive x-axis end
+      if (domMaxX > 0.1) {
+        ctx.textAlign = 'right';
+        ctx.fillText('x', ML + plotW - 8, groundY - 10);
+      }
+      // "y" label near the positive y-axis end
+      if (domMaxY > 0.1 && originX >= ML && originX <= ML + plotW) {
+        ctx.textAlign = 'left';
+        ctx.fillText('y', originX + 10, MT + 16);
+      }
+      // "O" label at origin
+      ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('O', originX, groundY + 16);
+      ctx.restore();
+
+      // ── Draw velocity vector indicator for frame S' ──
       if (relativityFrameVelocity !== 0) {
         const vIndicatorLen = Math.min(plotW * 0.12, Math.abs(relativityFrameVelocity) * 0.5);
         const vDir = relativityFrameVelocity > 0 ? 1 : -1;
         const viX = ML + plotW * 0.85;
         const viY = MT + 25;
-
-        // Frame velocity arrow
         ctx.save();
         ctx.strokeStyle = sPrimeColor;
         ctx.fillStyle = sPrimeColor;
@@ -713,7 +822,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         ctx.moveTo(viX, viY);
         ctx.lineTo(viX + vDir * vIndicatorLen, viY);
         ctx.stroke();
-        // Arrowhead
         const headLen = 8;
         ctx.beginPath();
         ctx.moveTo(viX + vDir * vIndicatorLen, viY);
@@ -721,52 +829,218 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         ctx.lineTo(viX + vDir * vIndicatorLen - vDir * headLen, viY + 4);
         ctx.closePath();
         ctx.fill();
-        // Label
         ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
         ctx.textAlign = 'center';
         ctx.fillText("V_S'", viX + vDir * vIndicatorLen * 0.5, viY - 10);
         ctx.restore();
       }
 
-      // Relativity legend
+      // ── Stationary frame objects: building, flag, person (at S origin) ──
+      const sObjX = toX(0);
+      const sObjY = groundY;
+      ctx.save();
+      // Building
+      const bldgX = sObjX - 30;
+      ctx.fillStyle = nightMode ? '#475569' : '#94a3b8';
+      ctx.fillRect(bldgX, sObjY - 35, 16, 35);
+      ctx.fillStyle = nightMode ? '#fbbf24' : '#fcd34d';
+      // Windows
+      for (let wr = 0; wr < 3; wr++) {
+        ctx.fillRect(bldgX + 3, sObjY - 32 + wr * 11, 4, 4);
+        ctx.fillRect(bldgX + 9, sObjY - 32 + wr * 11, 4, 4);
+      }
+      // Flag
+      const flagX = sObjX + 5;
+      ctx.fillStyle = nightMode ? '#64748b' : '#6b7280';
+      ctx.fillRect(flagX, sObjY - 40, 2, 40);
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(flagX + 2, sObjY - 40);
+      ctx.lineTo(flagX + 18, sObjY - 34);
+      ctx.lineTo(flagX + 2, sObjY - 28);
+      ctx.closePath();
+      ctx.fill();
+      // Person / Observer
+      const personX = sObjX + 28;
+      ctx.fillStyle = nightMode ? '#e2e8f0' : '#374151';
+      // Head
+      ctx.beginPath();
+      ctx.arc(personX, sObjY - 24, 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Body
+      ctx.beginPath();
+      ctx.moveTo(personX, sObjY - 20);
+      ctx.lineTo(personX, sObjY - 8);
+      ctx.strokeStyle = nightMode ? '#e2e8f0' : '#374151';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Arms
+      ctx.beginPath();
+      ctx.moveTo(personX - 6, sObjY - 16);
+      ctx.lineTo(personX + 6, sObjY - 16);
+      ctx.stroke();
+      // Legs
+      ctx.beginPath();
+      ctx.moveTo(personX, sObjY - 8);
+      ctx.lineTo(personX - 5, sObjY);
+      ctx.moveTo(personX, sObjY - 8);
+      ctx.lineTo(personX + 5, sObjY);
+      ctx.stroke();
+      // "S" label
+      ctx.fillStyle = sColor;
+      ctx.font = `bold ${Math.round(11 * sf)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('S', sObjX, sObjY - 44);
+      ctx.restore();
+
+      // ── Moving frame object: car (Galilean) or rocket (Lorentz) ──
+      const vehicleX = sPrimeOX;
+      const vehicleY = groundY;
+      ctx.save();
+      if (relativityMode === 'lorentz') {
+        // Rocket shape for Lorentz
+        ctx.fillStyle = '#a855f7';
+        ctx.beginPath();
+        ctx.moveTo(vehicleX + 18, vehicleY - 12);
+        ctx.lineTo(vehicleX - 8, vehicleY - 18);
+        ctx.lineTo(vehicleX - 14, vehicleY - 12);
+        ctx.lineTo(vehicleX - 8, vehicleY - 6);
+        ctx.closePath();
+        ctx.fill();
+        // Flame
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.moveTo(vehicleX - 14, vehicleY - 14);
+        ctx.lineTo(vehicleX - 22, vehicleY - 12);
+        ctx.lineTo(vehicleX - 14, vehicleY - 10);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        // Car shape for Galilean
+        // Body
+        ctx.fillStyle = sPrimeColor;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(vehicleX - 18, vehicleY - 14, 36, 10, 3);
+        } else {
+          ctx.rect(vehicleX - 18, vehicleY - 14, 36, 10);
+        }
+        ctx.fill();
+        // Cabin
+        ctx.fillStyle = sPrimeColor + 'cc';
+        ctx.beginPath();
+        ctx.moveTo(vehicleX - 6, vehicleY - 14);
+        ctx.lineTo(vehicleX - 2, vehicleY - 22);
+        ctx.lineTo(vehicleX + 12, vehicleY - 22);
+        ctx.lineTo(vehicleX + 16, vehicleY - 14);
+        ctx.closePath();
+        ctx.fill();
+        // Window
+        ctx.fillStyle = nightMode ? '#93c5fd' : '#bfdbfe';
+        ctx.beginPath();
+        ctx.moveTo(vehicleX, vehicleY - 15);
+        ctx.lineTo(vehicleX + 2, vehicleY - 20);
+        ctx.lineTo(vehicleX + 10, vehicleY - 20);
+        ctx.lineTo(vehicleX + 12, vehicleY - 15);
+        ctx.closePath();
+        ctx.fill();
+        // Wheels
+        ctx.fillStyle = nightMode ? '#1e293b' : '#1f2937';
+        ctx.beginPath();
+        ctx.arc(vehicleX - 10, vehicleY - 3, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(vehicleX + 10, vehicleY - 3, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // "S'" label above vehicle
+      ctx.fillStyle = sPrimeColor;
+      ctx.font = `bold ${Math.round(11 * sf)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText("S'", vehicleX, vehicleY - 26);
+      ctx.restore();
+
+      // ── Live comparison info box ──
+      if (curSPrimePt && curPt) {
+        const cmpW = Math.round(200 * sf);
+        const cmpH = Math.round(110 * sf);
+        const cmpX = ML + 8;
+        const cmpY = MT + 8;
+        ctx.save();
+        ctx.fillStyle = colors.legendBg;
+        ctx.strokeStyle = colors.legendBorder;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.92;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cmpX, cmpY, cmpW, cmpH, 6); ctx.fill(); ctx.stroke(); }
+        else { ctx.fillRect(cmpX, cmpY, cmpW, cmpH); ctx.strokeRect(cmpX, cmpY, cmpW, cmpH); }
+        ctx.globalAlpha = 1;
+        // Header
+        const cmpHeaderH = Math.round(20 * sf);
+        ctx.fillStyle = colors.infoHeader;
+        ctx.fillRect(cmpX + 1, cmpY + 1, cmpW - 2, cmpHeaderH);
+        ctx.fillStyle = colors.infoText;
+        ctx.font = `bold ${Math.round(10 * sf)}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(lang === 'ar' ? 'مقارنة الإطارين' : lang === 'fr' ? 'Comparaison' : 'Frame Comparison', cmpX + cmpW / 2, cmpY + cmpHeaderH - 5);
+        // Data rows
+        ctx.font = `bold ${Math.round(9 * sf)}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'left';
+        const rowH = Math.round(14 * sf);
+        const col1X = cmpX + 6;
+        const col2X = cmpX + cmpW * 0.52;
+        let rowY = cmpY + cmpHeaderH + rowH;
+        // Column headers
+        ctx.fillStyle = sColor;
+        ctx.fillText('S', col1X, rowY);
+        ctx.fillStyle = sPrimeColor;
+        ctx.fillText("S'", col2X, rowY);
+        rowY += rowH;
+        // Position
+        ctx.fillStyle = colors.infoText;
+        ctx.fillText(`x=${curPt.x.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`x'=${curSPrimePt.x.toFixed(1)}`, col2X, rowY);
+        rowY += rowH;
+        ctx.fillText(`y=${curPt.y.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`y'=${curSPrimePt.y.toFixed(1)}`, col2X, rowY);
+        rowY += rowH;
+        // Velocity
+        ctx.fillStyle = colors.infoTextDim;
+        ctx.fillText(`Vx=${curPt.vx.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`Vx'=${curSPrimePt.vx.toFixed(1)}`, col2X, rowY);
+        rowY += rowH;
+        ctx.fillText(`Vy=${curPt.vy.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`Vy'=${curSPrimePt.vy.toFixed(1)}`, col2X, rowY);
+        rowY += rowH;
+        // Speed
+        ctx.fillStyle = colors.infoText;
+        ctx.fillText(`V=${curPt.speed.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`V'=${curSPrimePt.speed.toFixed(1)}`, col2X, rowY);
+        ctx.restore();
+      }
+
+      // ── Enhanced Relativity Legend ──
       const relLegX = ML + 8;
       const relLegY = MT + plotH - 55;
       ctx.save();
       ctx.fillStyle = colors.legendBg;
       ctx.strokeStyle = colors.legendBorder;
       ctx.lineWidth = 1;
-      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(relLegX, relLegY, 160, 48, 4); ctx.fill(); ctx.stroke(); }
-      else { ctx.fillRect(relLegX, relLegY, 160, 48); ctx.strokeRect(relLegX, relLegY, 160, 48); }
-      // S line
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(relLegX, relLegY, 180, 48, 4); ctx.fill(); ctx.stroke(); }
+      else { ctx.fillRect(relLegX, relLegY, 180, 48); ctx.strokeRect(relLegX, relLegY, 180, 48); }
+      // S line (solid)
       ctx.beginPath(); ctx.strokeStyle = colors.trajectory; ctx.lineWidth = 3; ctx.setLineDash([]);
       ctx.moveTo(relLegX + 6, relLegY + 14); ctx.lineTo(relLegX + 30, relLegY + 14); ctx.stroke();
+      // S dot
+      ctx.beginPath(); ctx.fillStyle = sColor; ctx.arc(relLegX + 18, relLegY + 14, 4, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = colors.legendText; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText(lang === 'ar' ? 'الإطار S (ثابت)' : lang === 'fr' ? 'Réf. S (fixe)' : 'Frame S (stationary)', relLegX + 36, relLegY + 18);
-      // S' line
+      ctx.fillText(lang === 'ar' ? 'S (x, y) ثابت' : lang === 'fr' ? 'S (x, y) fixe' : 'S (x, y) stationary', relLegX + 36, relLegY + 18);
+      // S' line (dashed)
       ctx.beginPath(); ctx.strokeStyle = sPrimeColor; ctx.lineWidth = 2.5; ctx.setLineDash([8, 5]);
       ctx.moveTo(relLegX + 6, relLegY + 34); ctx.lineTo(relLegX + 30, relLegY + 34); ctx.stroke(); ctx.setLineDash([]);
+      // S' ring
+      ctx.beginPath(); ctx.strokeStyle = sPrimeColor; ctx.lineWidth = 2; ctx.arc(relLegX + 18, relLegY + 34, 4, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = colors.legendText;
-      ctx.fillText(lang === 'ar' ? "الإطار S' (متحرك)" : lang === 'fr' ? "Réf. S' (mobile)" : "Frame S' (moving)", relLegX + 36, relLegY + 38);
-      ctx.restore();
-
-      // Draw reference frame icons: tree (S) and car/train (S')
-      const treeX = toX(0);
-      const treeY = groundY;
-      // Simple tree icon for Frame S
-      ctx.save();
-      ctx.fillStyle = '#4ade80';
-      ctx.beginPath();
-      ctx.moveTo(treeX, treeY - 25);
-      ctx.lineTo(treeX - 10, treeY - 5);
-      ctx.lineTo(treeX + 10, treeY - 5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#92400e';
-      ctx.fillRect(treeX - 2, treeY - 7, 4, 7);
-      ctx.fillStyle = colors.legendText;
-      ctx.font = `bold ${Math.round(9 * sf)}px Inter, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText('S', treeX, treeY - 28);
+      ctx.fillText(lang === 'ar' ? "S' (x', y') متحرك" : lang === 'fr' ? "S' (x', y') mobile" : "S' (x', y') moving", relLegX + 36, relLegY + 38);
       ctx.restore();
     }
 

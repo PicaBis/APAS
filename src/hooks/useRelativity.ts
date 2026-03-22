@@ -45,6 +45,7 @@ export interface UseRelativityReturn {
   // Presets
   applyGalileanPreset: () => void;
   applyLorentzPreset: () => void;
+  applyMissilePreset: () => void;
 }
 
 export function useRelativity(lang: string = 'en'): UseRelativityReturn {
@@ -100,6 +101,14 @@ export function useRelativity(lang: string = 'en'): UseRelativityReturn {
     setShowDualTrajectories(true);
   }, []);
 
+  const applyMissilePreset = useCallback(() => {
+    setMode('galilean');
+    setFrameVelocity(80);
+    setEnabled(true);
+    setShowDualTrajectories(true);
+    setActiveObserver('S');
+  }, []);
+
   return {
     enabled,
     mode,
@@ -122,5 +131,6 @@ export function useRelativity(lang: string = 'en'): UseRelativityReturn {
 
     applyGalileanPreset,
     applyLorentzPreset,
+    applyMissilePreset,
   };
 }

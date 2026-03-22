@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { ChevronDown, Eye, Zap, Train, Rocket, TreePine, Car } from 'lucide-react';
+import { ChevronDown, Eye, Zap, Train, Rocket, TreePine, Car, Crosshair } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ const translations = {
     showDual: 'عرض المسارين معاً',
     presets: 'إعدادات مسبقة',
     trainScenario: 'قطار وكرة (غاليلي)',
+    missileScenario: 'صاروخ ضد طائرة',
     spaceshipScenario: 'سفينة فضاء (لورنتز)',
     speedOfLight: 'سرعة الضوء',
     gamma: 'عامل لورنتز γ',
@@ -60,6 +61,7 @@ const translations = {
     showDual: 'Show Both Trajectories',
     presets: 'Presets',
     trainScenario: 'Train & Ball (Galilean)',
+    missileScenario: 'Missile vs Airplane',
     spaceshipScenario: 'Spaceship (Lorentz)',
     speedOfLight: 'Speed of Light',
     gamma: 'Lorentz Factor γ',
@@ -87,6 +89,7 @@ const translations = {
     showDual: 'Afficher les Deux Trajectoires',
     presets: 'Préréglages',
     trainScenario: 'Train et Balle (Galiléen)',
+    missileScenario: 'Missile vs Avion',
     spaceshipScenario: 'Vaisseau Spatial (Lorentz)',
     speedOfLight: 'Vitesse de la Lumière',
     gamma: 'Facteur de Lorentz γ',
@@ -327,7 +330,7 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                   {T('presets', lang)}
                 </span>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-3 gap-1.5">
                   <Button
                     variant="outline"
                     size="sm"
@@ -339,6 +342,18 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                   >
                     <Train className="w-3 h-3" />
                     {T('trainScenario', lang)}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-7 gap-1"
+                    onClick={() => {
+                      relativity.applyMissilePreset();
+                      onPhysicsChange?.();
+                    }}
+                  >
+                    <Crosshair className="w-3 h-3" />
+                    {T('missileScenario', lang)}
                   </Button>
                   <Button
                     variant="outline"
