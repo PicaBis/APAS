@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 
 interface Testimonial {
   name: string;
@@ -125,68 +125,52 @@ const TestimonialCard: React.FC<{ testimonial: Testimonial }> = ({ testimonial }
   </div>
 );
 
-const ScrollingRow: React.FC<{ testimonials: Testimonial[]; direction: 'left' | 'right'; speed?: number }> = ({
+const marqueeStyles = `
+@keyframes marquee-scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes marquee-scroll-right {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+.marquee-row {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 60px, black calc(100% - 60px), transparent);
+  mask-image: linear-gradient(to right, transparent, black 60px, black calc(100% - 60px), transparent);
+}
+.marquee-track-left {
+  display: flex;
+  gap: 1rem;
+  width: max-content;
+  animation: marquee-scroll-left 45s linear infinite;
+}
+.marquee-track-right {
+  display: flex;
+  gap: 1rem;
+  width: max-content;
+  animation: marquee-scroll-right 45s linear infinite;
+}
+.marquee-row:hover .marquee-track-left,
+.marquee-row:hover .marquee-track-right {
+  animation-play-state: paused;
+}
+`;
+
+const ScrollingRow: React.FC<{ testimonials: Testimonial[]; direction: 'left' | 'right' }> = ({
   testimonials,
   direction,
-  speed = 30,
 }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [isPaused, setIsPaused] = useState(false);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    let animationId: number;
-    let lastTime = 0;
-    const pxPerSecond = speed;
-
-    const animate = (timestamp: number) => {
-      if (!lastTime) lastTime = timestamp;
-      const delta = (timestamp - lastTime) / 1000;
-      lastTime = timestamp;
-
-      if (!isPaused) {
-        if (direction === 'left') {
-          el.scrollLeft += pxPerSecond * delta;
-          if (el.scrollLeft >= el.scrollWidth / 2) {
-            el.scrollLeft = 0;
-          }
-        } else {
-          el.scrollLeft -= pxPerSecond * delta;
-          if (el.scrollLeft <= 0) {
-            el.scrollLeft = el.scrollWidth / 2;
-          }
-        }
-      }
-
-      animationId = requestAnimationFrame(animate);
-    };
-
-    // Initialize scroll position for right-to-left direction
-    if (direction === 'right') {
-      el.scrollLeft = el.scrollWidth / 2;
-    }
-
-    animationId = requestAnimationFrame(animate);
-
-    return () => cancelAnimationFrame(animationId);
-  }, [direction, speed, isPaused]);
-
-  // Duplicate testimonials for seamless loop
+  // Duplicate testimonials for seamless infinite loop
   const doubled = [...testimonials, ...testimonials];
 
   return (
-    <div
-      ref={scrollRef}
-      className="flex gap-4 overflow-hidden py-2 scrollbar-hide"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-    >
-      {doubled.map((t, i) => (
-        <TestimonialCard key={`${t.handle}-${i}`} testimonial={t} />
-      ))}
+    <div className="marquee-row py-2">
+      <div className={direction === 'left' ? 'marquee-track-left' : 'marquee-track-right'}>
+        {doubled.map((t, i) => (
+          <TestimonialCard key={`${t.handle}-${i}`} testimonial={t} />
+        ))}
+      </div>
     </div>
   );
 };
@@ -197,14 +181,15 @@ const TestimonialsSection: React.FC<TestimonialsSectionProps> = ({ lang }) => {
 
   return (
     <section className="relative z-10 py-16 overflow-hidden">
+      <style>{marqueeStyles}</style>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mb-10 text-center">
         <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">{title}</h2>
         <p className="text-muted-foreground">{subtitle}</p>
       </div>
 
       <div className="space-y-4">
-        <ScrollingRow testimonials={TESTIMONIALS_ROW1} direction="left" speed={25} />
-        <ScrollingRow testimonials={TESTIMONIALS_ROW2} direction="right" speed={25} />
+        <ScrollingRow testimonials={TESTIMONIALS_ROW1} direction="left" />
+        <ScrollingRow testimonials={TESTIMONIALS_ROW2} direction="right" />
       </div>
     </section>
   );
