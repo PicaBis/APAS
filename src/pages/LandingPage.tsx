@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 
 import AboutModal from '@/components/apas/AboutModal';
+import BugReportButton from '@/components/apas/BugReportButton';
 import ApasLogo from '@/components/apas/ApasLogo';
 import SplashScreen from '@/components/apas/SplashScreen';
 import PageTransition from '@/components/apas/PageTransition';
@@ -476,6 +477,9 @@ const LandingPage: React.FC = () => {
 
       {/* About Modal */}
       <AboutModal open={showAbout} onClose={() => setShowAbout(false)} lang={lang} />
+
+      {/* Bug Report Button */}
+      <BugReportButton lang={lang} />
     </div>
     </PageTransition>
   );

@@ -68,6 +68,7 @@ import type { EquationTrajectoryPoint } from '@/components/apas/EquationEngine';
 import type { TrajectoryPoint } from '@/utils/physics';
 const ApasRecommendations = lazy(() => import('@/components/apas/ApasRecommendations'));
 import SensorLab from '@/components/apas/SensorLab';
+import BugReportButton from '@/components/apas/BugReportButton';
 const LensDistortionCorrection = lazy(() => import('@/components/apas/LensDistortionCorrection'));
 const ExplainableAI = lazy(() => import('@/components/apas/ExplainableAI'));
 const CrowdsourcedAccuracy = lazy(() => import('@/components/apas/CrowdsourcedAccuracy'));
@@ -2411,6 +2412,9 @@ const Index = () => {
 
       {/* ── Keyboard Shortcuts Help ── */}
       <KeyboardShortcutsHelp lang={lang} muted={sim.isMuted} />
+
+      {/* ── Bug Report Button ── */}
+      <BugReportButton lang={lang} />
     </PageTransition>
   );
 };

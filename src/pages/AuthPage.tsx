@@ -5,6 +5,7 @@ import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, 
 import ApasLogo from '@/components/apas/ApasLogo';
 import PageTransition from '@/components/apas/PageTransition';
 import AboutModal from '@/components/apas/AboutModal';
+import BugReportButton from '@/components/apas/BugReportButton';
 import { playClick, playNav, playPageTransition, playLangSwitch } from '@/utils/sound';
 
 type AuthLang = 'en' | 'ar' | 'fr';
@@ -392,6 +393,9 @@ export default function AuthPage() {
 
         {/* About Modal */}
         <AboutModal open={showAbout} onClose={() => setShowAbout(false)} lang={lang} limitTabs />
+
+        {/* Bug Report Button */}
+        <BugReportButton lang={lang} />
       </div>
     </PageTransition>
   );

@@ -10,6 +10,7 @@ interface AboutModalProps {
   onClose: () => void;
   lang: string;
   limitTabs?: boolean;
+  defaultTab?: TabKey;
 }
 
 const TABS: { key: TabKey; labelAr: string; labelEn: string; labelFr: string; icon: React.ReactNode }[] = [
@@ -22,9 +23,14 @@ const TABS: { key: TabKey; labelAr: string; labelEn: string; labelFr: string; ic
 
 const LIMITED_TAB_KEYS: TabKey[] = ['team', 'report', 'terms'];
 
-const AboutModal: React.FC<AboutModalProps> = ({ open, onClose, lang, limitTabs }) => {
+const AboutModal: React.FC<AboutModalProps> = ({ open, onClose, lang, limitTabs, defaultTab }) => {
   const visibleTabs = limitTabs ? TABS.filter(t => LIMITED_TAB_KEYS.includes(t.key)) : TABS;
-  const [activeTab, setActiveTab] = useState<TabKey>(limitTabs ? 'team' : 'docs');
+  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab || (limitTabs ? 'team' : 'docs'));
+
+  // Update active tab when defaultTab changes (e.g. opened from bug button)
+  React.useEffect(() => {
+    if (open && defaultTab) setActiveTab(defaultTab);
+  }, [open, defaultTab]);
   const isRTL = lang === 'ar';
 
   const getLabel = (tab: typeof TABS[0]) => {
