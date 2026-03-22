@@ -160,6 +160,7 @@ const TestimonialCard: React.FC<{ testimonial: Testimonial }> = ({ testimonial }
 /*
  * Marquee CSS: uses margin-right on each card (NOT flex gap)
  * so translateX(-50%) = exactly one set's width for a perfect seamless loop.
+ * No hover pause — continuous movement always, like Windsurf.
  */
 const marqueeStyles = `
 @keyframes apas-marquee-left {
@@ -183,13 +184,10 @@ const marqueeStyles = `
   margin-right: 1rem;
 }
 .apas-marquee-track--left {
-  animation: apas-marquee-left 60s linear infinite;
+  animation: apas-marquee-left 40s linear infinite;
 }
 .apas-marquee-track--right {
-  animation: apas-marquee-right 60s linear infinite;
-}
-.apas-marquee-container:hover .apas-marquee-track {
-  animation-play-state: paused;
+  animation: apas-marquee-right 40s linear infinite;
 }
 `;
 
