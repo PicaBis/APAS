@@ -4,8 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { Lightbulb, X, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { playClick } from '@/utils/sound';
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY ?? '';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// AI calls go through edge functions which handle Groq→Mistral fallback internally
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function cleanLatex(text: string): string {
@@ -164,32 +163,8 @@ Format the output beautifully and clearly:
         // fall through to Groq
       }
 
-      // 2) Fallback to direct Groq API
-      if (!handled && GROQ_API_KEY) {
-        try {
-          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${GROQ_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: GROQ_MODEL,
-              stream: true,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userMessage },
-              ],
-            }),
-          });
-          if (resp.ok && resp.body) {
-            await consumeStream(resp.body, onChunk);
-            handled = true;
-          }
-        } catch {
-          // fall through to local fallback
-        }
-      }
+      // Edge function handles Groq→Mistral fallback internally
+      // No direct API calls needed from the client
 
       if (!handled && !accumulated) {
         // Local fallback

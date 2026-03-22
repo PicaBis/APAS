@@ -26,7 +26,7 @@ interface Props {
   hasModel?: boolean;
 }
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY ?? '';
+// AI calls go through edge functions which handle Groq→Mistral fallback internally
 
 /** Strip LaTeX artifacts from AI responses */
 function cleanLatex(text: string): string {
@@ -66,7 +66,6 @@ function cleanLatex(text: string): string {
   s = s.replace(/ᵧ/g, 'y');
   return s;
 }
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function getGracefulFallback(text: string, lang: string) {
@@ -412,33 +411,8 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
           });
         }
       } catch {
-        // Fallback to direct Groq API
-        try {
-          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${GROQ_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: GROQ_MODEL,
-              stream: true,
-              messages: [
-                { role: 'system', content: 'You are APAS Assistant, an expert physics tutor. Respond concisely for text-to-speech.' },
-                { role: 'user', content: voicePrompt },
-              ],
-            }),
-          });
-
-          if (resp.ok && resp.body) {
-            await consumeGroqStream(resp.body, (chunk) => {
-              analysisResult += chunk;
-              setVoiceAnalysisText(analysisResult);
-            });
-          }
-        } catch {
-          // silently fail, handled below
-        }
+        // Edge function handles Groq→Mistral fallback internally
+        // No direct API calls needed from the client
       }
 
       if (analysisResult) {
@@ -606,35 +580,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
         console.warn('Edge function failed, trying direct Groq:', edgeErr);
       }
 
-      // 2) FALLBACK: Direct Groq API
-      if (!handled && GROQ_API_KEY) {
-        try {
-          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${GROQ_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: GROQ_MODEL,
-              stream: true,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                ...allMessages,
-              ],
-            }),
-          });
-
-          if (resp.ok && resp.body) {
-            await consumeGroqStream(resp.body, upsertAssistant);
-            handled = true;
-          }
-        } catch {
-          // fall through to graceful fallback
-        }
-      }
-
-      // 3) Final graceful fallback
+      // 2) Final graceful fallback (edge function handles Groq→Mistral internally)
       if (!handled) {
         const graceful = getGracefulFallback(text, lang);
         setMessages(prev => [...prev, { role: 'assistant', content: graceful }]);

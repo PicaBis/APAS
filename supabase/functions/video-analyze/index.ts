@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { aiComplete } from "../_shared/ai-provider.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -8,9 +9,6 @@ serve(async (req) => {
 
   try {
     const { frames, lang, videoName, totalFrames, fps } = await req.json();
-
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
 
     if (!frames || !Array.isArray(frames) || frames.length === 0) {
       return new Response(JSON.stringify({ error: "No frames provided" }), {
@@ -25,14 +23,14 @@ serve(async (req) => {
     const analysisId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
-    // Build the multi-frame content array for GPT-4o
+    // Build the multi-frame content array
     const userContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
 
     userContent.push({
       type: "text",
       text: isAr
-        ? `[تحليل فيديو فريد #${analysisId.slice(0, 8)}] هذه ${frames.length} إطارات مستخرجة من فيديو "${videoName || "unknown"}". الفيديو يحتوي على ${totalFrames || "unknown"} إطار إجمالي بمعدل ${fps || "unknown"} إطار/ثانية. حلل حركة المقذوف عبر جميع الإطارات. تتبع موقع الجسم في كل إطار وحدد المسار والسرعة والزاوية.`
-        : `[Unique Video Analysis #${analysisId.slice(0, 8)}] These are ${frames.length} frames extracted from video "${videoName || "unknown"}". The video has ${totalFrames || "unknown"} total frames at ${fps || "unknown"} fps. Analyze the projectile motion across ALL frames. Track the object's position in each frame to determine trajectory, velocity, and angle.`,
+        ? `[تحليل فيديو فريد #${analysisId.slice(0, 8)}] هذه ${frames.length} إطارات مستخرجة من فيديو "${videoName || "unknown"}". الفيديو يحتوي على ${totalFrames || "unknown"} إطار إجمالي بمعدل ${fps || "unknown"} إطار/ثانية. حلل حركة المقذوف عبر جميع الإطارات. تتبع موقع الجسم في كل إطار وحدد المسار والسرعة والزاوية. افحص كل إطار بعناية — أي جسم متحرك يعتبر مقذوفاً محتملاً.`
+        : `[Unique Video Analysis #${analysisId.slice(0, 8)}] These are ${frames.length} frames extracted from video "${videoName || "unknown"}". The video has ${totalFrames || "unknown"} total frames at ${fps || "unknown"} fps. Analyze the projectile motion across ALL frames. Track the object's position in each frame to determine trajectory, velocity, and angle. Examine each frame carefully — any moving object is a potential projectile.`,
     });
 
     // Add each frame as an image
@@ -60,6 +58,14 @@ YOUR TASK:
 4. Estimate velocity from how far the object moves between frames (using frame timing)
 5. Identify the object type and estimate its mass
 6. Determine the launch height
+
+IMPORTANT — PROJECTILE DETECTION RULES:
+- You MUST carefully examine ALL frames before deciding if a projectile is present.
+- A projectile can be ANY moving object: ball, stone, person, vehicle, water, etc.
+- If ANY object changes position between frames, it is a projectile candidate.
+- NEVER say "no projectile detected" if there is any moving object visible across frames.
+- Even small, blurry, or partially visible moving objects count as projectiles.
+- When in doubt, ALWAYS lean toward detected=true with a lower confidence.
 
 MULTI-FRAME ANALYSIS METHOD:
 - Frame 1: Identify the projectile and its initial position
@@ -97,34 +103,17 @@ Then provide analysis in ${isAr ? "Arabic" : "English"}:
 - ${isAr ? "تقدير زاوية الإطلاق" : "Launch angle estimation"}
 - ${isAr ? "ملاحظات فيزيائية" : "Physics notes"}`;
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "meta-llama/llama-4-scout-17b-16e-instruct",
-        temperature: 0.4,
-        max_tokens: 2000,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-      }),
+    const { text, provider } = await aiComplete({
+      modelType: "vision",
+      temperature: 0.4,
+      max_tokens: 2000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Groq API error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: `AI error: ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content || "";
+    console.log(`video-analyze completed via ${provider}`);
 
     return new Response(JSON.stringify({ text }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

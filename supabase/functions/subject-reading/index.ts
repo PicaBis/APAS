@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { aiComplete } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,11 +14,7 @@ serve(async (req) => {
   try {
     const { imageBase64, mimeType, lang } = await req.json();
 
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
-
     const isAr = lang === "ar";
-
     const analysisId = crypto.randomUUID();
 
     const systemPrompt = `You are APAS Subject Reader — an expert physics problem solver specialized in projectile motion and mechanics.
@@ -85,48 +82,31 @@ Then provide in ${isAr ? "Arabic" : "English"}:
 
 IMPORTANT: Be thorough in the solution. Show all work and intermediate steps.`;
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "meta-llama/llama-4-scout-17b-16e-instruct",
-        temperature: 0.3,
-        max_tokens: 3000,
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: isAr
-                  ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي وحله خطوة بخطوة.`
-                  : `[Exercise Reading #${analysisId.slice(0, 8)}] Read this physics exercise and solve it step by step.`,
-              },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-              },
-            ],
-          },
-        ],
-      }),
+    const { text, provider } = await aiComplete({
+      modelType: "vision",
+      temperature: 0.3,
+      max_tokens: 3000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: isAr
+                ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي وحله خطوة بخطوة.`
+                : `[Exercise Reading #${analysisId.slice(0, 8)}] Read this physics exercise and solve it step by step.`,
+            },
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+            },
+          ],
+        },
+      ],
     });
 
-    if (!response.ok) {
-      const t = await response.text();
-      console.error("Groq API error:", response.status, t);
-      return new Response(
-        JSON.stringify({ error: `AI error: ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content || "";
+    console.log(`subject-reading completed via ${provider}`);
 
     return new Response(
       JSON.stringify({ text }),
