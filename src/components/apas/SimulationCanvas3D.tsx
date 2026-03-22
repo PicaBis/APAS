@@ -124,26 +124,40 @@ function syncArrows(
     return;
   }
   const o = originOverride || new THREE.Vector3(pt.x, pt.y, 0);
-  const vs = span * 0.12, fs = span * 0.08, sp = pt.speed;
-  setArrow(ar.V, o, new THREE.Vector3(pt.vx, pt.vy, 0), Math.min(vs, sp * vs / 50), vis.V && sp > 0.1);
-  setArrow(ar.Vx, o, new THREE.Vector3(pt.vx, 0, 0), Math.min(vs * 0.7, Math.abs(pt.vx) * vs / 50), vis.Vx && Math.abs(pt.vx) > 0.01);
-  setArrow(ar.Vy, o, new THREE.Vector3(0, pt.vy, 0), Math.min(vs * 0.7, Math.abs(pt.vy) * vs / 50), vis.Vy && Math.abs(pt.vy) > 0.01);
+  const vs = span * 0.15, fs = span * 0.10, sp = pt.speed;
+  const minVel = span * 0.03; // minimum arrow length for velocity vectors
+  const minForce = span * 0.025; // minimum arrow length for force vectors
+
+  // Normalize velocity arrows relative to max speed for consistent scaling
+  // Use span/10 as a reference speed so arrows are visible even at low speeds
+  const refSpeed = Math.max(sp, 1);
+  const vLen = Math.max(minVel, Math.min(vs, sp * vs / Math.max(refSpeed * 2, 5)));
+  setArrow(ar.V, o, new THREE.Vector3(pt.vx, pt.vy, 0), vLen, vis.V && sp > 0.005);
+
+  const vxLen = Math.max(minVel, Math.min(vs * 0.85, Math.abs(pt.vx) * vs / Math.max(refSpeed * 2, 5)));
+  setArrow(ar.Vx, o, new THREE.Vector3(pt.vx, 0, 0), vxLen, vis.Vx && Math.abs(pt.vx) > 0.005);
+
+  const vyLen = Math.max(minVel, Math.min(vs * 0.85, Math.abs(pt.vy) * vs / Math.max(refSpeed * 2, 5)));
+  setArrow(ar.Vy, o, new THREE.Vector3(0, pt.vy, 0), vyLen, vis.Vy && Math.abs(pt.vy) > 0.005);
+
   const wf = Math.max(mass * gravity, 0.01);
-  setArrow(ar.Fg, o, new THREE.Vector3(0, -1, 0), gravity > 0.001 ? fs : 0, vis.Fg && gravity > 0.001);
-  if (vis.Fd && airR > 0 && sp > 0.1) {
+  setArrow(ar.Fg, o, new THREE.Vector3(0, -1, 0), gravity > 0.001 ? Math.max(minForce, fs) : 0, vis.Fg && gravity > 0.001);
+  if (vis.Fd && airR > 0 && sp > 0.05) {
     const dm = airR * sp * sp;
-    setArrow(ar.Fd, o, new THREE.Vector3(-pt.vx / sp, -pt.vy / sp, 0), Math.min(fs * 0.6, dm * fs / wf), true);
+    const fdLen = Math.max(minForce, Math.min(fs * 0.7, dm * fs / wf));
+    setArrow(ar.Fd, o, new THREE.Vector3(-pt.vx / sp, -pt.vy / sp, 0), fdLen, true);
   } else { ar.Fd.visible = false; }
   // Fluid resistance vector (Ffluid) — shown when underwater/hydrodynamic drag is active
-  if (vis.Ffluid && sp > 0.1) {
+  if (vis.Ffluid && sp > 0.05) {
     // Ffluid opposes velocity, magnitude proportional to speed^2 in fluid
     const fluidDm = 998 * sp * sp * 0.001; // approximate fluid drag
-    setArrow(ar.Ffluid, o, new THREE.Vector3(-pt.vx / sp, -pt.vy / sp, 0), Math.min(fs * 0.7, fluidDm * fs / wf), true);
+    const fluidLen = Math.max(minForce, Math.min(fs * 0.8, fluidDm * fs / wf));
+    setArrow(ar.Ffluid, o, new THREE.Vector3(-pt.vx / sp, -pt.vy / sp, 0), fluidLen, true);
   } else { ar.Ffluid.visible = false; }
   const nfx = mass * pt.ax, nfy = mass * pt.ay, nm = Math.sqrt(nfx * nfx + nfy * nfy);
-  setArrow(ar.Fnet, o, new THREE.Vector3(nfx, nfy, 0), Math.min(fs, nm * fs / wf), vis.Fnet && nm > 0.01);
+  setArrow(ar.Fnet, o, new THREE.Vector3(nfx, nfy, 0), Math.max(minForce, Math.min(fs, nm * fs / wf)), vis.Fnet && nm > 0.005);
   const am = Math.sqrt(pt.ax * pt.ax + pt.ay * pt.ay);
-  setArrow(ar.acc, o, new THREE.Vector3(pt.ax, pt.ay, 0), Math.min(fs * 0.8, am * fs / Math.max(gravity, 0.01)), vis.acc && am > 0.01);
+  setArrow(ar.acc, o, new THREE.Vector3(pt.ax, pt.ay, 0), Math.max(minForce, Math.min(fs * 0.8, am * fs / Math.max(gravity, 0.01))), vis.acc && am > 0.005);
 }
 
 /** Get sky/clear color for the 3D scene based on environment and night mode */

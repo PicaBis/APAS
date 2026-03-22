@@ -244,6 +244,7 @@ interface SimulationCanvasProps {
   fluidFrictionRay?: boolean;
   isUnderwater?: boolean;
   fluidDensity?: number;
+  calibrationScale?: number | null;
 }
 
 const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
@@ -261,6 +262,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   fluidFrictionRay = false,
   isUnderwater = false,
   fluidDensity = 1.225,
+  calibrationScale = null,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -432,6 +434,45 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
     // Background — dynamic environment
     drawEnvironmentBackground(ctx, W, H, environmentId, nightMode);
+
+    // ── Wind particles overlay (when air resistance is enabled) ──
+    // Subtle animated streaks to suggest air movement — skipped for underwater/vacuum/moon
+    if (airResistance > 0 && environmentId !== 'underwater' && environmentId !== 'vacuum' && environmentId !== 'moon') {
+      const windTime = Date.now() * 0.001;
+      const particleCount = 18;
+      const windDir = windSpeed >= 0 ? 1 : -1;
+      const windIntensity = Math.min(1, airResistance * 2 + Math.abs(windSpeed) * 0.1);
+
+      ctx.save();
+      for (let i = 0; i < particleCount; i++) {
+        const seed = i * 7919 + 137;
+        // Deterministic base position that drifts over time
+        const baseX = ((seed * 3) % W);
+        const baseY = ((seed * 5) % H);
+        const speed = 0.3 + (i % 5) * 0.15;
+        const xPos = (baseX + windDir * windTime * speed * W * 0.08) % (W * 1.3) - W * 0.15;
+        const yPos = baseY + Math.sin(windTime * 0.5 + i * 0.8) * H * 0.02;
+        const streakLen = (12 + (i % 4) * 8) * windIntensity;
+
+        ctx.beginPath();
+        ctx.strokeStyle = nightMode
+          ? `rgba(200,210,230,${0.08 + windIntensity * 0.06})`
+          : `rgba(100,120,140,${0.06 + windIntensity * 0.05})`;
+        ctx.lineWidth = 0.8 + (i % 3) * 0.3;
+        ctx.moveTo(xPos, yPos);
+        ctx.lineTo(xPos + windDir * streakLen, yPos - streakLen * 0.15);
+        ctx.stroke();
+
+        // Tiny dot at head of streak
+        ctx.beginPath();
+        ctx.fillStyle = nightMode
+          ? `rgba(200,210,230,${0.10 + windIntensity * 0.08})`
+          : `rgba(100,120,140,${0.08 + windIntensity * 0.06})`;
+        ctx.arc(xPos + windDir * streakLen, yPos - streakLen * 0.15, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
 
     // ── Nice grid lines ──
     const sf = Math.max(1, W / 1200);
@@ -752,18 +793,23 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         const sf2 = Math.max(1, W / 1000);
 
         // Velocity scale: proportional to speed, capped for readability
+        // Use a generous minimum so Vx/Vy are always clearly visible
         let maxSpeed = 1;
         for (let i = 0; i < trajectoryData.length; i++) {
           if (trajectoryData[i].speed > maxSpeed) maxSpeed = trajectoryData[i].speed;
         }
-        const velScale = Math.min(plotW, plotH) * 0.10 / maxSpeed;
+        const plotMin = Math.min(plotW, plotH);
+        const velScale = plotMin * 0.12 / maxSpeed;
+        const minVelArrowLen = plotMin * 0.025; // minimum arrow length so vectors are always visible
 
         // Force scale: proportional to force magnitude, normalized to weight
         const weightForce = mass * gravity;
-        const forcePixelBase = Math.min(plotW, plotH) * 0.08;
+        const forcePixelBase = plotMin * 0.10;
+        const minForceArrowLen = plotMin * 0.018;
 
         // Acceleration scale: normalized to gravity
-        const accPixelBase = Math.min(plotW, plotH) * 0.08;
+        const accPixelBase = plotMin * 0.10;
+        const minAccArrowLen = plotMin * 0.018;
 
         const drawArrow = (fromX: number, fromY: number, toX2: number, toY2: number, color: string, label: string, showMag?: string) => {
           const dx = toX2 - fromX, dy = toY2 - fromY;
@@ -825,11 +871,15 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           drawArrow(bx, by, vTx, vTy,
             nightMode ? '#e2e8f0' : '#000000', 'V');
         }
-        if (vectorVisibility.Vx && Math.abs(curPt.vx) > 0.01) {
-          drawArrow(bx, by, bx + curPt.vx * velScale, by, '#3b82f6', 'Vx');
+        if (vectorVisibility.Vx && Math.abs(curPt.vx) > 0.005) {
+          const vxLen = Math.max(minVelArrowLen, Math.abs(curPt.vx) * velScale);
+          const vxSign = curPt.vx >= 0 ? 1 : -1;
+          drawArrow(bx, by, bx + vxSign * vxLen, by, '#3b82f6', 'Vx');
         }
-        if (vectorVisibility.Vy && Math.abs(curPt.vy) > 0.01) {
-          drawArrow(bx, by, bx, by - curPt.vy * velScale, '#22c55e', 'Vy');
+        if (vectorVisibility.Vy && Math.abs(curPt.vy) > 0.005) {
+          const vyLen = Math.max(minVelArrowLen, Math.abs(curPt.vy) * velScale);
+          const vySign = curPt.vy >= 0 ? 1 : -1;
+          drawArrow(bx, by, bx, by - vySign * vyLen, '#22c55e', 'Vy');
         }
 
         // ═══ FORCE VECTORS ═══
@@ -837,8 +887,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
         // Gravitational force: Fg = m*g, always pointing DOWN
         const fgY = -mass * gravity; // negative = downward in physics coords
-        if (vectorVisibility.Fg) {
-          const fgLen = (Math.abs(fgY) / Math.max(weightForce, 0.01)) * forcePixelBase;
+        if (vectorVisibility.Fg && gravity > 0.001) {
+          const fgLen = Math.max(minForceArrowLen, (Math.abs(fgY) / Math.max(weightForce, 0.01)) * forcePixelBase);
           drawArrow(bx, by, bx, by + fgLen, '#ef4444', 'Fg');
         }
 
@@ -856,18 +906,18 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         }
         if (vectorVisibility.Fd && (Math.abs(fdX) > 0.001 || Math.abs(fdY) > 0.001)) {
           const fdMag = Math.sqrt(fdX * fdX + fdY * fdY);
-          const fdLen = (fdMag / Math.max(weightForce, 0.01)) * forcePixelBase;
+          const fdLen = Math.max(minForceArrowLen, (fdMag / Math.max(weightForce, 0.01)) * forcePixelBase);
           drawArrow(bx, by, bx + (fdX / fdMag) * fdLen, by - (fdY / fdMag) * fdLen, '#f59e0b', 'Fd');
         }
 
         // Wind force visualization: shows the wind effect direction
         // Wind creates an additional horizontal push on the projectile
-        if (vectorVisibility.Fw && Math.abs(windSpeed) > 0.01 && curPt.speed > 0.1) {
+        if (vectorVisibility.Fw && Math.abs(windSpeed) > 0.01 && curPt.speed > 0.05) {
           // Wind force component: difference between drag with wind and drag without wind
           const windFx = airResistance > 0 ? airResistance * windSpeed * Math.abs(windSpeed) * 0.5 : windSpeed * 0.1 * mass;
           const fwMag = Math.abs(windFx);
           if (fwMag > 0.001) {
-            const fwLen = (fwMag / Math.max(weightForce, 0.01)) * forcePixelBase;
+            const fwLen = Math.max(minForceArrowLen, (fwMag / Math.max(weightForce, 0.01)) * forcePixelBase);
             const fwDir = windFx > 0 ? 1 : -1;
             drawArrow(bx, by, bx + fwDir * fwLen, by, '#0ea5e9', 'Fw');
           }
@@ -958,8 +1008,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           const netFx = mass * curPt.ax;
           const netFy = mass * curPt.ay;
           const netMag = Math.sqrt(netFx * netFx + netFy * netFy);
-          if (netMag > 0.01) {
-            const fnetLen = (netMag / Math.max(weightForce, 0.01)) * forcePixelBase;
+          if (netMag > 0.005) {
+            const fnetLen = Math.max(minForceArrowLen, (netMag / Math.max(weightForce, 0.01)) * forcePixelBase);
             drawArrow(bx, by, bx + (netFx / netMag) * fnetLen, by - (netFy / netMag) * fnetLen, '#8b5cf6', 'Fnet');
           }
         }
@@ -969,8 +1019,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         // This ensures perfect consistency with the simulation
         if (vectorVisibility.acc) {
           const accMag = curPt.acceleration;
-          if (accMag > 0.01) {
-            const accLen = (accMag / Math.max(gravity, 0.01)) * accPixelBase;
+          if (accMag > 0.005) {
+            const accLen = Math.max(minAccArrowLen, (accMag / Math.max(gravity, 0.01)) * accPixelBase);
             drawArrow(bx, by, bx + (curPt.ax / accMag) * accLen, by - (curPt.ay / accMag) * accLen, '#06b6d4', 'a');
           }
         }
@@ -1157,6 +1207,50 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       } // end showLiveData
     }
 
+    // ── Calibration scale bar ──
+    // When calibration is active, show a visual scale bar at the bottom-right
+    if (calibrationScale && calibrationScale > 0) {
+      const scaleBarMeters = tickSpaceX > 0 ? tickSpaceX : 1; // use same spacing as grid ticks
+      const scaleBarPx = scaleBarMeters * sX; // convert to canvas pixels using current scale
+      const sbX = ML + plotW - scaleBarPx - 20;
+      const sbY = MT + plotH - 30;
+      const sbColor = useWhiteAxes ? '#ffffff' : (nightMode ? '#cbd5e1' : '#333333');
+
+      ctx.save();
+      ctx.strokeStyle = sbColor;
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.8;
+      // Horizontal bar
+      ctx.beginPath();
+      ctx.moveTo(sbX, sbY);
+      ctx.lineTo(sbX + scaleBarPx, sbY);
+      ctx.stroke();
+      // End caps
+      ctx.beginPath();
+      ctx.moveTo(sbX, sbY - 6); ctx.lineTo(sbX, sbY + 6); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(sbX + scaleBarPx, sbY - 6); ctx.lineTo(sbX + scaleBarPx, sbY + 6); ctx.stroke();
+
+      // Label: show real-world length
+      const realLen = scaleBarMeters;
+      let scaleLabel: string;
+      if (realLen >= 1) {
+        scaleLabel = `${realLen.toFixed(1)} m`;
+      } else if (realLen >= 0.01) {
+        scaleLabel = `${(realLen * 100).toFixed(1)} cm`;
+      } else {
+        scaleLabel = `${(realLen * 1000).toFixed(1)} mm`;
+      }
+      // Add px/m info
+      scaleLabel += ` (${Math.round(calibrationScale)} px/m)`;
+
+      ctx.fillStyle = sbColor;
+      ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(scaleLabel, sbX + scaleBarPx / 2, sbY - 10);
+      ctx.restore();
+    }
+
     // Countdown overlay
     if (countdown !== null) {
       ctx.fillStyle = colors.countdownBg;
@@ -1176,7 +1270,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     multiTrajectories, mass, gravity, airResistance, T, lang, countdown,
     nightMode, zoom, canvasSize, colors, panOffset, isAnimating, windSpeed, showLiveData,
     stroboscopicMarks, showStroboscopicProjections, environmentId, activePresetEmoji, equationTrajectory, showGrid, secondBody, collisionPoint,
-    fluidFrictionRay, isUnderwater, fluidDensity]);
+    fluidFrictionRay, isUnderwater, fluidDensity, calibrationScale]);
 
   useEffect(() => { drawCanvas(); }, [drawCanvas]);
 

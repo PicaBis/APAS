@@ -1480,6 +1480,7 @@ const Index = () => {
                       fluidFrictionRay={advancedPhysics.enableHydrodynamicDrag || advancedPhysics.isUnderwater}
                       isUnderwater={advancedPhysics.isUnderwater}
                       fluidDensity={advancedPhysics.isUnderwater ? advancedPhysics.fluidDensity : 1.225}
+                      calibrationScale={calibrationScale}
                     />
                   )}
                 </div>

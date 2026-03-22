@@ -36,72 +36,75 @@ export function buildVectorArrows(
   const arrows: THREE.ArrowHelper[] = [];
   const vectors = computeVectors(point, prevPoint, nextPoint, mass, gravity, airResistance);
   const origin = new THREE.Vector3(point.x, point.y, 0);
-  const velScale = span * 0.12;
-  const forceScale = span * 0.08;
+  const velScale = span * 0.15;
+  const forceScale = span * 0.10;
+  const minVel = span * 0.03;
+  const minForce = span * 0.025;
+  const refSpeed = Math.max(vectors.velocity.magnitude, 1);
 
   // Velocity vector (white/black)
-  if (visibility.V && vectors.velocity.magnitude > 0.1) {
+  if (visibility.V && vectors.velocity.magnitude > 0.005) {
     const dir = new THREE.Vector3(vectors.velocity.x, vectors.velocity.y, 0);
-    const len = Math.min(velScale, vectors.velocity.magnitude * velScale / 50);
+    const len = Math.max(minVel, Math.min(velScale, vectors.velocity.magnitude * velScale / Math.max(refSpeed * 2, 5)));
     const a = makeArrow(origin, dir, len, 0x000000);
     if (a) { scene.add(a); arrows.push(a); }
   }
 
   // Vx (blue)
-  if (visibility.Vx && vectors.velocityX.magnitude > 0.01) {
+  if (visibility.Vx && vectors.velocityX.magnitude > 0.005) {
     const dir = new THREE.Vector3(vectors.velocityX.x, 0, 0);
-    const len = Math.min(velScale * 0.7, Math.abs(vectors.velocityX.x) * velScale / 50);
+    const len = Math.max(minVel, Math.min(velScale * 0.85, Math.abs(vectors.velocityX.x) * velScale / Math.max(refSpeed * 2, 5)));
     const a = makeArrow(origin, dir, len, 0x3b82f6);
     if (a) { scene.add(a); arrows.push(a); }
   }
 
   // Vy (green)
-  if (visibility.Vy && vectors.velocityY.magnitude > 0.01) {
+  if (visibility.Vy && vectors.velocityY.magnitude > 0.005) {
     const dir = new THREE.Vector3(0, vectors.velocityY.y, 0);
-    const len = Math.min(velScale * 0.7, Math.abs(vectors.velocityY.y) * velScale / 50);
+    const len = Math.max(minVel, Math.min(velScale * 0.85, Math.abs(vectors.velocityY.y) * velScale / Math.max(refSpeed * 2, 5)));
     const a = makeArrow(origin, dir, len, 0x22c55e);
     if (a) { scene.add(a); arrows.push(a); }
   }
 
   // Gravity force (red, down) -- skip when gravity is zero
   if (visibility.Fg && gravity > 0.001) {
-    const a = makeArrow(origin, new THREE.Vector3(0, -1, 0), forceScale, 0xef4444);
+    const a = makeArrow(origin, new THREE.Vector3(0, -1, 0), Math.max(minForce, forceScale), 0xef4444);
     if (a) { scene.add(a); arrows.push(a); }
   }
 
   // Drag force (amber)
-  if (visibility.Fd && airResistance > 0 && vectors.velocity.magnitude > 0.1) {
+  if (visibility.Fd && airResistance > 0 && vectors.velocity.magnitude > 0.05) {
     const dragForce = vectors.forces.find(f => f.type === 'drag');
     if (dragForce) {
       const dir = new THREE.Vector3(dragForce.direction.x, dragForce.direction.y, 0);
-      const len = Math.min(forceScale * 0.6, dragForce.magnitude * forceScale / Math.max(mass * gravity, 0.01));
+      const len = Math.max(minForce, Math.min(forceScale * 0.7, dragForce.magnitude * forceScale / Math.max(mass * gravity, 0.01)));
       const a = makeArrow(origin, dir, len, 0xf59e0b);
       if (a) { scene.add(a); arrows.push(a); }
     }
   }
 
   // Fluid resistance force (teal) — shown in water environment
-  if (visibility.Ffluid && vectors.velocity.magnitude > 0.1) {
+  if (visibility.Ffluid && vectors.velocity.magnitude > 0.05) {
     const sp = vectors.velocity.magnitude;
     const fluidDragMag = 998 * sp * sp * 0.001;
     const dir = new THREE.Vector3(-vectors.velocity.x / sp, -vectors.velocity.y / sp, 0);
-    const len = Math.min(forceScale * 0.7, fluidDragMag * forceScale / Math.max(mass * gravity, 0.01));
+    const len = Math.max(minForce, Math.min(forceScale * 0.8, fluidDragMag * forceScale / Math.max(mass * gravity, 0.01)));
     const a = makeArrow(origin, dir, len, 0x14b8a6);
     if (a) { scene.add(a); arrows.push(a); }
   }
 
   // Net force (purple)
-  if (visibility.Fnet && vectors.netForce.magnitude > 0.01) {
+  if (visibility.Fnet && vectors.netForce.magnitude > 0.005) {
     const dir = new THREE.Vector3(vectors.netForce.x, vectors.netForce.y, 0);
-    const len = Math.min(forceScale, vectors.netForce.magnitude * forceScale / Math.max(mass * gravity, 0.01));
+    const len = Math.max(minForce, Math.min(forceScale, vectors.netForce.magnitude * forceScale / Math.max(mass * gravity, 0.01)));
     const a = makeArrow(origin, dir, len, 0x8b5cf6);
     if (a) { scene.add(a); arrows.push(a); }
   }
 
   // Acceleration (cyan)
-  if (visibility.acc && vectors.acceleration.magnitude > 0.01) {
+  if (visibility.acc && vectors.acceleration.magnitude > 0.005) {
     const dir = new THREE.Vector3(vectors.acceleration.x, vectors.acceleration.y, 0);
-    const len = Math.min(forceScale * 0.8, vectors.acceleration.magnitude * forceScale / Math.max(gravity, 0.01));
+    const len = Math.max(minForce, Math.min(forceScale * 0.8, vectors.acceleration.magnitude * forceScale / Math.max(gravity, 0.01)));
     const a = makeArrow(origin, dir, len, 0x06b6d4);
     if (a) { scene.add(a); arrows.push(a); }
   }
