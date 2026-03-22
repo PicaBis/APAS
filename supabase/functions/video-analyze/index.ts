@@ -9,8 +9,8 @@ serve(async (req) => {
   try {
     const { frames, lang, videoName, totalFrames, fps } = await req.json();
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
 
     if (!frames || !Array.isArray(frames) || frames.length === 0) {
       return new Response(JSON.stringify({ error: "No frames provided" }), {
@@ -97,14 +97,14 @@ Then provide analysis in ${isAr ? "Arabic" : "English"}:
 - ${isAr ? "تقدير زاوية الإطلاق" : "Launch angle estimation"}
 - ${isAr ? "ملاحظات فيزيائية" : "Physics notes"}`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "openai/gpt-4o",
         temperature: 0.4,
         max_tokens: 2000,
         messages: [
@@ -116,7 +116,7 @@ Then provide analysis in ${isAr ? "Arabic" : "English"}:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
+      console.error("OpenRouter API error:", response.status, errorText);
       return new Response(
         JSON.stringify({ error: `AI error: ${response.status}` }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }

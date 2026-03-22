@@ -4,13 +4,9 @@ import ReactMarkdown from 'react-markdown';
 import { Lightbulb, X, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { playClick } from '@/utils/sound';
 
-const GEMINI_API_KEY = 'AIzaSyANSbUYsioBBFFMTi71mvhSmdqXHFaYdak';
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY ?? '';
+const OPENROUTER_MODEL = 'google/gemini-2.5-flash';
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
-
-function makeGeminiUrl(model: string) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
-}
 
 function cleanLatex(text: string): string {
   let s = text;
@@ -48,10 +44,7 @@ async function consumeStream(
       if (raw === '[DONE]') return;
       try {
         const json = JSON.parse(raw);
-        const content =
-          json?.candidates?.[0]?.content?.parts?.[0]?.text ||
-          json?.choices?.[0]?.delta?.content ||
-          '';
+        const content = json?.choices?.[0]?.delta?.content || '';
         if (content) onChunk(content);
       } catch { /* skip */ }
     }
@@ -168,29 +161,33 @@ Format the output beautifully and clearly:
           handled = true;
         }
       } catch {
-        // fall through to Gemini
+        // fall through to OpenRouter
       }
 
-      // 2) Fallback to direct Gemini
-      if (!handled) {
-        for (const model of GEMINI_MODELS) {
-          try {
-            const resp = await fetch(makeGeminiUrl(model), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-              }),
-            });
-            if (resp.ok && resp.body) {
-              await consumeStream(resp.body, onChunk);
-              handled = true;
-              break;
-            }
-          } catch {
-            continue;
+      // 2) Fallback to direct OpenRouter API
+      if (!handled && OPENROUTER_API_KEY) {
+        try {
+          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: OPENROUTER_MODEL,
+              stream: true,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userMessage },
+              ],
+            }),
+          });
+          if (resp.ok && resp.body) {
+            await consumeStream(resp.body, onChunk);
+            handled = true;
           }
+        } catch {
+          // fall through to local fallback
         }
       }
 

@@ -26,7 +26,7 @@ interface Props {
   hasModel?: boolean;
 }
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY ?? '';
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY ?? '';
 
 /** Strip LaTeX artifacts from AI responses */
 function cleanLatex(text: string): string {
@@ -66,12 +66,8 @@ function cleanLatex(text: string): string {
   s = s.replace(/ᵧ/g, 'y');
   return s;
 }
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+const OPENROUTER_MODEL = 'google/gemini-2.5-flash';
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
-
-function makeGeminiUrl(model: string) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
-}
 
 function getGracefulFallback(text: string, lang: string) {
   const local = getLocalFallback(text, lang);
@@ -80,7 +76,7 @@ function getGracefulFallback(text: string, lang: string) {
   return lang === 'ar'
     ? `أفهم سؤالك 👍
 
-- يبدو أن اتصال Gemini مشغول الآن.
+- يبدو أن اتصال AI مشغول الآن.
 - أعد إرسال نفس السؤال خلال ثوانٍ.
 - أو اسألني بصيغة أقصر وسأجيبك مباشرة.
 
@@ -89,7 +85,7 @@ function getGracefulFallback(text: string, lang: string) {
 💡 يمكنك أيضًا سؤالي عن **كيفية استخدام التطبيق** وميزاته!`
     : `I understand your question 👍
 
-- Gemini is temporarily busy right now.
+- AI is temporarily busy right now.
 - Please resend the same question in a few seconds.
 - Or ask in a shorter form and I will answer directly.
 
@@ -98,10 +94,9 @@ You can also ask about: **range, launch angle, initial velocity, and gravity eff
 💡 You can also ask me about **how to use the app** and its features!`;
 }
 
-async function consumeGeminiStream(
+async function consumeOpenRouterStream(
   body: ReadableStream<Uint8Array>,
   onChunk: (content: string) => void,
-  mode: 'google' | 'openai' = 'google',
 ) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -124,9 +119,7 @@ async function consumeGeminiStream(
 
       try {
         const parsed = JSON.parse(json);
-        const content = mode === 'google'
-          ? parsed?.candidates?.[0]?.content?.parts?.[0]?.text
-          : parsed?.choices?.[0]?.delta?.content;
+        const content = parsed?.choices?.[0]?.delta?.content;
         if (content) onChunk(content);
       } catch {
         buf = line + '\n' + buf;
@@ -413,31 +406,38 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
         });
 
         if (resp.ok && resp.body) {
-          await consumeGeminiStream(resp.body, (chunk) => {
+          await consumeOpenRouterStream(resp.body, (chunk) => {
             analysisResult += chunk;
             setVoiceAnalysisText(analysisResult);
-          }, 'openai');
+          });
         }
       } catch {
-        // Fallback to direct Gemini
-        for (const model of GEMINI_MODELS) {
-          const resp = await fetch(makeGeminiUrl(model), {
+        // Fallback to direct OpenRouter API
+        try {
+          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
-              systemInstruction: { parts: [{ text: 'You are APAS Assistant, an expert physics tutor. Respond concisely for text-to-speech.' }] },
-              contents: [{ role: 'user', parts: [{ text: voicePrompt }] }],
+              model: OPENROUTER_MODEL,
+              stream: true,
+              messages: [
+                { role: 'system', content: 'You are APAS Assistant, an expert physics tutor. Respond concisely for text-to-speech.' },
+                { role: 'user', content: voicePrompt },
+              ],
             }),
           });
 
           if (resp.ok && resp.body) {
-            await consumeGeminiStream(resp.body, (chunk) => {
+            await consumeOpenRouterStream(resp.body, (chunk) => {
               analysisResult += chunk;
               setVoiceAnalysisText(analysisResult);
-            }, 'google');
-            break;
+            });
           }
-          if (resp.status !== 429) break;
+        } catch {
+          // silently fail, handled below
         }
       }
 
@@ -571,7 +571,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
     try {
       let handled = false;
 
-      // 1) PRIMARY: Lovable AI Gateway via edge function (reliable, no quota issues)
+      // 1) PRIMARY: OpenRouter API via edge function
       try {
         const backupResp = await fetch(EDGE_TUTOR_URL, {
           method: 'POST',
@@ -587,36 +587,38 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
         });
 
         if (backupResp.ok && backupResp.body) {
-          await consumeGeminiStream(backupResp.body, upsertAssistant, 'openai');
+          await consumeOpenRouterStream(backupResp.body, upsertAssistant);
           handled = true;
         }
       } catch (edgeErr) {
-        console.warn('Edge function failed, trying direct Gemini:', edgeErr);
+        console.warn('Edge function failed, trying direct OpenRouter:', edgeErr);
       }
 
-      // 2) FALLBACK: Direct Gemini API (may hit quota)
-      if (!handled) {
-        const contents = allMessages.map(m => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }],
-        }));
-
-        for (const model of GEMINI_MODELS) {
-          const resp = await fetch(makeGeminiUrl(model), {
+      // 2) FALLBACK: Direct OpenRouter API
+      if (!handled && OPENROUTER_API_KEY) {
+        try {
+          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-              contents,
+              model: OPENROUTER_MODEL,
+              stream: true,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...allMessages,
+              ],
             }),
           });
 
           if (resp.ok && resp.body) {
-            await consumeGeminiStream(resp.body, upsertAssistant, 'google');
+            await consumeOpenRouterStream(resp.body, upsertAssistant);
             handled = true;
-            break;
           }
-          if (resp.status !== 429) break;
+        } catch {
+          // fall through to graceful fallback
         }
       }
 
@@ -624,7 +626,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
       if (!handled) {
         const graceful = getGracefulFallback(text, lang);
         setMessages(prev => [...prev, { role: 'assistant', content: graceful }]);
-        toast.warning(lang === 'ar' ? 'Gemini مشغول حالياً' : 'Gemini is busy right now');
+        toast.warning(lang === 'ar' ? 'AI مشغول حالياً' : 'AI is busy right now');
       }
     } catch (e) {
       console.error(e);
