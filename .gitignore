@@ -23,3 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 **/tempobook/**
+desktop/node_modules/
+desktop/dist/
