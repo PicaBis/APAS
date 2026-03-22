@@ -13,8 +13,8 @@ serve(async (req) => {
   try {
     const { imageBase64, mimeType, lang } = await req.json();
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const isAr = lang === "ar";
 
@@ -84,52 +84,86 @@ Then provide a SHORT analysis in ${isAr ? "Arabic" : "English"}:
 
 IMPORTANT: Each value MUST be justified by what you actually SEE in this specific image. Never use default/template values.`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        temperature: 0.4,
-        max_tokens: 1500,
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
+    // Try Gemini 1.5 Flash (vision capable) first, then fallback to other models
+    const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+    let lastError: Error | null = null;
+
+    for (const model of models) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [
               {
-                type: "text",
-                text: isAr
-                  ? `[تحليل فريد #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة. انظر إلى الوضعية والزاوية والتقنية المحددة في هذه الصورة. لا تستخدم قيماً افتراضية.`
-                  : `[Unique Analysis #${analysisId.slice(0, 8)}] Analyze this specific image carefully. Look at the exact posture, angle, and technique shown. Do not use default values.`,
-              },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+                role: "user",
+                parts: [
+                  {
+                    text: isAr
+                      ? `[تحليل فريد #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة. انظر إلى الوضعية والزاوية والتقنية المحددة في هذه الصورة. لا تستخدم قيماً افتراضية.`
+                      : `[Unique Analysis #${analysisId.slice(0, 8)}] Analyze this specific image carefully. Look at the exact posture, angle, and technique shown. Do not use default values.`,
+                  },
+                  {
+                    inlineData: {
+                      mimeType: mimeType,
+                      data: imageBase64,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-      }),
-    });
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 1500,
+            },
+          }),
+        });
 
-    if (!response.ok) {
-      const t = await response.text();
-      console.error("OpenAI API error:", response.status, t);
-      return new Response(
-        JSON.stringify({ error: `AI error: ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Gemini Vision API error (${model}):`, response.status, errorText);
+          
+          if (response.status === 429) {
+            // Rate limit - try next model
+            continue;
+          }
+          if (response.status === 400 || response.status === 403) {
+            // Bad request or forbidden - don't try other models
+            return new Response(
+              JSON.stringify({ error: "Invalid API request or insufficient permissions" }),
+              { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          // Other errors - try next model
+          lastError = new Error(`Gemini Vision API error: ${response.status} ${errorText}`);
+          continue;
+        }
+
+        const data = await response.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+        return new Response(
+          JSON.stringify({ text }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+
+      } catch (error) {
+        console.error(`Error with model ${model}:`, error);
+        lastError = error instanceof Error ? error : new Error(`Unknown error with ${model}`);
+        continue;
+      }
     }
 
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content || "";
-
+    // All models failed
+    const errorMessage = lastError?.message || "All Gemini Vision models failed";
+    console.error("All Gemini Vision models failed:", errorMessage);
+    
     return new Response(
-      JSON.stringify({ text }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: "AI vision service temporarily unavailable" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
     console.error("vision-analyze error:", e);

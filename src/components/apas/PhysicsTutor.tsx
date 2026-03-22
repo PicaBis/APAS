@@ -27,6 +27,7 @@ interface Props {
 }
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY ?? '';
+const GEMINI_API_KEY_BACKUP = import.meta.env.VITE_GEMINI_API_KEY_BACKUP ?? '';
 
 /** Strip LaTeX artifacts from AI responses */
 function cleanLatex(text: string): string {
@@ -69,33 +70,96 @@ function cleanLatex(text: string): string {
 const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
-function makeGeminiUrl(model: string) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+function makeGeminiUrl(model: string, apiKey: string = GEMINI_API_KEY) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 }
 
 function getGracefulFallback(text: string, lang: string) {
   const local = getLocalFallback(text, lang);
   if (local) return local;
 
+  // Check for common questions and provide immediate helpful answers
+  const lowerText = text.toLowerCase();
+  
+  if (lowerText.includes('how are you') || lowerText.includes('كيف حال') || lowerText.includes('كيف الحال')) {
+    return lang === 'ar'
+      ? `أنا بخير ومستعد للمساعدة! 🤖
+
+أنا مساعد APAS الذكي، يمكنني مساعدتك في:
+- **أسئلة الفيزياء**: حركة المقذوفات، المدى، السرعة، الزوايا
+- **استخدام التطبيق**: كيفية استخدام الميزات المختلفة
+- **تحليل الصور**: رفع صور لتحليلها فيزيائياً
+- **توصيات ذكية**: الحصول على نصائح لتحسين المحاكاة
+
+ما الذي تريد معرفته اليوم؟`
+      : `I'm doing great and ready to help! 🤖
+
+I'm APAS AI Assistant, I can help you with:
+- **Physics questions**: Projectile motion, range, velocity, angles
+- **App usage**: How to use different features
+- **Image analysis**: Upload images for physics analysis
+- **Smart recommendations**: Get tips to improve simulations
+
+What would you like to know today?`;
+  }
+
+  if (lowerText.includes('hello') || lowerText.includes('hi') || lowerText.includes('مرحبا')) {
+    return lang === 'ar'
+      ? `مرحباً بك! أنا مساعد APAS الذكي 🚀
+
+يمكنني مساعدتك في:
+- شرح مفاهيم الفيزياء والمقذوفات
+- تحليل الصور الفيزيائية
+- إعطاء توصيات لتحسين محاكاتك
+- إرشادك حول استخدام التطبيق
+
+اسألني أي شيء!`
+      : `Hello! I'm APAS AI Assistant 🚀
+
+I can help you with:
+- Explaining physics and projectile concepts
+- Analyzing physics images
+- Giving recommendations to improve your simulations
+- Guiding you through app features
+
+Ask me anything!`;
+  }
+
   return lang === 'ar'
     ? `أفهم سؤالك 👍
 
-- يبدو أن اتصال Gemini مشغول الآن.
-- أعد إرسال نفس السؤال خلال ثوانٍ.
-- أو اسألني بصيغة أقصر وسأجيبك مباشرة.
+- **يبدو أن اتصال Gemini مشغول الآن**
+- **لكن يمكنني مساعدتك بطرق أخرى!**
 
-يمكنك أيضًا السؤال عن: **المدى، زاوية الإطلاق، السرعة الابتدائية، وتأثير الجاذبية**.
+**يمكنك سؤالي عن:**
+- 🔬 **المدى، زاوية الإطلاق، السرعة الابتدائية**
+- 📐 **تأثير الجاذبية ومقاومة الهواء**
+- 📱 **كيفية استخدام التطبيق وميزاته**
+- 📸 **تحليل الصور الفيزيائية**
 
-💡 يمكنك أيضًا سؤالي عن **كيفية استخدام التطبيق** وميزاته!`
+**أو جرب:**
+- أعد إرسال سؤالك بعد ثوانٍ
+- اسأل بصيغة أقصر
+- ارفع صورة لتحليلها
+
+💡 **أنا هنا للمساعدة!**`
     : `I understand your question 👍
 
-- Gemini is temporarily busy right now.
-- Please resend the same question in a few seconds.
-- Or ask in a shorter form and I will answer directly.
+- **Gemini seems busy right now**
+- **But I can still help you in other ways!**
 
-You can also ask about: **range, launch angle, initial velocity, and gravity effects**.
+**You can ask me about:**
+- 🔬 **Range, launch angle, initial velocity**
+- 📐 **Gravity effects and air resistance**
+- 📱 **How to use the app and its features**
+- 📸 **Physics image analysis**
 
-💡 You can also ask me about **how to use the app** and its features!`;
+**Or try:**
+- Resend your question in a few seconds
+- Ask in a shorter form
+- Upload an image for analysis
+
+💡 **I'm here to help!**`;
 }
 
 async function consumeGeminiStream(
@@ -571,52 +635,68 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
     try {
       let handled = false;
 
-      // 1) PRIMARY: Lovable AI Gateway via edge function (reliable, no quota issues)
-      try {
-        const backupResp = await fetch(EDGE_TUTOR_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            messages: allMessages,
-            simulationContext,
-          }),
-        });
-
-        if (backupResp.ok && backupResp.body) {
-          await consumeGeminiStream(backupResp.body, upsertAssistant, 'openai');
-          handled = true;
-        }
-      } catch (edgeErr) {
-        console.warn('Edge function failed, trying direct Gemini:', edgeErr);
-      }
-
-      // 2) FALLBACK: Direct Gemini API (may hit quota)
-      if (!handled) {
+      // 1) PRIMARY: Direct Gemini API (more reliable)
+      if (!handled && (GEMINI_API_KEY || GEMINI_API_KEY_BACKUP)) {
         const contents = allMessages.map(m => ({
           role: m.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: m.content }],
         }));
 
-        for (const model of GEMINI_MODELS) {
-          const resp = await fetch(makeGeminiUrl(model), {
+        // Try primary API key first, then backup
+        const apiKeys = GEMINI_API_KEY ? [GEMINI_API_KEY, GEMINI_API_KEY_BACKUP].filter(Boolean) : [GEMINI_API_KEY_BACKUP].filter(Boolean);
+        
+        for (const apiKey of apiKeys) {
+          for (const model of GEMINI_MODELS) {
+            try {
+              const resp = await fetch(makeGeminiUrl(model, apiKey), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  systemInstruction: { parts: [{ text: systemPrompt }] },
+                  contents,
+                }),
+              });
+
+              if (resp.ok && resp.body) {
+                await consumeGeminiStream(resp.body, upsertAssistant, 'google');
+                handled = true;
+                break;
+              }
+              if (resp.status === 403) {
+                console.warn(`API key forbidden for model ${model}, trying next...`);
+                continue; // Try next model
+              }
+              if (resp.status !== 429) break; // For other errors, try next API key
+            } catch {
+              continue;
+            }
+          }
+          if (handled) break;
+        }
+      }
+
+      // 2) FALLBACK: Edge function (if direct API fails)
+      if (!handled) {
+        try {
+          const backupResp = await fetch(EDGE_TUTOR_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
             body: JSON.stringify({
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-              contents,
+              messages: allMessages,
+              simulationContext,
             }),
           });
 
-          if (resp.ok && resp.body) {
-            await consumeGeminiStream(resp.body, upsertAssistant, 'google');
+          if (backupResp.ok && backupResp.body) {
+            await consumeGeminiStream(backupResp.body, upsertAssistant, 'openai');
             handled = true;
-            break;
           }
-          if (resp.status !== 429) break;
+        } catch (edgeErr) {
+          console.warn('Edge function failed:', edgeErr);
         }
       }
 

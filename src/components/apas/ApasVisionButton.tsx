@@ -10,7 +10,53 @@ import GyroLevel from '@/components/apas/GyroLevel';
 import AROverlay from '@/components/apas/AROverlay';
 import { type WeatherData } from '@/services/weatherService';
 
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY ?? '';
+const GEMINI_API_KEY_BACKUP = import.meta.env.VITE_GEMINI_API_KEY_BACKUP ?? '';
+const GEMINI_MODELS = ['gemini-1.5-flash', 'gemini-1.5-pro'];
 const EDGE_VISION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vision-analyze`;
+
+function makeGeminiVisionUrl(model: string, apiKey: string = GEMINI_API_KEY) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+}
+
+async function callGeminiVisionDirect(base64: string, mimeType: string, lang: string, prompt: string) {
+  const apiKeys = GEMINI_API_KEY ? [GEMINI_API_KEY, GEMINI_API_KEY_BACKUP].filter(Boolean) : [GEMINI_API_KEY_BACKUP].filter(Boolean);
+  
+  for (const apiKey of apiKeys) {
+    for (const model of GEMINI_MODELS) {
+      try {
+        const response = await fetch(makeGeminiVisionUrl(model, apiKey), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: prompt }] },
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: lang === 'ar' ? 'حلل هذه الصورة بدقة' : 'Analyze this image carefully' },
+                  { inlineData: { mimeType, data: base64 } }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 1500,
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+  return null;
+}
 
 const CONFIDENCE_THRESHOLD = 60;
 
@@ -218,6 +264,58 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
 
     setAnalysisStep('analyze');
     try {
+      let analysisResult = '';
+      const isAr = lang === 'ar';
+
+      // Generate unique analysis prompt
+      const analysisId = crypto.randomUUID();
+      const timestamp = new Date().toISOString();
+      const systemPrompt = `You are APAS Vision — an expert physics image analyzer specialized in projectile motion.
+ANALYSIS ID: ${analysisId.slice(0, 8)}
+TIMESTAMP: ${timestamp}
+
+CRITICAL INSTRUCTIONS:
+1. You MUST analyze THIS SPECIFIC image from scratch. Do NOT reuse any previous analysis values.
+2. Look at the EXACT visual details: body posture, arm position, object size, trajectory angle, background scale references.
+3. Focus on pixel-level visual cues: the angle of the arm/body, the position of the ball relative to the body, the phase of the throw.
+
+REALISTIC VALUE RANGES:
+- Mass: Football 0.41-0.45kg, Basketball 0.58-0.65kg, Tennis ball 0.056-0.059kg, Baseball 0.142-0.149kg
+- Velocity: Hand throw 15-35 m/s, Free throw 6-8 m/s, Jump shot 8-12 m/s, Kick 15-40 m/s
+- Launch angle: estimate PRECISELY from visual cues
+- Height: realistic for the scenario (0-3m for human launch)
+
+RESPONSE FORMAT:
+Always respond with a JSON block first, then a brief analysis.
+
+If NO projectile detected:
+\`\`\`json
+{"detected": false, "confidence": 0}
+\`\`\`
+Then explain in ${isAr ? "Arabic" : "English"} what you see.
+
+If projectile IS detected:
+\`\`\`json
+{"detected": true, "confidence": <0-100>, "angle": <degrees>, "velocity": <m/s>, "mass": <kg>, "height": <m>, "objectType": "<specific type>"}
+\`\`\`
+Then provide a SHORT analysis in ${isAr ? "Arabic" : "English"}.
+
+IMPORTANT: Each value MUST be justified by what you actually SEE in this specific image.`;
+
+      // 1) Try direct Gemini Vision API first
+      if (GEMINI_API_KEY) {
+        analysisResult = await callGeminiVisionDirect(base64, mimeType, lang, systemPrompt);
+        if (analysisResult) {
+          setProgress(100);
+          setAnalysisStep('results');
+          await new Promise(r => setTimeout(r, 400));
+          handleParsedResult(analysisResult);
+          setIsAnalyzing(false);
+          return;
+        }
+      }
+
+      // 2) Fallback to edge function
       const edgeResp = await fetch(EDGE_VISION_URL, {
         method: 'POST',
         headers: {
