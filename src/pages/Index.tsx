@@ -74,6 +74,9 @@ const ExplainableAI = lazy(() => import('@/components/apas/ExplainableAI'));
 const CrowdsourcedAccuracy = lazy(() => import('@/components/apas/CrowdsourcedAccuracy'));
 const AccessibilitySonification = lazy(() => import('@/components/apas/AccessibilitySonification'));
 const DevOpsTesting = lazy(() => import('@/components/apas/DevOpsTesting'));
+const RelativityPanel = lazy(() => import('@/components/apas/RelativityPanel'));
+import { useRelativity } from '@/hooks/useRelativity';
+import { computeDualFrameTrajectory, type DualFrameTrajectory } from '@/utils/relativityPhysics';
 
 // Presets for different projectile types
 const PRESETS = [
@@ -247,6 +250,14 @@ const Index = () => {
     try { return (localStorage.getItem('apas_theme3d') as 'refined-lab' | 'academic-white' | 'technical-dark') || 'refined-lab'; } catch { return 'refined-lab'; }
   });
   const [equationTrajectory, setEquationTrajectory] = useState<EquationTrajectoryPoint[] | null>(null);
+
+  // ── Relativity & Reference Frames ──
+  const relativity = useRelativity(lang);
+  const dualTrajectory = useMemo<DualFrameTrajectory | null>(() => {
+    if (!relativity.enabled || sim.trajectoryData.length === 0) return null;
+    return computeDualFrameTrajectory(sim.trajectoryData, relativity.params);
+  }, [relativity.enabled, relativity.params, sim.trajectoryData]);
+  const relativitySPrimeTrajectory = dualTrajectory?.frameSPrime ?? null;
 
   // ── Undo/Redo History ──
   interface ParamSnapshot {
@@ -1177,6 +1188,11 @@ const Index = () => {
               {/* Advanced Physics Panel */}
               <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} />
 
+              {/* Relativity & Reference Frames Panel */}
+              <Suspense fallback={null}>
+                <RelativityPanel lang={lang} relativity={relativity} onPhysicsChange={() => sim.recalculate()} />
+              </Suspense>
+
               {/* Save/Compare — collapsible section */}
               <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
                 <button
@@ -1437,6 +1453,10 @@ const Index = () => {
                           setWebglError(msg);
                           setIs3DMode(false);
                         }}
+                        relativityTrajectory={relativitySPrimeTrajectory}
+                        relativityEnabled={relativity.enabled}
+                        relativityMode={relativity.mode}
+                        relativityShowDual={relativity.showDualTrajectories}
                       />
                       {webglError && (
                         <div className="mt-2 p-2 text-xs text-amber-800 bg-amber-100 border border-amber-300 rounded">
@@ -1493,6 +1513,12 @@ const Index = () => {
                       isUnderwater={advancedPhysics.isUnderwater}
                       fluidDensity={advancedPhysics.isUnderwater ? advancedPhysics.fluidDensity : 1.225}
                       calibrationScale={calibrationScale}
+                      relativityTrajectory={relativitySPrimeTrajectory}
+                      relativityEnabled={relativity.enabled}
+                      relativityMode={relativity.mode}
+                      relativityActiveObserver={relativity.activeObserver}
+                      relativityShowDual={relativity.showDualTrajectories}
+                      relativityFrameVelocity={relativity.frameVelocity}
                     />
                   )}
                 </div>

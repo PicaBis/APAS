@@ -44,6 +44,10 @@ interface SimulationCanvas3DProps {
   enableMagnusSpin?: boolean;
   spinRate?: number;
   theme3d?: Theme3DId;
+  relativityTrajectory?: TrajectoryPoint[] | null;
+  relativityEnabled?: boolean;
+  relativityMode?: 'galilean' | 'lorentz';
+  relativityShowDual?: boolean;
 }
 
 /** Linearly interpolate between two trajectory points */
@@ -720,6 +724,10 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   environmentId = 'earth', activePresetEmoji, showGrid = true, onWebglError,
   enableMagnusSpin = false, spinRate = 0,
   theme3d = 'refined-lab',
+  relativityTrajectory = null,
+  relativityEnabled = false,
+  relativityMode = 'galilean',
+  relativityShowDual = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -909,6 +917,47 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     buildAxes(scene, bounds, nightMode, theme3d);
     const trajMeshes = buildTrajectory(scene, trajectoryData, nightMode, bounds, phiRad, theme3d);
     trajectoryMeshesRef.current = trajMeshes;
+
+    // Relativity S' frame trajectory — dashed tube in a distinct color
+    if (relativityEnabled && relativityShowDual && relativityTrajectory && relativityTrajectory.length > 1) {
+      const sPrimeColor = relativityMode === 'lorentz' ? 0xa855f7 : 0xf97316;
+      const sPrimePoints: THREE.Vector3[] = [];
+      for (let i = 0; i < relativityTrajectory.length; i++) {
+        const p3d = project3D(relativityTrajectory[i].x, relativityTrajectory[i].y, phiRad);
+        sPrimePoints.push(p3d);
+      }
+      if (sPrimePoints.length >= 2) {
+        const curve = new THREE.CatmullRomCurve3(sPrimePoints, false, 'centripetal', 0.5);
+        const tubeGeo = new THREE.TubeGeometry(curve, Math.min(sPrimePoints.length * 2, 200), bounds.span * 0.004, 6, false);
+        const tubeMat = new THREE.MeshStandardMaterial({
+          color: sPrimeColor,
+          transparent: true,
+          opacity: 0.7,
+          roughness: 0.4,
+          metalness: 0.1,
+        });
+        const tube = new THREE.Mesh(tubeGeo, tubeMat);
+        tube.name = 'relativity-sprime-trajectory';
+        scene.add(tube);
+
+        // Add tree model for Frame S (stationary) at origin
+        const treeGroup = new THREE.Group();
+        treeGroup.name = 'frame-s-tree';
+        // Trunk
+        const trunkGeo = new THREE.CylinderGeometry(bounds.span * 0.008, bounds.span * 0.012, bounds.span * 0.08, 6);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.set(0, bounds.span * 0.04, 0);
+        treeGroup.add(trunk);
+        // Canopy
+        const canopyGeo = new THREE.ConeGeometry(bounds.span * 0.04, bounds.span * 0.1, 8);
+        const canopyMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.8 });
+        const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+        canopy.position.set(0, bounds.span * 0.12, 0);
+        treeGroup.add(canopy);
+        scene.add(treeGroup);
+      }
+    }
 
     if (showCriticalPoints && prediction) {
       buildCriticalPoints(scene, prediction, height, bounds, phiRad);
@@ -1137,7 +1186,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
       projectileRef.current = null;
       rendererRef.current = null;
     };
-  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance, theme3d]);
+  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance, theme3d, relativityTrajectory, relativityEnabled, relativityMode, relativityShowDual, showGrid]);
 
   // ── Toggle 3D grid visibility ──
   useEffect(() => {

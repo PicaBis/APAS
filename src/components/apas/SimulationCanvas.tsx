@@ -245,6 +245,12 @@ interface SimulationCanvasProps {
   isUnderwater?: boolean;
   fluidDensity?: number;
   calibrationScale?: number | null;
+  relativityTrajectory?: TrajectoryPoint[] | null;
+  relativityEnabled?: boolean;
+  relativityMode?: 'galilean' | 'lorentz';
+  relativityActiveObserver?: 'S' | 'S_prime';
+  relativityShowDual?: boolean;
+  relativityFrameVelocity?: number;
 }
 
 const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
@@ -263,6 +269,12 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   isUnderwater = false,
   fluidDensity = 1.225,
   calibrationScale = null,
+  relativityTrajectory = null,
+  relativityEnabled = false,
+  relativityMode = 'galilean',
+  relativityActiveObserver = 'S',
+  relativityShowDual = false,
+  relativityFrameVelocity = 0,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -392,6 +404,16 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     if (equationTrajectory && equationTrajectory.length > 0) {
       for (let i = 0; i < equationTrajectory.length; i++) {
         const px = equationTrajectory[i].x, py = equationTrajectory[i].y;
+        if (px < rawMinX) rawMinX = px;
+        if (px > rawMaxX) rawMaxX = px;
+        if (py < rawMinY) rawMinY = py;
+        if (py > rawMaxY) rawMaxY = py;
+      }
+    }
+    // Also consider relativity S' trajectory
+    if (relativityEnabled && relativityShowDual && relativityTrajectory && relativityTrajectory.length > 0) {
+      for (let i = 0; i < relativityTrajectory.length; i++) {
+        const px = relativityTrajectory[i].x, py = relativityTrajectory[i].y;
         if (px < rawMinX) rawMinX = px;
         if (px > rawMaxX) rawMaxX = px;
         if (py < rawMinY) rawMinY = py;
@@ -660,6 +682,93 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
     // Equation Engine trajectory is now rendered as the main trajectory directly
     // (no separate overlay — the equation sets the trajectory data on the canvas)
+
+    // ── Relativity: S' frame trajectory ──
+    if (relativityEnabled && relativityShowDual && relativityTrajectory && relativityTrajectory.length > 1) {
+      // Also include S' trajectory in domain calculations is handled above
+      // Draw S' trajectory as dashed line with distinct color
+      const sPrimeColor = relativityMode === 'lorentz' ? '#a855f7' : '#f97316'; // purple for Lorentz, orange for Galilean
+      ctx.beginPath();
+      ctx.strokeStyle = sPrimeColor;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([8, 5]);
+      relativityTrajectory.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y)));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw velocity vector indicator for frame S'
+      if (relativityFrameVelocity !== 0) {
+        const vIndicatorLen = Math.min(plotW * 0.12, Math.abs(relativityFrameVelocity) * 0.5);
+        const vDir = relativityFrameVelocity > 0 ? 1 : -1;
+        const viX = ML + plotW * 0.85;
+        const viY = MT + 25;
+
+        // Frame velocity arrow
+        ctx.save();
+        ctx.strokeStyle = sPrimeColor;
+        ctx.fillStyle = sPrimeColor;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(viX, viY);
+        ctx.lineTo(viX + vDir * vIndicatorLen, viY);
+        ctx.stroke();
+        // Arrowhead
+        const headLen = 8;
+        ctx.beginPath();
+        ctx.moveTo(viX + vDir * vIndicatorLen, viY);
+        ctx.lineTo(viX + vDir * vIndicatorLen - vDir * headLen, viY - 4);
+        ctx.lineTo(viX + vDir * vIndicatorLen - vDir * headLen, viY + 4);
+        ctx.closePath();
+        ctx.fill();
+        // Label
+        ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText("V_S'", viX + vDir * vIndicatorLen * 0.5, viY - 10);
+        ctx.restore();
+      }
+
+      // Relativity legend
+      const relLegX = ML + 8;
+      const relLegY = MT + plotH - 55;
+      ctx.save();
+      ctx.fillStyle = colors.legendBg;
+      ctx.strokeStyle = colors.legendBorder;
+      ctx.lineWidth = 1;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(relLegX, relLegY, 160, 48, 4); ctx.fill(); ctx.stroke(); }
+      else { ctx.fillRect(relLegX, relLegY, 160, 48); ctx.strokeRect(relLegX, relLegY, 160, 48); }
+      // S line
+      ctx.beginPath(); ctx.strokeStyle = colors.trajectory; ctx.lineWidth = 3; ctx.setLineDash([]);
+      ctx.moveTo(relLegX + 6, relLegY + 14); ctx.lineTo(relLegX + 30, relLegY + 14); ctx.stroke();
+      ctx.fillStyle = colors.legendText; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(lang === 'ar' ? 'الإطار S (ثابت)' : lang === 'fr' ? 'Réf. S (fixe)' : 'Frame S (stationary)', relLegX + 36, relLegY + 18);
+      // S' line
+      ctx.beginPath(); ctx.strokeStyle = sPrimeColor; ctx.lineWidth = 2.5; ctx.setLineDash([8, 5]);
+      ctx.moveTo(relLegX + 6, relLegY + 34); ctx.lineTo(relLegX + 30, relLegY + 34); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = colors.legendText;
+      ctx.fillText(lang === 'ar' ? "الإطار S' (متحرك)" : lang === 'fr' ? "Réf. S' (mobile)" : "Frame S' (moving)", relLegX + 36, relLegY + 38);
+      ctx.restore();
+
+      // Draw reference frame icons: tree (S) and car/train (S')
+      const treeX = toX(0);
+      const treeY = groundY;
+      // Simple tree icon for Frame S
+      ctx.save();
+      ctx.fillStyle = '#4ade80';
+      ctx.beginPath();
+      ctx.moveTo(treeX, treeY - 25);
+      ctx.lineTo(treeX - 10, treeY - 5);
+      ctx.lineTo(treeX + 10, treeY - 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#92400e';
+      ctx.fillRect(treeX - 2, treeY - 7, 4, 7);
+      ctx.fillStyle = colors.legendText;
+      ctx.font = `bold ${Math.round(9 * sf)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('S', treeX, treeY - 28);
+      ctx.restore();
+    }
 
     // Multi trajectories
     if (multiTrajectoryMode && multiTrajectories.length > 0) {
@@ -1270,7 +1379,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     multiTrajectories, mass, gravity, airResistance, T, lang, countdown,
     nightMode, zoom, canvasSize, colors, panOffset, isAnimating, windSpeed, showLiveData,
     stroboscopicMarks, showStroboscopicProjections, environmentId, activePresetEmoji, equationTrajectory, showGrid, secondBody, collisionPoint,
-    fluidFrictionRay, isUnderwater, fluidDensity, calibrationScale]);
+    fluidFrictionRay, isUnderwater, fluidDensity, calibrationScale,
+    relativityTrajectory, relativityEnabled, relativityMode, relativityActiveObserver, relativityShowDual, relativityFrameVelocity]);
 
   useEffect(() => { drawCanvas(); }, [drawCanvas]);
 
