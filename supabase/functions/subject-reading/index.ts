@@ -6,9 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
-const MISTRAL_VISION_MODEL = "pixtral-large-latest";
-
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
@@ -16,15 +13,14 @@ serve(async (req) => {
   try {
     const { imageBase64, mimeType, lang } = await req.json();
 
-    const mistralKey = Deno.env.get("MISTRAL_API_KEY");
-    if (!mistralKey) {
-      throw new Error("MISTRAL_API_KEY not configured");
-    }
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
 
     const isAr = lang === "ar";
+
     const analysisId = crypto.randomUUID();
 
-    const systemPrompt = `You are APAS Subject Reader — an expert physics problem solver specialized EXCLUSIVELY in projectile motion (المقذوفات).
+    const systemPrompt = `You are APAS Subject Reader — an expert physics problem solver specialized in projectile motion and mechanics.
 Your task is to read physics exercises/problems from images and solve them step by step.
 
 ANALYSIS ID: ${analysisId}
@@ -33,34 +29,27 @@ INSTRUCTIONS:
 1. Look at the image and determine if it contains a physics problem or exercise
 2. The problem could be handwritten, printed, or from a textbook
 3. It may be in Arabic, French, or English
-4. Focus ONLY on projectile motion problems (المقذوفات / mouvement de projectile)
+4. Focus on projectile motion, kinematics, and classical mechanics problems
 
 IF NO PHYSICS PROBLEM IS FOUND:
 Respond with:
 \`\`\`json
 {"recognized": false}
 \`\`\`
-Then say: "${isAr ? "لم اتعرف على التمرين. يرجى تحميل صورة تحتوي على تمرين فيزياء خاص بالمقذوفات." : "I did not recognize the exercise. Please upload an image containing a projectile motion physics exercise."}"
+Then say: "${isAr ? "لم اتعرف على التمرين" : "I did not recognize the exercise"}"
 
-IF A PHYSICS PROBLEM IS FOUND BUT NOT PROJECTILE MOTION:
-Respond with:
-\`\`\`json
-{"recognized": true, "type": "<problem type>", "isProjectileMotion": false, "extractedData": {}}
-\`\`\`
-Then explain that this system specializes in projectile motion problems only.
-
-IF A PROJECTILE MOTION PROBLEM IS FOUND:
-1. Read and transcribe the problem carefully
-2. Extract ALL given data (velocity, angle, height, mass, gravity, range, time, etc.)
+IF A PHYSICS PROBLEM IS FOUND:
+1. Read and transcribe the problem
+2. Extract all given data
 3. Identify what needs to be found
-4. Solve step by step
+4. Determine if it's a projectile motion problem
 
 Respond with:
 \`\`\`json
 {
   "recognized": true,
-  "type": "projectile motion",
-  "isProjectileMotion": true,
+  "type": "<problem type: projectile motion / free fall / inclined plane / etc>",
+  "isProjectileMotion": <true if projectile motion, false otherwise>,
   "extractedData": {
     "velocity": <initial velocity in m/s or null>,
     "angle": <launch angle in degrees or null>,
@@ -75,48 +64,37 @@ Respond with:
 Then provide in ${isAr ? "Arabic" : "English"}:
 
 **${isAr ? "نص التمرين" : "Exercise Text"}:**
-(Transcribe the problem exactly as written in the image)
+(Transcribe the problem exactly as written)
 
 **${isAr ? "المعطيات" : "Given Data"}:**
-(List ALL given values with their units and symbols)
+(List all given values with units)
 
 **${isAr ? "المطلوب" : "Required"}:**
-(What needs to be calculated/found)
+(What needs to be found)
 
 **${isAr ? "الشرح" : "Explanation"}:**
-(Brief explanation of the physics concepts: projectile motion equations, components of velocity, etc.)
+(Brief explanation of the physics concepts involved)
 
 ## ${isAr ? "الحل" : "Solution"}
 
-(Complete step-by-step solution:
-1. Write the relevant equations:
-   - x(t) = v0 * cos(theta) * t
-   - y(t) = h0 + v0 * sin(theta) * t - 0.5 * g * t^2
-   - vx = v0 * cos(theta)
-   - vy = v0 * sin(theta) - g * t
-   - Range R = v0^2 * sin(2*theta) / g
-   - Max height H = v0^2 * sin(theta)^2 / (2*g)
-   - Flight time T = 2 * v0 * sin(theta) / g
-2. Substitute the given values
-3. Calculate intermediate results
-4. Provide final answers with proper units
-5. Include range, max height, flight time if applicable)
+(Provide complete step-by-step solution with:
+- Equations used
+- Substitution of values
+- Final answers with units
+- For projectile motion: calculate range, max height, flight time, etc.)
 
-IMPORTANT RULES:
-- Be thorough in the solution. Show ALL work and intermediate steps.
-- Use simple ASCII math notation (not LaTeX): v0, theta, sin(), cos(), sqrt(), ^2
-- NEVER use LaTeX ($, \\frac, \\cdot, etc.)
-- If gravity is not specified, use g = 9.81 m/s² (or 10 m/s² if the exercise says so)
-- Always respond in ${isAr ? "Arabic" : "English"}`;
+IMPORTANT: Be thorough in the solution. Show all work and intermediate steps.`;
 
-    const response = await fetch(MISTRAL_API_URL, {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${mistralKey}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: MISTRAL_VISION_MODEL,
+        model: "openai/gpt-4o",
+        temperature: 0.3,
+        max_tokens: 3000,
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -125,8 +103,8 @@ IMPORTANT RULES:
               {
                 type: "text",
                 text: isAr
-                  ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي الخاص بالمقذوفات وحله خطوة بخطوة. استخرج جميع المعطيات وطبقها.`
-                  : `[Exercise Reading #${analysisId.slice(0, 8)}] Read this projectile motion physics exercise and solve it step by step. Extract all given data and apply it.`,
+                  ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي وحله خطوة بخطوة.`
+                  : `[Exercise Reading #${analysisId.slice(0, 8)}] Read this physics exercise and solve it step by step.`,
               },
               {
                 type: "image_url",
@@ -135,22 +113,20 @@ IMPORTANT RULES:
             ],
           },
         ],
-        temperature: 0.3,
-        max_tokens: 4000,
-        stream: false,
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Mistral API error ${response.status}: ${errorText}`);
-      throw new Error(`Mistral API error: ${response.status}`);
+      const t = await response.text();
+      console.error("OpenRouter API error:", response.status, t);
+      return new Response(
+        JSON.stringify({ error: `AI error: ${response.status}` }),
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
     const text = data?.choices?.[0]?.message?.content || "";
-
-    console.log(`subject-reading completed via Mistral AI`);
 
     return new Response(
       JSON.stringify({ text }),

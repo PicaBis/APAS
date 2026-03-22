@@ -26,7 +26,7 @@ interface Props {
   hasModel?: boolean;
 }
 
-// AI calls go through edge functions which handle Groq→Mistral fallback internally
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY ?? '';
 
 /** Strip LaTeX artifacts from AI responses */
 function cleanLatex(text: string): string {
@@ -66,6 +66,7 @@ function cleanLatex(text: string): string {
   s = s.replace(/ᵧ/g, 'y');
   return s;
 }
+const OPENROUTER_MODEL = 'google/gemini-2.5-flash';
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function getGracefulFallback(text: string, lang: string) {
@@ -93,7 +94,7 @@ You can also ask about: **range, launch angle, initial velocity, and gravity eff
 💡 You can also ask me about **how to use the app** and its features!`;
 }
 
-async function consumeGroqStream(
+async function consumeOpenRouterStream(
   body: ReadableStream<Uint8Array>,
   onChunk: (content: string) => void,
 ) {
@@ -405,14 +406,39 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
         });
 
         if (resp.ok && resp.body) {
-          await consumeGroqStream(resp.body, (chunk) => {
+          await consumeOpenRouterStream(resp.body, (chunk) => {
             analysisResult += chunk;
             setVoiceAnalysisText(analysisResult);
           });
         }
       } catch {
-        // Edge function handles Groq→Mistral fallback internally
-        // No direct API calls needed from the client
+        // Fallback to direct OpenRouter API
+        try {
+          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: OPENROUTER_MODEL,
+              stream: true,
+              messages: [
+                { role: 'system', content: 'You are APAS Assistant, an expert physics tutor. Respond concisely for text-to-speech.' },
+                { role: 'user', content: voicePrompt },
+              ],
+            }),
+          });
+
+          if (resp.ok && resp.body) {
+            await consumeOpenRouterStream(resp.body, (chunk) => {
+              analysisResult += chunk;
+              setVoiceAnalysisText(analysisResult);
+            });
+          }
+        } catch {
+          // silently fail, handled below
+        }
       }
 
       if (analysisResult) {
@@ -479,38 +505,26 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
     let assistantSoFar = '';
     const allMessages = [...messages, userMsg];
 
-    const systemPrompt = `You are APAS Assistant — an expert, passionate physics teacher AND application guide for the APAS projectile motion simulator.
-
-LANGUAGE RULES (CRITICAL):
-- You MUST respond ONLY in ${lang === 'ar' ? 'Arabic' : 'English'}. NEVER use Russian, French, Chinese, or any other language. Not even a single word.
+    const systemPrompt = `You are APAS Assistant — an expert physics teacher AND application guide for the APAS projectile motion simulator.
 
 You have TWO roles:
 1. **Physics Tutor:** Answer questions about projectile motion, kinematics, and classical mechanics
 2. **App Guide:** Help users navigate and use the APAS application features
 
 Your personality:
-- You are lively, enthusiastic, and interactive! Show genuine excitement about physics! 🚀
-- Use emojis generously to make responses engaging and fun (🎯 📐 🔬 💡 ⚡ 🌟 📊 🎓 ✨ 🔥 👏 etc.)
-- Start each response with a friendly greeting or encouraging reaction
-- Use analogies and real-world examples to explain concepts
-- Be warm and motivating — make the student feel excited about learning
-- Ask follow-up questions to keep the conversation going
-- Celebrate good questions with phrases like "${lang === 'ar' ? 'سؤال ممتاز! 🌟' : 'Great question! 🎯'}"
-
-FORMATTING RULES:
-- Use **bold** for key terms and important concepts
-- Use bullet points (- ) for lists, one idea per bullet
-- Add blank lines between sections for visual breathing room
-- Use ## for section headings with an emoji before each heading
-- Keep each point concise (1-2 sentences max)
-- Make the text scannable — avoid long dense paragraphs
-- Use numbered lists (1. 2. 3.) for step-by-step explanations
-
-EQUATION FORMATTING RULES:
+- Patient, encouraging, and enthusiastic about physics
+- Use analogies and real-world examples
+- Respond in ${lang === 'ar' ? 'Arabic' : 'English'}
 - Use equations in VERY SIMPLE format like: vy = v0 * sin(theta) - g * t
 - NEVER use LaTeX notation like $v_y = v_0 \\cdot \\sin(\\theta) - g \\cdot t$
 - NEVER use complex symbols like v₀, θ, ·, etc.
 - Use only basic characters: v0, theta, sin, cos, *, /, +, -, ^
+- Format equations as: vy = v0 * sin(theta) - g * t
+- Keep answers concise but thorough
+- Format responses with bullet points and clear structure
+- Each point should be on a separate line
+- Use short, clear sentences
+- Avoid long paragraphs
 
 **APAS Application Features (use this to answer app questions):**
 - **Left Panel:** Contains parameter inputs (velocity, angle, height, mass, gravity, air resistance), equations panel, export section, and display options
@@ -557,7 +571,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
     try {
       let handled = false;
 
-      // 1) PRIMARY: Groq API via edge function
+      // 1) PRIMARY: OpenRouter API via edge function
       try {
         const backupResp = await fetch(EDGE_TUTOR_URL, {
           method: 'POST',
@@ -569,19 +583,46 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
           body: JSON.stringify({
             messages: allMessages,
             simulationContext,
-            systemPrompt,
           }),
         });
 
         if (backupResp.ok && backupResp.body) {
-          await consumeGroqStream(backupResp.body, upsertAssistant);
+          await consumeOpenRouterStream(backupResp.body, upsertAssistant);
           handled = true;
         }
       } catch (edgeErr) {
-        console.warn('Edge function failed, trying direct Groq:', edgeErr);
+        console.warn('Edge function failed, trying direct OpenRouter:', edgeErr);
       }
 
-      // 2) Final graceful fallback (edge function handles Groq→Mistral internally)
+      // 2) FALLBACK: Direct OpenRouter API
+      if (!handled && OPENROUTER_API_KEY) {
+        try {
+          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: OPENROUTER_MODEL,
+              stream: true,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...allMessages,
+              ],
+            }),
+          });
+
+          if (resp.ok && resp.body) {
+            await consumeOpenRouterStream(resp.body, upsertAssistant);
+            handled = true;
+          }
+        } catch {
+          // fall through to graceful fallback
+        }
+      }
+
+      // 3) Final graceful fallback
       if (!handled) {
         const graceful = getGracefulFallback(text, lang);
         setMessages(prev => [...prev, { role: 'assistant', content: graceful }]);

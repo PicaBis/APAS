@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { aiComplete } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,11 +13,16 @@ serve(async (req) => {
   try {
     const { imageBase64, mimeType, lang } = await req.json();
 
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
+
     const isAr = lang === "ar";
+
+    // Generate a unique analysis ID to prevent any caching or repetition
     const analysisId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
-    const systemPrompt = `You are APAS Vision — an expert physics image analyzer specialized in projectile motion and mechanics.
+    const systemPrompt = `You are APAS Vision — an expert physics image analyzer specialized in projectile motion.
 Your task is to analyze each uploaded image INDEPENDENTLY and UNIQUELY.
 
 ANALYSIS ID: ${analysisId}
@@ -30,25 +34,12 @@ CRITICAL INSTRUCTIONS:
 3. Two images of the same sport (e.g., basketball) MUST produce DIFFERENT values if the poses, angles, or contexts differ.
 4. Focus on pixel-level visual cues: the angle of the arm/body, the position of the ball relative to the body, the phase of the throw.
 
-IMPORTANT — PROJECTILE DETECTION RULES:
-- You MUST carefully examine the ENTIRE image before deciding if a projectile is present.
-- A projectile can be ANY object in motion or about to be in motion: a ball, stone, arrow, bullet, rocket, water stream, person jumping, etc.
-- If there is ANY object that could potentially be thrown, launched, kicked, dropped, or projected in any way, mark it as detected=true.
-- NEVER say "no projectile detected" if there is a ball, person throwing, sports activity, or any physics scenario visible.
-- Even if the projectile is small, partially visible, blurry, or at the edge of the frame — STILL detect it.
-- Only mark detected=false if the image is clearly unrelated to physics/motion (e.g., a text document, a landscape with no moving objects, food, etc.)
-- When in doubt, ALWAYS lean toward detected=true with a lower confidence score rather than detected=false.
-
 HOW TO ANALYZE:
-- Step 1: Describe what you see in the image in detail
-- Step 2: Identify ALL objects that could be projectiles or in motion
-- Step 3: For each potential projectile, analyze:
-  - Object type and estimated mass
-  - Launch mechanism (throw, kick, drop, machine, etc.)
-  - Estimated launch angle from visual trajectory or body posture
-  - Estimated velocity based on the motion phase
-  - Launch height relative to ground
-- Step 4: Select the primary projectile and provide precise values
+- Identify the exact object type visible
+- Measure the launch angle from the visual trajectory or body posture (use reference lines: horizon, body angle, arm angle)
+- Estimate velocity based on the specific motion phase (wind-up, release, follow-through)
+- Determine height from the specific launch point relative to ground
+- Assess the throwing technique (overhand, underhand, hook shot, etc.)
 
 REALISTIC VALUE RANGES:
 - Mass (must match identified object):
@@ -75,7 +66,7 @@ REALISTIC VALUE RANGES:
 RESPONSE FORMAT:
 Always respond with a JSON block first, then a brief analysis.
 
-If NO projectile detected (ONLY for completely unrelated images):
+If NO projectile detected:
 \`\`\`json
 {"detected": false, "confidence": 0}
 \`\`\`
@@ -93,31 +84,48 @@ Then provide a SHORT analysis in ${isAr ? "Arabic" : "English"}:
 
 IMPORTANT: Each value MUST be justified by what you actually SEE in this specific image. Never use default/template values.`;
 
-    const { text, provider } = await aiComplete({
-      modelType: "vision",
-      temperature: 0.4,
-      max_tokens: 1500,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: isAr
-                ? `[تحليل فريد #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة. ابحث عن أي جسم يمكن أن يكون مقذوفاً. انظر إلى الوضعية والزاوية والتقنية المحددة. لا تستخدم قيماً افتراضية. افحص الصورة بالكامل قبل أن تقرر عدم وجود مقذوف.`
-                : `[Unique Analysis #${analysisId.slice(0, 8)}] Carefully analyze this specific image. Look for ANY object that could be a projectile. Examine posture, angle, and technique. Do not use default values. Scan the ENTIRE image before deciding no projectile exists.`,
-            },
-            {
-              type: "image_url",
-              image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-            },
-          ],
-        },
-      ],
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o",
+        temperature: 0.4,
+        max_tokens: 1500,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: isAr
+                  ? `[تحليل فريد #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة. انظر إلى الوضعية والزاوية والتقنية المحددة في هذه الصورة. لا تستخدم قيماً افتراضية.`
+                  : `[Unique Analysis #${analysisId.slice(0, 8)}] Analyze this specific image carefully. Look at the exact posture, angle, and technique shown. Do not use default values.`,
+              },
+              {
+                type: "image_url",
+                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+              },
+            ],
+          },
+        ],
+      }),
     });
 
-    console.log(`vision-analyze completed via ${provider}`);
+    if (!response.ok) {
+      const t = await response.text();
+      console.error("OpenRouter API error:", response.status, t);
+      return new Response(
+        JSON.stringify({ error: `AI error: ${response.status}` }),
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const data = await response.json();
+    const text = data?.choices?.[0]?.message?.content || "";
 
     return new Response(
       JSON.stringify({ text }),

@@ -4,7 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import { Lightbulb, X, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { playClick } from '@/utils/sound';
 
-// AI calls go through edge functions which handle Groq→Mistral fallback internally
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY ?? '';
+const OPENROUTER_MODEL = 'google/gemini-2.5-flash';
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function cleanLatex(text: string): string {
@@ -160,11 +161,35 @@ Format the output beautifully and clearly:
           handled = true;
         }
       } catch {
-        // fall through to Groq
+        // fall through to OpenRouter
       }
 
-      // Edge function handles Groq→Mistral fallback internally
-      // No direct API calls needed from the client
+      // 2) Fallback to direct OpenRouter API
+      if (!handled && OPENROUTER_API_KEY) {
+        try {
+          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: OPENROUTER_MODEL,
+              stream: true,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userMessage },
+              ],
+            }),
+          });
+          if (resp.ok && resp.body) {
+            await consumeStream(resp.body, onChunk);
+            handled = true;
+          }
+        } catch {
+          // fall through to local fallback
+        }
+      }
 
       if (!handled && !accumulated) {
         // Local fallback
