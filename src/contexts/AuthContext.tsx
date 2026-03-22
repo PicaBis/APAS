@@ -49,10 +49,9 @@ interface AuthContextType {
 function getAdminEmails(): string[] {
   const envEmails = import.meta.env.VITE_ADMIN_EMAILS;
   if (envEmails) return envEmails.split(',').map((e: string) => e.trim().toLowerCase());
-  try {
-    const stored = localStorage.getItem('apas_admin_emails');
-    if (stored) return JSON.parse(stored);
-  } catch { /* ignore */ }
+  // SECURITY: Removed localStorage fallback — admin emails must be set via
+  // the VITE_ADMIN_EMAILS env var at build time. The previous localStorage
+  // fallback allowed any user to grant themselves admin access via DevTools.
   return [];
 }
 
@@ -232,6 +231,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const activateDevPrivileges = (code: string): boolean => {
+    // SECURITY: Dev privilege activation is restricted to development builds only.
+    // In production, the client-side hash comparison is disabled to prevent
+    // reverse-engineering of the dev code from the bundled JS.
+    if (!import.meta.env.DEV) {
+      console.warn('Dev privilege activation is disabled in production builds.');
+      return false;
+    }
     if (hashDevInput(code) === DEV_CODE_HASH) {
       setDevPrivileges(true);
       localStorage.setItem(DEV_PRIV_KEY, DEV_CODE_HASH);

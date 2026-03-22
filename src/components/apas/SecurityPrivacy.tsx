@@ -62,9 +62,9 @@ const SecurityPrivacy: React.FC<SecurityPrivacyProps> = ({ open, onClose, lang, 
       ),
       status: 'active',
       details: t(
-        'حماية API: مفاتيح API تُخزن في متغيرات البيئة ولا تُعرض أبداً في كود العميل.\n\nCORS: سياسات مشاركة الموارد عبر المصادر محددة بدقة.\n\nRate Limiting: حدود على عدد الطلبات لمنع الإساءة.',
-        'API Protection: API keys are stored in environment variables and never exposed in client code.\n\nCORS: Cross-Origin Resource Sharing policies are strictly configured.\n\nRate Limiting: Request limits are in place to prevent abuse.',
-        'Protection API: Les clés API sont stockées dans les variables d\'environnement et jamais exposées dans le code client.\n\nCORS: Les politiques de partage de ressources cross-origin sont strictement configurées.\n\nLimitation de débit: Des limites de requêtes sont en place pour prévenir les abus.'
+        'حماية API: مفتاح Supabase المجهول (anon key) مضمّن في كود العميل حسب التصميم — صلاحياته محدودة بسياسات أمان الصف (RLS). المفاتيح الحساسة تُخزن على الخادم فقط.\n\nCORS: سياسات مشاركة الموارد عبر المصادر محددة بدقة.\n\nRate Limiting: حدود على عدد الطلبات لمنع الإساءة.',
+        'API Protection: The Supabase anon key is included in client code by design — its permissions are restricted by Row Level Security (RLS) policies. Sensitive API keys are stored server-side only.\n\nCORS: Cross-Origin Resource Sharing policies are strictly configured.\n\nRate Limiting: Request limits are in place to prevent abuse.',
+        'Protection API: La clé anonyme Supabase est incluse dans le code client par conception — ses permissions sont restreintes par les politiques de sécurité au niveau des lignes (RLS). Les clés API sensibles sont stockées côté serveur uniquement.\n\nCORS: Les politiques de partage de ressources cross-origin sont strictement configurées.\n\nLimitation de débit: Des limites de requêtes sont en place pour prévenir les abus.'
       ),
     },
     {

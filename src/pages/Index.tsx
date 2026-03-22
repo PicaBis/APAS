@@ -254,8 +254,8 @@ const Index = () => {
   const relativity = useRelativity(lang);
   const dualTrajectory = useMemo<DualFrameTrajectory | null>(() => {
     if (!relativity.enabled || sim.trajectoryData.length === 0) return null;
-    return computeDualFrameTrajectory(sim.trajectoryData, relativity.params);
-  }, [relativity.enabled, relativity.params, sim.trajectoryData]);
+    return computeDualFrameTrajectory(sim.trajectoryData, relativity.params, sim.mass);
+  }, [relativity.enabled, relativity.params, sim.trajectoryData, sim.mass]);
   const relativitySPrimeTrajectory = dualTrajectory?.frameSPrime ?? null;
 
   // ── Undo/Redo History ──
@@ -1185,7 +1185,7 @@ const Index = () => {
               </div>
 
               {/* Advanced Physics Panel (includes Relativity & Reference Frames) */}
-              <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} relativity={relativity} />
+              <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} relativity={relativity} muted={sim.isMuted} />
 
               {/* Save/Compare — collapsible section */}
               <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">

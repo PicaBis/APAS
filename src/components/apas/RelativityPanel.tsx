@@ -17,6 +17,7 @@ interface RelativityPanelProps {
   lang: string;
   relativity: UseRelativityReturn;
   onPhysicsChange?: () => void;
+  muted?: boolean;
 }
 
 const translations = {
@@ -141,18 +142,19 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
   lang,
   relativity,
   onPhysicsChange,
+  muted = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showEducational, setShowEducational] = useState(false);
 
   const handleToggle = (setter: (value: boolean) => void, current: boolean) => {
     setter(!current);
-    playToggle(false, !current);
+    playToggle(muted, !current);
     onPhysicsChange?.();
   };
 
   const handleParamChange = () => {
-    playSliderChange(false);
+    playSliderChange(muted);
     onPhysicsChange?.();
   };
 
@@ -179,7 +181,7 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
       <button
         onClick={() => {
           setIsExpanded(!isExpanded);
-          playSectionToggle(false);
+          playSectionToggle(muted);
         }}
         className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
       >
@@ -374,7 +376,7 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
               <button
                 onClick={() => {
                   setShowEducational(!showEducational);
-                  playSectionToggle(false);
+                  playSectionToggle(muted);
                 }}
                 className="w-full flex items-center gap-1.5 py-2 px-3 text-[10px] font-semibold text-foreground uppercase tracking-wide rounded-lg border border-border/50 hover:bg-primary/10 hover:border-primary/20 transition-all duration-200"
               >

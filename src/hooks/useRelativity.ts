@@ -39,7 +39,7 @@ export interface UseRelativityReturn {
   speedDescription: string;
 
   // Methods
-  computeDualTrajectory: (trajectoryS: TrajectoryPoint[]) => DualFrameTrajectory;
+  computeDualTrajectory: (trajectoryS: TrajectoryPoint[], mass?: number) => DualFrameTrajectory;
   getExplanations: (isUnderwater?: boolean, isAccelerating?: boolean) => string[];
 
   // Presets
@@ -74,8 +74,8 @@ export function useRelativity(lang: string = 'en'): UseRelativityReturn {
   );
 
   const computeDualTrajectory = useCallback(
-    (trajectoryS: TrajectoryPoint[]): DualFrameTrajectory => {
-      return computeDualFrameTrajectory(trajectoryS, params);
+    (trajectoryS: TrajectoryPoint[], mass: number = 1): DualFrameTrajectory => {
+      return computeDualFrameTrajectory(trajectoryS, params, mass);
     },
     [params]
   );

@@ -21,6 +21,7 @@ interface AdvancedPhysicsPanelProps {
   advancedPhysicsInstance?: UseAdvancedPhysicsReturn;
   environmentId?: string;
   relativity?: UseRelativityReturn;
+  muted?: boolean;
 }
 
 const translations = {
@@ -208,7 +209,7 @@ const SectionHeader: React.FC<{
   </button>
 );
 
-export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth', relativity }) => {
+export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth', relativity, muted = false }) => {
   const isWaterEnvironment = environmentId === 'underwater';
   const [isExpanded, setIsExpanded] = useState(false);
   const [sectionRotational, setSectionRotational] = useState(false);
@@ -605,7 +606,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
           {/* Relativity & Reference Frames (embedded) */}
           {relativity && (
             <Suspense fallback={null}>
-              <RelativityPanel lang={lang} relativity={relativity} onPhysicsChange={onPhysicsChange} />
+              <RelativityPanel lang={lang} relativity={relativity} onPhysicsChange={onPhysicsChange} muted={muted} />
             </Suspense>
           )}
 

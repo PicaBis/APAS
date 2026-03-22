@@ -133,6 +133,11 @@ export const lorentzCoordinateTransform = (
   tPrime: number,
   frameV: number
 ): { x: number; y: number; t: number } => {
+  const absV = Math.abs(frameV);
+  if (absV >= SPEED_OF_LIGHT) {
+    console.warn(`Frame velocity (${absV} m/s) must be less than speed of light. Clamping to 0.9999c.`);
+    frameV = Math.sign(frameV) * SPEED_OF_LIGHT * 0.9999;
+  }
   const gamma = lorentzFactor(Math.abs(frameV));
   const c2 = SPEED_OF_LIGHT * SPEED_OF_LIGHT;
   return {
@@ -154,6 +159,11 @@ export const lorentzInverseCoordinateTransform = (
   t: number,
   frameV: number
 ): { x: number; y: number; t: number } => {
+  const absV = Math.abs(frameV);
+  if (absV >= SPEED_OF_LIGHT) {
+    console.warn(`Frame velocity (${absV} m/s) must be less than speed of light. Clamping to 0.9999c.`);
+    frameV = Math.sign(frameV) * SPEED_OF_LIGHT * 0.9999;
+  }
   const gamma = lorentzFactor(Math.abs(frameV));
   const c2 = SPEED_OF_LIGHT * SPEED_OF_LIGHT;
   return {
@@ -172,6 +182,9 @@ export const relativisticVelocityTransform = (
   uyPrime: number,
   frameV: number
 ): { vx: number; vy: number } => {
+  if (Math.abs(frameV) >= SPEED_OF_LIGHT) {
+    frameV = Math.sign(frameV) * SPEED_OF_LIGHT * 0.9999;
+  }
   const c2 = SPEED_OF_LIGHT * SPEED_OF_LIGHT;
   const denominator = 1 + (uxPrime * frameV) / c2;
   const gamma = lorentzFactor(Math.abs(frameV));
@@ -190,6 +203,9 @@ export const relativisticInverseVelocityTransform = (
   uy: number,
   frameV: number
 ): { vx: number; vy: number } => {
+  if (Math.abs(frameV) >= SPEED_OF_LIGHT) {
+    frameV = Math.sign(frameV) * SPEED_OF_LIGHT * 0.9999;
+  }
   const c2 = SPEED_OF_LIGHT * SPEED_OF_LIGHT;
   const denominator = 1 - (ux * frameV) / c2;
   const gamma = lorentzFactor(Math.abs(frameV));
@@ -246,7 +262,8 @@ export const computeRelativityMeta = (
 export const transformTrajectoryToSPrime = (
   trajectoryS: TrajectoryPoint[],
   frameVelocity: number,
-  mode: RelativityMode
+  mode: RelativityMode,
+  mass: number = 1
 ): TrajectoryPoint[] => {
   if (trajectoryS.length === 0) return [];
 
@@ -275,7 +292,6 @@ export const transformTrajectoryToSPrime = (
     }
 
     const newSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
-    const mass = 1; // Normalized
     return {
       x: newX,
       y: newY,
@@ -298,7 +314,8 @@ export const transformTrajectoryToSPrime = (
 export const transformTrajectoryToS = (
   trajectorySPrime: TrajectoryPoint[],
   frameVelocity: number,
-  mode: RelativityMode
+  mode: RelativityMode,
+  mass: number = 1
 ): TrajectoryPoint[] => {
   if (trajectorySPrime.length === 0) return [];
 
@@ -325,7 +342,6 @@ export const transformTrajectoryToS = (
     }
 
     const newSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
-    const mass = 1;
     return {
       x: newX,
       y: newY,
@@ -348,7 +364,8 @@ export const transformTrajectoryToS = (
  */
 export const computeDualFrameTrajectory = (
   trajectoryS: TrajectoryPoint[],
-  params: RelativityParams
+  params: RelativityParams,
+  mass: number = 1
 ): DualFrameTrajectory => {
   const meta = computeRelativityMeta(params.mode, params.frameVelocity);
 
@@ -363,7 +380,8 @@ export const computeDualFrameTrajectory = (
   const frameSPrime = transformTrajectoryToSPrime(
     trajectoryS,
     params.frameVelocity,
-    params.mode
+    params.mode,
+    mass
   );
 
   return {
