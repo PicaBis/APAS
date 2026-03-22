@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Mic, MicOff, Loader2, X, Volume2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
+const EDGE_VOICE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-process`;
 
 interface Props {
   lang: string;
@@ -37,8 +37,11 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
 
   const isAr = lang === 'ar';
 
-  const parseParamsFromAI = useCallback((text: string): ExtractedParams | null => {
+  const parseParamsFromAI = useCallback((text: string): { params: ExtractedParams | null; missing: string[]; message: string } => {
     const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
+    const cleanText = text.replace(/```json[\s\S]*?```\s*/, '').trim();
+    let missing: string[] = [];
+
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[1].trim());
@@ -49,7 +52,9 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
           if (typeof parsed.height === 'number') params.height = parsed.height;
           if (typeof parsed.mass === 'number') params.mass = parsed.mass;
           if (typeof parsed.gravity === 'number') params.gravity = parsed.gravity;
-          return Object.keys(params).length > 0 ? params : null;
+          if (Array.isArray(parsed.missing)) missing = parsed.missing;
+          const hasParams = Object.keys(params).length > 0;
+          return { params: hasParams ? params : null, missing, message: cleanText };
         }
       } catch { /* ignore */ }
     }
@@ -68,41 +73,22 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     if (massMatch) params.mass = parseFloat(massMatch[1]);
     if (gravityMatch) params.gravity = parseFloat(gravityMatch[1]);
 
-    return Object.keys(params).length > 0 ? params : null;
+    const hasParams = Object.keys(params).length > 0;
+    return { params: hasParams ? params : null, missing, message: cleanText };
   }, []);
+
+  const [aiMessage, setAiMessage] = useState('');
+  const [missingParams, setMissingParams] = useState<string[]>([]);
 
   const processVoiceInput = useCallback(async (spokenText: string) => {
     setIsProcessing(true);
     setExtractedParams(null);
     setApplied(false);
+    setAiMessage('');
+    setMissingParams([]);
 
     try {
-      const systemPrompt = `You are APAS Voice — a physics voice command processor for projectile motion simulation.
-
-The user speaks voice commands to set simulation parameters. Extract ANY physics parameters mentioned.
-
-Current simulation context:
-${simulationContext ? `- Velocity: ${simulationContext.velocity} m/s
-- Angle: ${simulationContext.angle}°
-- Height: ${simulationContext.height} m
-- Gravity: ${simulationContext.gravity} m/s²
-- Mass: ${simulationContext.mass} kg` : 'No current context'}
-
-INSTRUCTIONS:
-1. Parse the user's spoken text for physics parameters
-2. Extract: velocity (m/s), angle (degrees), height (m), mass (kg), gravity (m/s²)
-3. If the user says relative commands like "increase velocity" or "double the angle", calculate the new value
-4. Return a JSON block with the extracted values
-
-RESPONSE FORMAT:
-\`\`\`json
-{"velocity": <number or null>, "angle": <number or null>, "height": <number or null>, "mass": <number or null>, "gravity": <number or null>}
-\`\`\`
-Only include parameters that were mentioned or implied. Use null for unmentioned parameters.
-
-Respond in ${isAr ? 'Arabic' : 'English'} with a brief confirmation after the JSON.`;
-
-      const resp = await fetch(EDGE_TUTOR_URL, {
+      const resp = await fetch(EDGE_VOICE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -110,30 +96,33 @@ Respond in ${isAr ? 'Arabic' : 'English'} with a brief confirmation after the JS
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: [
-            { role: 'user', content: spokenText },
-          ],
+          transcript: spokenText,
+          lang,
           simulationContext,
-          systemPromptOverride: systemPrompt,
         }),
       });
 
       if (resp.ok) {
-        const text = await resp.text();
-        const params = parseParamsFromAI(text);
+        const data = await resp.json();
+        const aiText = data.text || '';
+        const result = parseParamsFromAI(aiText);
 
-        if (params) {
-          setExtractedParams(params);
-          // Apply directly to canvas
-          onUpdateParams(params);
+        setAiMessage(result.message);
+        setMissingParams(result.missing);
+
+        if (result.params) {
+          setExtractedParams(result.params);
+          onUpdateParams(result.params);
           setApplied(true);
           toast.success(isAr ? 'تم تطبيق الأوامر الصوتية على المحاكاة' : 'Voice commands applied to simulation');
+        } else if (result.missing.length > 0) {
+          toast.info(result.message || (isAr ? 'بعض المعطيات ناقصة' : 'Some parameters are missing'));
         } else {
           // Try direct number extraction from transcript
-          const directParams = parseParamsFromAI(spokenText);
-          if (directParams) {
-            setExtractedParams(directParams);
-            onUpdateParams(directParams);
+          const directResult = parseParamsFromAI(spokenText);
+          if (directResult.params) {
+            setExtractedParams(directResult.params);
+            onUpdateParams(directResult.params);
             setApplied(true);
             toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
           } else {
@@ -142,10 +131,10 @@ Respond in ${isAr ? 'Arabic' : 'English'} with a brief confirmation after the JS
         }
       } else {
         // Fallback: try direct extraction from transcript
-        const directParams = parseParamsFromAI(spokenText);
-        if (directParams) {
-          setExtractedParams(directParams);
-          onUpdateParams(directParams);
+        const directResult = parseParamsFromAI(spokenText);
+        if (directResult.params) {
+          setExtractedParams(directResult.params);
+          onUpdateParams(directResult.params);
           setApplied(true);
           toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
         } else {
@@ -156,7 +145,7 @@ Respond in ${isAr ? 'Arabic' : 'English'} with a brief confirmation after the JS
       toast.error(isAr ? 'خطأ في المعالجة' : 'Processing error');
     }
     setIsProcessing(false);
-  }, [isAr, onUpdateParams, parseParamsFromAI, simulationContext]);
+  }, [isAr, lang, onUpdateParams, parseParamsFromAI, simulationContext]);
 
   const startListening = useCallback(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -230,6 +219,8 @@ Respond in ${isAr ? 'Arabic' : 'English'} with a brief confirmation after the JS
     setTranscript('');
     setExtractedParams(null);
     setApplied(false);
+    setAiMessage('');
+    setMissingParams([]);
   };
 
   return (
@@ -318,9 +309,31 @@ Respond in ${isAr ? 'Arabic' : 'English'} with a brief confirmation after the JS
               {!transcript && !isProcessing && !applied && (
                 <p className="text-[10px] text-muted-foreground text-center max-w-[250px]">
                   {isAr
-                    ? 'قل مثلاً: "اجعل السرعة 50 والزاوية 30 درجة"'
-                    : 'Say something like: "Set velocity to 50 and angle to 30 degrees"'}
+                    ? 'قل مثلاً: "السرعة 50 متر في الثانية والزاوية 30 درجة والارتفاع 2 متر"'
+                    : 'Say something like: "Velocity 50 m/s, angle 30 degrees, height 2 meters"'}
                 </p>
+              )}
+
+              {/* AI feedback message */}
+              {aiMessage && !isProcessing && (
+                <div className="w-full bg-secondary/50 border border-border/50 rounded-lg p-3">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                    {isAr ? 'رد المعالج' : 'AI Response'}
+                  </p>
+                  <p className="text-xs text-foreground">{aiMessage}</p>
+                </div>
+              )}
+
+              {/* Missing params warning */}
+              {missingParams.length > 0 && !isProcessing && (
+                <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                  <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">
+                    {isAr ? 'معطيات ناقصة' : 'Missing Parameters'}
+                  </p>
+                  <p className="text-xs text-foreground">
+                    {missingParams.join(', ')}
+                  </p>
+                </div>
               )}
 
               {/* Live transcript */}

@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { aiComplete } from "../_shared/ai-provider.ts";
+
+const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
+const MISTRAL_VISION_MODEL = "pixtral-large-latest";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -15,6 +17,11 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
+    }
+
+    const mistralKey = Deno.env.get("MISTRAL_API_KEY");
+    if (!mistralKey) {
+      throw new Error("MISTRAL_API_KEY not configured");
     }
 
     console.log(`Received ${frames.length} frames for video analysis, fps: ${fps}, totalFrames: ${totalFrames}`);
@@ -103,17 +110,34 @@ Then provide analysis in ${isAr ? "Arabic" : "English"}:
 - ${isAr ? "تقدير زاوية الإطلاق" : "Launch angle estimation"}
 - ${isAr ? "ملاحظات فيزيائية" : "Physics notes"}`;
 
-    const { text, provider } = await aiComplete({
-      modelType: "vision",
-      temperature: 0.4,
-      max_tokens: 2000,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
+    const response = await fetch(MISTRAL_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${mistralKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MISTRAL_VISION_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        temperature: 0.4,
+        max_tokens: 2000,
+        stream: false,
+      }),
     });
 
-    console.log(`video-analyze completed via ${provider}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Mistral API error ${response.status}: ${errorText}`);
+      throw new Error(`Mistral API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data?.choices?.[0]?.message?.content || "";
+
+    console.log(`video-analyze completed via Mistral AI`);
 
     return new Response(JSON.stringify({ text }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
