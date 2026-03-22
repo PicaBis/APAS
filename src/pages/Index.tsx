@@ -8,7 +8,7 @@ import GuestRestrictionOverlay from '@/components/auth/GuestRestrictionOverlay';
 import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 import { calcMetrics, type ModelData } from '@/utils/physics';
 import { useAdvancedPhysics } from '@/hooks/useAdvancedPhysics';
-import { playClick, playUIClick, playToggle, playNav, vibrate, playSectionToggle, playSliderChange, playTutorialClick } from '@/utils/sound';
+import { playClick, playUIClick, playToggle, playNav, vibrate, playSectionToggle, playSliderChange, playTutorialClick, playLoadingSound, playSnapshotSound, playModeSwitch, playZoomSound, playResetSound, playSpeedChange, playSuccessChime } from '@/utils/sound';
 import { TRANSLATIONS } from '@/constants/translations';
 
 import SplashScreen from '@/components/apas/SplashScreen';
@@ -536,6 +536,7 @@ const Index = () => {
     link.download = `APAS_Simulation_${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
+    playSnapshotSound(sim.isMuted);
   };
 
   const toggleFullscreen = () => {
@@ -584,6 +585,7 @@ const Index = () => {
       } else if (e.code === 'KeyR') {
         e.preventDefault();
         sim.resetAnimation();
+        playResetSound(sim.isMuted);
       } else if (e.code === 'KeyG') {
         e.preventDefault();
         setShowGrid(g => !g);
@@ -594,19 +596,20 @@ const Index = () => {
       } else if (e.code === 'Equal' || e.code === 'NumpadAdd') {
         e.preventDefault();
         setCanvasZoom(z => Math.min(3, z + 0.25));
-        playUIClick(sim.isMuted);
+        playZoomSound(sim.isMuted, true);
       } else if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
         e.preventDefault();
         setCanvasZoom(z => Math.max(0.5, z - 0.25));
-        playUIClick(sim.isMuted);
+        playZoomSound(sim.isMuted, false);
       } else if (e.code === 'Digit3') {
         e.preventDefault();
         if (is3DMode) {
           setIs3DMode(false);
+          playModeSwitch(sim.isMuted, false);
         } else if (!webglError) {
           setIs3DMode(true);
+          playModeSwitch(sim.isMuted, true);
         }
-        playUIClick(sim.isMuted);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1339,13 +1342,13 @@ const Index = () => {
                     {lang === 'ar' ? 'مسار المقذوف' : lang === 'fr' ? 'Trajectoire du Projectile' : 'Projectile Path'}
                   </h2>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setCanvasZoom(z => Math.max(0.5, z - 0.25))}
+                    <button onClick={() => { setCanvasZoom(z => Math.max(0.5, z - 0.25)); playZoomSound(sim.isMuted, false); }}
                       className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
                       title={lang === 'ar' ? 'تصغير' : 'Zoom Out'}>
                       <ZoomOut className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
                     </button>
                     <span className="text-[10px] font-mono text-muted-foreground w-8 text-center">{Math.round(canvasZoom * 100)}%</span>
-                    <button onClick={() => setCanvasZoom(z => Math.min(3, z + 0.25))}
+                    <button onClick={() => { setCanvasZoom(z => Math.min(3, z + 0.25)); playZoomSound(sim.isMuted, true); }}
                       className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
                       title={lang === 'ar' ? 'تكبير' : 'Zoom In'}>
                       <ZoomIn className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
@@ -1353,10 +1356,11 @@ const Index = () => {
                     <button onClick={() => {
                         if (is3DMode) {
                           setIs3DMode(false);
+                          playModeSwitch(sim.isMuted, false);
                         } else if (!webglError) {
                           setIs3DMode(true);
+                          playModeSwitch(sim.isMuted, true);
                         }
-                        playUIClick(sim.isMuted);
                       }}
                       className={is3DMode ? 'group p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary hover:shadow-md transition-all duration-300' : 'group p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300'}
                       title={lang === 'ar' ? 'وضع ثلاثي الأبعاد' : '3D Mode'}>

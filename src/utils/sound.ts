@@ -286,6 +286,137 @@ export const playLangSwitch = (muted: boolean) => {
   try { playTone('triangle', 700, 900, 0.025, 0.1);   } catch { /* ignore */ }
 };
 
+// Loading state sound — a pleasant, ambient pulsing hum that conveys progress
+export const playLoadingSound = (muted: boolean) => {
+  if (muted) return;
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const dur = 1.8;
+    // Warm pad tone
+    const osc1 = ctx.createOscillator();
+    const g1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(330, t);
+    osc1.frequency.exponentialRampToValueAtTime(440, t + dur * 0.5);
+    osc1.frequency.exponentialRampToValueAtTime(330, t + dur);
+    g1.gain.setValueAtTime(0, t);
+    g1.gain.linearRampToValueAtTime(0.04, t + 0.15);
+    g1.gain.setValueAtTime(0.04, t + dur * 0.7);
+    g1.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc1.connect(g1); g1.connect(ctx.destination);
+    osc1.start(t); osc1.stop(t + dur);
+    // Soft shimmer overtone
+    const osc2 = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(660, t);
+    osc2.frequency.exponentialRampToValueAtTime(880, t + dur * 0.5);
+    osc2.frequency.exponentialRampToValueAtTime(660, t + dur);
+    g2.gain.setValueAtTime(0, t);
+    g2.gain.linearRampToValueAtTime(0.015, t + 0.2);
+    g2.gain.setValueAtTime(0.015, t + dur * 0.6);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc2.connect(g2); g2.connect(ctx.destination);
+    osc2.start(t); osc2.stop(t + dur);
+  } catch { /* ignore */ }
+};
+
+// Success / completion chime (e.g. loading finished, export done)
+export const playSuccessChime = (muted: boolean) => {
+  if (muted) return;
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    // Ascending two-note chime (C5 → E5)
+    const notes = [523.25, 659.25];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + i * 0.12);
+      g.gain.setValueAtTime(0, t + i * 0.12);
+      g.gain.linearRampToValueAtTime(0.06, t + i * 0.12 + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.12 + 0.35);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t + i * 0.12); osc.stop(t + i * 0.12 + 0.4);
+    });
+  } catch { /* ignore */ }
+};
+
+// Error / warning sound (soft descending tone)
+export const playErrorSound = (muted: boolean) => {
+  if (muted) return;
+  try {
+    playTone('sine', 440, 220, 0.06, 0.2);
+    setTimeout(() => playTone('sine', 330, 200, 0.04, 0.18), 100);
+  } catch { /* ignore */ }
+};
+
+// Reset / undo action sound
+export const playResetSound = (muted: boolean) => {
+  if (muted) return;
+  try { playTone('triangle', 800, 400, 0.04, 0.12); } catch { /* ignore */ }
+};
+
+// Zoom in/out sound
+export const playZoomSound = (muted: boolean, zoomIn: boolean) => {
+  if (muted) return;
+  try {
+    if (zoomIn) {
+      playTone('sine', 500, 800, 0.03, 0.08);
+    } else {
+      playTone('sine', 800, 500, 0.03, 0.08);
+    }
+  } catch { /* ignore */ }
+};
+
+// Snapshot / camera sound
+export const playSnapshotSound = (muted: boolean) => {
+  if (muted) return;
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    // Short click-shutter noise
+    const sr = ctx.sampleRate;
+    const dur = 0.08;
+    const buf = ctx.createBuffer(1, Math.floor(sr * dur), sr);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sr * 0.01));
+    const src = ctx.createBufferSource();
+    const g = ctx.createGain();
+    const f = ctx.createBiquadFilter();
+    f.type = 'highpass'; f.frequency.value = 2000;
+    src.buffer = buf;
+    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.12, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    src.start();
+  } catch { /* ignore */ }
+};
+
+// 3D mode toggle sound (spatial swish)
+export const playModeSwitch = (muted: boolean, to3D: boolean) => {
+  if (muted) return;
+  try {
+    if (to3D) {
+      playTone('sine', 400, 900, 0.04, 0.15);
+      setTimeout(() => playTone('triangle', 800, 1200, 0.02, 0.1), 60);
+    } else {
+      playTone('sine', 900, 400, 0.04, 0.15);
+      setTimeout(() => playTone('triangle', 1200, 800, 0.02, 0.1), 60);
+    }
+  } catch { /* ignore */ }
+};
+
+// Playback speed change sound
+export const playSpeedChange = (muted: boolean) => {
+  if (muted) return;
+  try { playTone('sine', 600, 750, 0.025, 0.06); } catch { /* ignore */ }
+};
+
 // Guided tour step transition sound (gentle chime)
 export const playTourTransition = (muted: boolean) => {
   if (muted) return;
