@@ -1,10 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
-const MISTRAL_VISION_MODEL = "pixtral-large-latest";
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 
 // ── Geometric computation helpers ──
 
@@ -247,19 +245,18 @@ serve(async (req) => {
       });
     }
 
-    const mistralKey = Deno.env.get("MISTRAL_API_KEY");
-    const groqKey = Deno.env.get("GROQ_API_KEY");
-    if (!mistralKey && !groqKey) {
-      throw new Error("No AI provider configured (set MISTRAL_API_KEY and/or GROQ_API_KEY)");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
-    console.log(`Received ${frames.length} frames for video analysis, fps: ${fps}, totalFrames: ${totalFrames}`);
+    console.log(`[APAS] Received ${frames.length} frames for video analysis, fps: ${fps}, totalFrames: ${totalFrames}`);
 
     const isAr = lang === "ar";
 
     // PASS 1: Ask AI to detect object positions in each frame
 
-    const positionPrompt = `You are a precise object tracking system for physics video analysis.
+    const positionPrompt = `You are APAS (Advanced Physics Analysis System) — a precise object tracking system for physics video analysis powered by Claude.
 You will receive ${frames.length} consecutive video frames showing a potential moving object (projectile).
 
 YOUR ONLY TASK:
@@ -282,10 +279,17 @@ PHYSICAL CONSTRAINTS (use these to validate your tracking):
 - The trajectory should form a smooth parabola (or straight line for vertical/horizontal throws).
 - Sudden jumps in position indicate tracking errors - avoid them.
 
+ADVANCED ANALYSIS:
+- Detect the moment of "peak height" (maximum altitude) in the trajectory.
+- Detect the moment of "impact" (when the object hits the ground or stops).
+- Note any drag effects visible (deceleration beyond gravity).
+
 Also identify:
 - objectType: what the moving object is (ball, stone, bottle, etc.)
 - estimatedMass: mass in kg based on the object type (use realistic values)
 - launchHeight: estimated launch height in meters (how high the object started from ground)
+- peakFrame: frame number where the object reaches maximum height (or null)
+- impactFrame: frame number where the object hits the ground (or null)
 
 RESPOND WITH ONLY THIS JSON (no other text):
 \`\`\`json
@@ -295,6 +299,9 @@ RESPOND WITH ONLY THIS JSON (no other text):
   "estimatedMass": <kg>,
   "launchHeight": <meters>,
   "imageWidth": 384,
+  "peakFrame": <frame_number_or_null>,
+  "impactFrame": <frame_number_or_null>,
+  "dragEffect": "<none|slight|significant>",
   "positions": [
     {"frame": 1, "x": <pixel_x>, "y": <pixel_y>},
     {"frame": 2, "x": <pixel_x>, "y": <pixel_y>}
@@ -307,84 +314,75 @@ If NO moving object is found at all:
 {"detected": false, "positions": []}
 \`\`\``;
 
-    // Build multi-frame content for position detection
-    // Mistral uses plain string for image_url, Groq uses { url: ... } object
-    function buildPosContent(imageUrlFormat: 'string' | 'object') {
-      const content: Array<{ type: string; text?: string; image_url?: string | { url: string } }> = [];
-      content.push({
+    // Build Claude Messages API content with base64 images
+    function parseDataUrl(dataUrl: string): { base64: string; mediaType: string } {
+      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        return { mediaType: match[1], base64: match[2] };
+      }
+      return { mediaType: "image/jpeg", base64: dataUrl };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const claudeContent: Array<Record<string, any>> = [];
+    claudeContent.push({
+      type: "text",
+      text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
+    });
+
+    for (let i = 0; i < frames.length; i++) {
+      const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(3) : String(i * 0.1);
+      claudeContent.push({
         type: "text",
-        text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
+        text: `--- Frame ${i + 1}/${frames.length} (Time: ${ts}s) ---`,
       });
 
-      for (let i = 0; i < frames.length; i++) {
-        const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(3) : String(i * 0.1);
-        content.push({
-          type: "text",
-          text: `--- Frame ${i + 1}/${frames.length} (Time: ${ts}s) ---`,
-        });
-        content.push({
-          type: "image_url",
-          image_url: imageUrlFormat === 'string' ? frames[i].data : { url: frames[i].data },
-        });
-      }
-      return content;
+      const { base64, mediaType } = parseDataUrl(frames[i].data);
+      claudeContent.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: mediaType,
+          data: base64,
+        },
+      });
     }
 
-    // Build provider list: Mistral first, Groq as fallback
-    const providers: Array<{ name: string; url: string; key: string; model: string; imageUrlFormat: 'string' | 'object' }> = [];
-    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_VISION_MODEL, imageUrlFormat: 'string' });
-    if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_VISION_MODEL, imageUrlFormat: 'object' });
+    console.log(`[APAS] Pass 1: Sending ${frames.length} frames to Claude (${CLAUDE_MODEL})...`);
 
-    let posText = "";
-    let usedProvider = "";
-    for (const provider of providers) {
-      try {
-        console.log(`[video-analyze] Pass 1: Trying ${provider.name}...`);
-        const posContent = buildPosContent(provider.imageUrlFormat);
+    const posResponse = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        system: positionPrompt,
+        messages: [
+          { role: "user", content: claudeContent },
+        ],
+        temperature: 0.05,
+        max_tokens: 4000,
+      }),
+    });
 
-        const posResponse = await fetch(provider.url, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.key}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            messages: [
-              { role: "system", content: positionPrompt },
-              { role: "user", content: posContent },
-            ],
-            temperature: 0.05,
-            max_tokens: 2000,
-            stream: false,
-          }),
-        });
-
-        if (!posResponse.ok) {
-          const errorText = await posResponse.text();
-          console.error(`[video-analyze] ${provider.name} error (Pass 1) ${posResponse.status}: ${errorText}`);
-          continue;
-        }
-
-        const posData = await posResponse.json();
-        posText = posData?.choices?.[0]?.message?.content || "";
-        if (!posText) {
-          console.warn(`[video-analyze] ${provider.name} returned empty response`);
-          continue;
-        }
-        usedProvider = provider.name;
-        break;
-      } catch (err) {
-        console.error(`[video-analyze] ${provider.name} request failed:`, err);
-        continue;
-      }
+    if (!posResponse.ok) {
+      const errorText = await posResponse.text();
+      console.error(`[APAS] Claude error (Pass 1) ${posResponse.status}: ${errorText}`);
+      throw new Error(`Claude API error: ${posResponse.status} - ${errorText}`);
     }
 
-    if (!usedProvider) {
-      throw new Error("All AI providers failed for video-analyze");
+    const posData = await posResponse.json();
+    // Claude response format: { content: [{ type: "text", text: "..." }] }
+    const posText = posData?.content?.[0]?.text || "";
+
+    if (!posText) {
+      throw new Error("Claude returned empty response for position detection");
     }
 
-    console.log(`Pass 1 complete via ${usedProvider}. Raw AI response length: ${posText.length}`);
+    console.log(`[APAS] Pass 1 complete via Claude. Raw response length: ${posText.length}`);
 
     // Parse the positions from AI response
     const jsonMatch = posText.match(/```json\s*([\s\S]*?)```/);
@@ -394,7 +392,10 @@ If NO moving object is found at all:
       estimatedMass?: number;
       launchHeight?: number;
       imageWidth?: number;
-      positions?: Array<{ frame: number; x: number; y: number }>; 
+      peakFrame?: number | null;
+      impactFrame?: number | null;
+      dragEffect?: string;
+      positions?: Array<{ frame: number; x: number; y: number }>;
     } = {};
 
     if (jsonMatch) {
@@ -428,14 +429,14 @@ If NO moving object is found at all:
       }));
 
       const cleanPositions = filterOutlierPositions(positions);
-      console.log(`Positions: ${positions.length} raw, ${cleanPositions.length} after filtering`);
+      console.log(`[APAS] Positions: ${positions.length} raw, ${cleanPositions.length} after filtering`);
 
       motionType = classifyMotion(cleanPositions);
-      console.log(`Motion type: ${motionType}`);
+      console.log(`[APAS] Motion type: ${motionType}`);
 
       // Method 1: Velocity-vector angle
       const velocityAngle = computeLaunchAngle(cleanPositions);
-      console.log(`Velocity-vector angle: ${velocityAngle}deg`);
+      console.log(`[APAS] Velocity-vector angle: ${velocityAngle}deg`);
 
       // Method 2: Parabolic curve fitting
       const curveFit = fitParabolicTrajectory(cleanPositions, imageWidth, calibrationMeters, userGravity);
@@ -446,12 +447,12 @@ If NO moving object is found at all:
         curveAngle = curveFit.angle;
         curveVelocity = curveFit.velocity;
         curveFitInfo = `R^2 = ${curveFit.r_squared.toFixed(3)}`;
-        console.log(`Curve fit: angle=${curveAngle}deg, velocity=${curveVelocity}m/s, R^2=${curveFit.r_squared.toFixed(3)}`);
+        console.log(`[APAS] Curve fit: angle=${curveAngle}deg, velocity=${curveVelocity}m/s, R^2=${curveFit.r_squared.toFixed(3)}`);
       }
 
       // Method 3: Linear velocity estimation
       const linearVelocity = estimateVelocity(cleanPositions, imageWidth, calibrationMeters);
-      console.log(`Linear velocity estimate: ${linearVelocity} m/s`);
+      console.log(`[APAS] Linear velocity estimate: ${linearVelocity} m/s`);
 
       // Cross-validate and select best values
       if (motionType === "vertical") {
@@ -482,8 +483,8 @@ If NO moving object is found at all:
 
       finalAngle = Math.max(0, Math.min(90, finalAngle));
 
-      // Calculate confidence
-      let baseConfidence = 45;
+      // Calculate confidence (Claude vision is more accurate, higher base)
+      let baseConfidence = 55;
       baseConfidence += Math.min(20, cleanPositions.length * 3);
       if (cleanPositions.length === positions.length) baseConfidence += 8;
       if (curveFit && curveFit.r_squared > 0.8) baseConfidence += 12;
@@ -491,7 +492,7 @@ If NO moving object is found at all:
       if (curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 10) baseConfidence += 5;
       if (Math.abs(finalAngle - 45) > 5 && Math.abs(finalAngle - 60) > 5 && Math.abs(finalAngle - 90) > 5) baseConfidence += 3;
 
-      confidence = Math.min(95, Math.max(35, baseConfidence));
+      confidence = Math.min(98, Math.max(40, baseConfidence));
 
       trajectoryDescription = cleanPositions.map((p, i) =>
         `Frame ${i + 1}: (${Math.round(p.x)}, ${Math.round(p.y)}) @ t=${p.t.toFixed(3)}s`
@@ -507,6 +508,10 @@ If NO moving object is found at all:
       mass: aiResult.estimatedMass || 0.5,
       height: aiResult.launchHeight || 1,
       objectType: aiResult.objectType || "unknown object",
+      trajectoryData: aiPositions,
+      peakFrame: aiResult.peakFrame || null,
+      impactFrame: aiResult.impactFrame || null,
+      dragEffect: aiResult.dragEffect || "none",
     };
 
     const motionTypeLabel = motionType === "vertical"
@@ -541,9 +546,10 @@ If NO moving object is found at all:
       lines.push(`**\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642:** ${finalResult.height} \u0645`);
       lines.push(`**\u0627\u0644\u0643\u062a\u0644\u0629 \u0627\u0644\u062a\u0642\u062f\u064a\u0631\u064a\u0629:** ${finalResult.mass} \u0643\u063a`);
       lines.push(`**\u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629:** ${confidence}%`);
+      lines.push(`**\u0645\u062d\u0631\u0643 \u0627\u0644\u062a\u062d\u0644\u064a\u0644:** APAS + Claude AI`);
       lines.push("");
       lines.push(`**\u0627\u0644\u0645\u0646\u0647\u062c\u064a\u0629 \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0629:**`);
-      lines.push(`- \u062a\u0645 \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a`);
+      lines.push(`- \u062a\u0645 \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0628\u0648\u0627\u0633\u0637\u0629 Claude AI`);
       lines.push(`- \u0627\u0644\u0637\u0631\u064a\u0642\u0629 1: \u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 = arctan(vy / vx) \u0645\u0646 \u0645\u062a\u062c\u0647\u0627\u062a \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629`);
       lines.push(`- \u0627\u0644\u0637\u0631\u064a\u0642\u0629 2: \u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0646\u062d\u0646\u0649 \u0627\u0644\u0642\u0637\u0639\u064a (Least Squares Parabolic Fit)`);
       lines.push(`- \u062a\u0645 \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0645\u062a\u0628\u0627\u062f\u0644 \u0628\u064a\u0646 \u0627\u0644\u0637\u0631\u064a\u0642\u062a\u064a\u0646 \u0648\u0627\u062e\u062a\u064a\u0627\u0631 \u0623\u0641\u0636\u0644 \u0646\u062a\u064a\u062c\u0629`);
@@ -570,9 +576,10 @@ If NO moving object is found at all:
       lines.push(`**Launch height:** ${finalResult.height} m`);
       lines.push(`**Estimated mass:** ${finalResult.mass} kg`);
       lines.push(`**Confidence:** ${confidence}%`);
+      lines.push(`**Analysis engine:** APAS + Claude AI`);
       lines.push("");
       lines.push(`**Physics methodology:**`);
-      lines.push(`- Tracked ${aiPositions.length} positions across frames`);
+      lines.push(`- Tracked ${aiPositions.length} positions across frames using Claude AI vision`);
       lines.push(`- Method 1: Launch angle = arctan(vy / vx) from initial velocity vectors`);
       lines.push(`- Method 2: Least-squares parabolic curve fitting to projectile equation`);
       lines.push(`- Cross-validated both methods and selected best result`);
@@ -581,14 +588,14 @@ If NO moving object is found at all:
 
     const finalText = lines.join("\n");
 
-    console.log(`video-analyze completed: angle=${finalAngle}, velocity=${finalVelocity}, type=${motionType}, confidence=${confidence}, curveFit=${curveFitInfo}`);
+    console.log(`[APAS] video-analyze completed: angle=${finalAngle}, velocity=${finalVelocity}, type=${motionType}, confidence=${confidence}, curveFit=${curveFitInfo}`);
 
     return new Response(JSON.stringify({ text: finalText }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    console.error("Error analyzing video:", error);
+    console.error("[APAS] Error analyzing video:", error);
     return new Response(JSON.stringify({ error: (error as Error).message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

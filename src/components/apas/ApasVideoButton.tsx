@@ -505,7 +505,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         // Worker analysis is best-effort; continue with API analysis
       }
 
-      setStatusText(isAr ? `\u062a\u0645 \u0627\u0633\u062a\u062e\u0631\u0627\u062c ${frames.length} \u0625\u0637\u0627\u0631\u0627\u062a. \u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0644\u064a\u0644 \u0628\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a...` : `Extracted ${frames.length} frames. Analyzing with AI...`);
+      setStatusText(isAr ? `\u062a\u0645 \u0627\u0633\u062a\u062e\u0631\u0627\u062c ${frames.length} \u0625\u0637\u0627\u0631\u0627\u062a. \u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0644\u064a\u0644 \u0628\u0640 APAS + Claude AI...` : `Extracted ${frames.length} frames. Analyzing with APAS + Claude AI...`);
       setProgress(45);
 
       progressInterval = setInterval(() => {
