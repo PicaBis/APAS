@@ -523,70 +523,155 @@ If NO moving object is found at all:
         ? (isAr ? "\u062d\u0631\u0643\u0629 \u0623\u0641\u0642\u064a\u0629" : "Horizontal motion")
         : (isAr ? "\u062d\u0631\u0643\u0629 \u0645\u0642\u0630\u0648\u0641 (\u0642\u0630\u0641 \u0645\u0627\u0626\u0644)" : "Projectile motion (oblique throw)");
 
+    // Build structured analysis text with clean sections
     const lines: string[] = [];
+
+    // Hidden JSON block for programmatic parsing (frontend extracts this)
     lines.push("```json\n" + JSON.stringify(finalResult, null, 2) + "\n```");
     lines.push("");
 
     if (isAr) {
-      lines.push(`**\u0646\u0648\u0639 \u0627\u0644\u0645\u0642\u0630\u0648\u0641:** ${finalResult.objectType}`);
-      lines.push(`**\u0646\u0648\u0639 \u0627\u0644\u062d\u0631\u0643\u0629:** ${motionTypeLabel}`);
+      // ═══ Arabic structured output ═══
+
+      // Section 1: Object Info
+      lines.push(`## \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u0623\u0633\u0627\u0633\u064a\u0629`);
       lines.push("");
-      lines.push(`**\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0645\u0633\u0627\u0631 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a:**`);
-      if (trajectoryDescription) lines.push(trajectoryDescription);
+      lines.push(`| \u0627\u0644\u0628\u064a\u0627\u0646 | \u0627\u0644\u0642\u064a\u0645\u0629 |`);
+      lines.push(`|---|---|`);
+      lines.push(`| \u0646\u0648\u0639 \u0627\u0644\u0645\u0642\u0630\u0648\u0641 | ${finalResult.objectType} |`);
+      lines.push(`| \u0646\u0648\u0639 \u0627\u0644\u062d\u0631\u0643\u0629 | ${motionTypeLabel} |`);
+      lines.push(`| \u0639\u062f\u062f \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a | ${aiPositions.length} |`);
+      if (finalResult.peakFrame) lines.push(`| \u0625\u0637\u0627\u0631 \u0627\u0644\u0630\u0631\u0648\u0629 | #${finalResult.peakFrame} |`);
+      if (finalResult.impactFrame) lines.push(`| \u0625\u0637\u0627\u0631 \u0627\u0644\u0627\u0631\u062a\u0637\u0627\u0645 | #${finalResult.impactFrame} |`);
+      lines.push(`| \u062a\u0623\u062b\u064a\u0631 \u0627\u0644\u0633\u062d\u0628 | ${finalResult.dragEffect === 'none' ? '\u0644\u0627 \u064a\u0648\u062c\u062f' : finalResult.dragEffect === 'slight' ? '\u0637\u0641\u064a\u0641' : '\u0643\u0628\u064a\u0631'} |`);
       lines.push("");
-      lines.push(`**\u0627\u0644\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0645\u062d\u0633\u0648\u0628\u0629:** ${finalAngle}\u00b0 (\u062a\u0645 \u0627\u0644\u062a\u062d\u0642\u0642 \u0628\u0637\u0631\u064a\u0642\u062a\u064a\u0646: \u0645\u062a\u062c\u0647 \u0627\u0644\u0633\u0631\u0639\u0629 \u0648\u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0646\u062d\u0646\u0649 \u0627\u0644\u0642\u0637\u0639\u064a)`);
+
+      // Section 2: Physics Results
+      lines.push(`## \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0629`);
+      lines.push("");
+      lines.push(`| \u0627\u0644\u0643\u0645\u064a\u0629 | \u0627\u0644\u0642\u064a\u0645\u0629 | \u0627\u0644\u0648\u062d\u062f\u0629 |`);
+      lines.push(`|---|---|---|`);
+      lines.push(`| \u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 (\u03b8) | ${finalAngle} | \u00b0 |`);
+      lines.push(`| \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629 (v\u2080) | ${finalVelocity} | m/s |`);
+      lines.push(`| \u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 (h) | ${finalResult.height} | m |`);
+      lines.push(`| \u0627\u0644\u0643\u062a\u0644\u0629 (m) | ${finalResult.mass} | kg |`);
+      lines.push(`| \u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629 | ${confidence}% | — |`);
+      lines.push("");
+
+      // Section 3: Equations
+      lines.push(`## \u0627\u0644\u0645\u0639\u0627\u062f\u0644\u0627\u062a \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645\u0629`);
+      lines.push("");
+      lines.push(`**\u0645\u0639\u0627\u062f\u0644\u0629 \u0627\u0644\u0645\u0633\u0627\u0631:**`);
+      lines.push(`\`y = x\u00B7tan(\u03b8) \u2212 g\u00B7x\u00B2 / (2\u00B7v\u2080\u00B2\u00B7cos\u00B2(\u03b8))\``);
+      lines.push("");
+      lines.push(`**\u062d\u0633\u0627\u0628 \u0627\u0644\u0632\u0627\u0648\u064a\u0629:**`);
+      lines.push(`\`\u03b8 = arctan(v_y / v_x) = arctan(${Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10} / ${Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10}) = ${finalAngle}\u00b0\``);
+      lines.push("");
+      lines.push(`**\u0645\u0631\u0643\u0628\u0627\u062a \u0627\u0644\u0633\u0631\u0639\u0629:**`);
+      lines.push(`\`v_x = v\u2080\u00B7cos(\u03b8) = ${finalVelocity}\u00B7cos(${finalAngle}\u00b0) = ${Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10} m/s\``);
+      lines.push(`\`v_y = v\u2080\u00B7sin(\u03b8) = ${finalVelocity}\u00B7sin(${finalAngle}\u00b0) = ${Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10} m/s\``);
+      lines.push("");
       if (curveFitInfo) {
-        lines.push(`**\u062c\u0648\u062f\u0629 \u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0646\u062d\u0646\u0649:** ${curveFitInfo}`);
-        lines.push(`\u062a\u0645 \u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0633\u0627\u0631 \u0645\u0639 \u0645\u0639\u0627\u062f\u0644\u0629 \u0627\u0644\u0645\u0642\u0630\u0648\u0641: y = x*tan(theta) - g*x^2 / (2*v0^2*cos^2(theta))`);
+        lines.push(`**\u062c\u0648\u062f\u0629 \u0627\u0644\u0645\u0637\u0627\u0628\u0642\u0629:** ${curveFitInfo}`);
+        lines.push("");
       }
-      if (motionType === "vertical") {
-        lines.push(`\u0627\u0644\u062c\u0633\u0645 \u064a\u062a\u062d\u0631\u0643 \u0639\u0645\u0648\u062f\u064a\u0627\u064b (\u0644\u0623\u0639\u0644\u0649 \u062b\u0645 \u0644\u0623\u0633\u0641\u0644) \u0645\u0639 \u0625\u0632\u0627\u062d\u0629 \u0623\u0641\u0642\u064a\u0629 \u0634\u0628\u0647 \u0645\u0639\u062f\u0648\u0645\u0629 -> \u0627\u0644\u0632\u0627\u0648\u064a\u0629 = 90\u00b0`);
-      } else if (motionType === "horizontal") {
-        lines.push(`\u0627\u0644\u062c\u0633\u0645 \u064a\u062a\u062d\u0631\u0643 \u0623\u0641\u0642\u064a\u0627\u064b \u0645\u0639 \u0625\u0632\u0627\u062d\u0629 \u0639\u0645\u0648\u062f\u064a\u0629 \u0634\u0628\u0647 \u0645\u0639\u062f\u0648\u0645\u0629 -> \u0627\u0644\u0632\u0627\u0648\u064a\u0629 = 0\u00b0`);
+
+      // Section 4: Trajectory Table
+      if (aiPositions.length > 0) {
+        lines.push(`## \u062c\u062f\u0648\u0644 \u0627\u0644\u0645\u0633\u0627\u0631`);
+        lines.push("");
+        lines.push(`| \u0627\u0644\u0625\u0637\u0627\u0631 | x (px) | y (px) | t (s) |`);
+        lines.push(`|---|---|---|---|`);
+        for (let i = 0; i < aiPositions.length; i++) {
+          const p = aiPositions[i];
+          const t = typeof frames[i]?.timestamp === "number" ? frames[i].timestamp.toFixed(3) : (i * 0.1).toFixed(3);
+          lines.push(`| ${i + 1} | ${Math.round(p.x)} | ${Math.round(p.y)} | ${t} |`);
+        }
+        lines.push("");
       }
+
+      // Section 5: Methodology
+      lines.push(`## \u0627\u0644\u0645\u0646\u0647\u062c\u064a\u0629`);
       lines.push("");
-      lines.push(`**\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u062a\u0642\u062f\u064a\u0631\u064a\u0629:** ${finalVelocity} \u0645/\u062b`);
-      lines.push(`**\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642:** ${finalResult.height} \u0645`);
-      lines.push(`**\u0627\u0644\u0643\u062a\u0644\u0629 \u0627\u0644\u062a\u0642\u062f\u064a\u0631\u064a\u0629:** ${finalResult.mass} \u0643\u063a`);
-      lines.push(`**\u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629:** ${confidence}%`);
-      lines.push(`**\u0645\u062d\u0631\u0643 \u0627\u0644\u062a\u062d\u0644\u064a\u0644:** APAS + Claude 4.6 Opus`);
+      lines.push(`1. \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0628\u0648\u0627\u0633\u0637\u0629 Claude 4.6 Opus`);
+      lines.push(`2. \u062d\u0633\u0627\u0628 \u0627\u0644\u0632\u0627\u0648\u064a\u0629: \u03b8 = arctan(v_y / v_x)`);
+      lines.push(`3. \u0645\u0637\u0627\u0628\u0642\u0629 \u0645\u0646\u062d\u0646\u0649 \u0642\u0637\u0639\u064a (Least Squares)`);
+      lines.push(`4. \u062a\u0642\u0627\u0637\u0639 \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0648\u0627\u062e\u062a\u064a\u0627\u0631 \u0627\u0644\u0623\u0641\u0636\u0644`);
+      lines.push(`5. \u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0634\u0627\u0630\u0629 (MAD)`);
       lines.push("");
-      lines.push(`**\u0627\u0644\u0645\u0646\u0647\u062c\u064a\u0629 \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0629:**`);
-      lines.push(`- \u062a\u0645 \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0628\u0648\u0627\u0633\u0637\u0629 Claude 4.6 Opus`);
-      lines.push(`- \u0627\u0644\u0637\u0631\u064a\u0642\u0629 1: \u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 = arctan(vy / vx) \u0645\u0646 \u0645\u062a\u062c\u0647\u0627\u062a \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629`);
-      lines.push(`- \u0627\u0644\u0637\u0631\u064a\u0642\u0629 2: \u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0646\u062d\u0646\u0649 \u0627\u0644\u0642\u0637\u0639\u064a (Least Squares Parabolic Fit)`);
-      lines.push(`- \u062a\u0645 \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0645\u062a\u0628\u0627\u062f\u0644 \u0628\u064a\u0646 \u0627\u0644\u0637\u0631\u064a\u0642\u062a\u064a\u0646 \u0648\u0627\u062e\u062a\u064a\u0627\u0631 \u0623\u0641\u0636\u0644 \u0646\u062a\u064a\u062c\u0629`);
-      lines.push(`- \u062a\u0645 \u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0634\u0627\u0630\u0629 \u0628\u0627\u0633\u062a\u062e\u062f\u0627\u0645 MAD (\u0627\u0644\u0627\u0646\u062d\u0631\u0627\u0641 \u0627\u0644\u0645\u0637\u0644\u0642 \u0627\u0644\u0645\u062a\u0648\u0633\u0637)`);
+      lines.push(`---`);
+      lines.push(`*\u0645\u062d\u0631\u0643 \u0627\u0644\u062a\u062d\u0644\u064a\u0644: APAS + Claude 4.6 Opus*`);
     } else {
-      lines.push(`**Projectile type:** ${finalResult.objectType}`);
-      lines.push(`**Motion type:** ${motionTypeLabel}`);
+      // ═══ English structured output ═══
+
+      // Section 1: Object Info
+      lines.push(`## Basic Information`);
       lines.push("");
-      lines.push(`**Trajectory analysis across frames:**`);
-      if (trajectoryDescription) lines.push(trajectoryDescription);
+      lines.push(`| Property | Value |`);
+      lines.push(`|---|---|`);
+      lines.push(`| Projectile Type | ${finalResult.objectType} |`);
+      lines.push(`| Motion Type | ${motionTypeLabel} |`);
+      lines.push(`| Frames Analyzed | ${aiPositions.length} |`);
+      if (finalResult.peakFrame) lines.push(`| Peak Frame | #${finalResult.peakFrame} |`);
+      if (finalResult.impactFrame) lines.push(`| Impact Frame | #${finalResult.impactFrame} |`);
+      lines.push(`| Drag Effect | ${finalResult.dragEffect} |`);
       lines.push("");
-      lines.push(`**Computed angle:** ${finalAngle}\u00b0 (cross-validated with velocity vectors and parabolic curve fitting)`);
+
+      // Section 2: Physics Results
+      lines.push(`## Physics Results`);
+      lines.push("");
+      lines.push(`| Quantity | Value | Unit |`);
+      lines.push(`|---|---|---|`);
+      lines.push(`| Launch Angle (\u03b8) | ${finalAngle} | \u00b0 |`);
+      lines.push(`| Initial Velocity (v\u2080) | ${finalVelocity} | m/s |`);
+      lines.push(`| Launch Height (h) | ${finalResult.height} | m |`);
+      lines.push(`| Mass (m) | ${finalResult.mass} | kg |`);
+      lines.push(`| Confidence | ${confidence}% | — |`);
+      lines.push("");
+
+      // Section 3: Equations
+      lines.push(`## Equations Used`);
+      lines.push("");
+      lines.push(`**Trajectory Equation:**`);
+      lines.push(`\`y = x\u00B7tan(\u03b8) \u2212 g\u00B7x\u00B2 / (2\u00B7v\u2080\u00B2\u00B7cos\u00B2(\u03b8))\``);
+      lines.push("");
+      lines.push(`**Angle Calculation:**`);
+      lines.push(`\`\u03b8 = arctan(v_y / v_x) = arctan(${Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10} / ${Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10}) = ${finalAngle}\u00b0\``);
+      lines.push("");
+      lines.push(`**Velocity Components:**`);
+      lines.push(`\`v_x = v\u2080\u00B7cos(\u03b8) = ${finalVelocity}\u00B7cos(${finalAngle}\u00b0) = ${Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10} m/s\``);
+      lines.push(`\`v_y = v\u2080\u00B7sin(\u03b8) = ${finalVelocity}\u00B7sin(${finalAngle}\u00b0) = ${Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10} m/s\``);
+      lines.push("");
       if (curveFitInfo) {
-        lines.push(`**Curve fit quality:** ${curveFitInfo}`);
-        lines.push(`Trajectory matched against projectile equation: y = x*tan(theta) - g*x^2 / (2*v0^2*cos^2(theta))`);
+        lines.push(`**Curve Fit Quality:** ${curveFitInfo}`);
+        lines.push("");
       }
-      if (motionType === "vertical") {
-        lines.push(`Object moves vertically (up then down) with near-zero horizontal displacement -> angle = 90\u00b0`);
-      } else if (motionType === "horizontal") {
-        lines.push(`Object moves horizontally with near-zero vertical displacement -> angle = 0\u00b0`);
+
+      // Section 4: Trajectory Table
+      if (aiPositions.length > 0) {
+        lines.push(`## Trajectory Table`);
+        lines.push("");
+        lines.push(`| Frame | x (px) | y (px) | t (s) |`);
+        lines.push(`|---|---|---|---|`);
+        for (let i = 0; i < aiPositions.length; i++) {
+          const p = aiPositions[i];
+          const t = typeof frames[i]?.timestamp === "number" ? frames[i].timestamp.toFixed(3) : (i * 0.1).toFixed(3);
+          lines.push(`| ${i + 1} | ${Math.round(p.x)} | ${Math.round(p.y)} | ${t} |`);
+        }
+        lines.push("");
       }
+
+      // Section 5: Methodology
+      lines.push(`## Methodology`);
       lines.push("");
-      lines.push(`**Estimated velocity:** ${finalVelocity} m/s`);
-      lines.push(`**Launch height:** ${finalResult.height} m`);
-      lines.push(`**Estimated mass:** ${finalResult.mass} kg`);
-      lines.push(`**Confidence:** ${confidence}%`);
-      lines.push(`**Analysis engine:** APAS + Claude 4.6 Opus`);
+      lines.push(`1. Tracked ${aiPositions.length} positions via Claude 4.6 Opus`);
+      lines.push(`2. Angle: \u03b8 = arctan(v_y / v_x)`);
+      lines.push(`3. Parabolic Curve Fit (Least Squares)`);
+      lines.push(`4. Cross-validated & selected best result`);
+      lines.push(`5. Outlier filtering (MAD)`);
       lines.push("");
-      lines.push(`**Physics methodology:**`);
-      lines.push(`- Tracked ${aiPositions.length} positions across frames using Claude 4.6 Opus vision`);
-      lines.push(`- Method 1: Launch angle = arctan(vy / vx) from initial velocity vectors`);
-      lines.push(`- Method 2: Least-squares parabolic curve fitting to projectile equation`);
-      lines.push(`- Cross-validated both methods and selected best result`);
-      lines.push(`- Outliers filtered using MAD (Median Absolute Deviation)`);
+      lines.push(`---`);
+      lines.push(`*Analysis engine: APAS + Claude 4.6 Opus*`);
     }
 
     const finalText = lines.join("\n");
