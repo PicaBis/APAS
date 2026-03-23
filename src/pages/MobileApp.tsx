@@ -202,7 +202,7 @@ export default function MobileApp() {
       case 'home':
         return renderHome();
       case 'simulator':
-        return <MobileSimulator lang={lang} />;
+        return <MobileSimulator lang={lang} sim={sim} />;
       case 'vision':
         return renderVision();
       case 'assistant':

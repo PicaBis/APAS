@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, Suspense, lazy } from 'react';
 import { Play, Pause, RotateCcw, ChevronDown, Zap, Globe, Layers } from 'lucide-react';
-import { useSimulation } from '@/hooks/useSimulation';
+import type { useSimulation } from '@/hooks/useSimulation';
 import SimulationCanvas from '@/components/apas/SimulationCanvas';
 import { Slider } from '@/components/ui/slider';
 import { playClick } from '@/utils/sound';
@@ -9,6 +9,7 @@ const SimulationCanvas3D = lazy(() => import('@/components/apas/SimulationCanvas
 
 interface Props {
   lang: string;
+  sim: ReturnType<typeof useSimulation>;
 }
 
 const PRESETS = [
@@ -18,8 +19,7 @@ const PRESETS = [
   { name: '🚀 Rocket', nameAr: '🚀 صاروخ', p: { velocity: 200, angle: 85, height: 0, gravity: 9.81, airResistance: 0.003, mass: 500 } },
 ];
 
-export default function MobileSimulator({ lang }: Props) {
-  const sim = useSimulation();
+export default function MobileSimulator({ lang, sim }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [is3D, setIs3D] = useState(false);
   const [showParams, setShowParams] = useState(true);
