@@ -358,16 +358,6 @@ const LandingPage: React.FC = () => {
               </span>
             </button>
             <button
-              onClick={() => { playLandingNav(muted); setShowComprehensiveGuide(true); }}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
-              title={lang === 'ar' ? '\u0627\u0644\u062f\u0644\u064a\u0644 \u0627\u0644\u0634\u0627\u0645\u0644' : lang === 'fr' ? 'Guide Complet' : 'Comprehensive Guide'}
-            >
-              <BookOpen className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
-              <span className="hidden sm:inline font-medium">
-                {lang === 'ar' ? '\u0627\u0644\u062f\u0644\u064a\u0644 \u0627\u0644\u0634\u0627\u0645\u0644' : lang === 'fr' ? 'Guide' : 'Guide'}
-              </span>
-            </button>
-            <button
               onClick={handleThemeToggle}
               className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
               title={nightMode ? (lang === 'ar' ? '\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0646\u0647\u0627\u0631\u064a' : lang === 'fr' ? 'Mode Clair' : 'Light Mode') : (lang === 'ar' ? '\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0644\u064a\u0644\u064a' : lang === 'fr' ? 'Mode Sombre' : 'Dark Mode')}
@@ -581,7 +571,7 @@ const LandingPage: React.FC = () => {
       <ProfessionalFooter lang={lang} />
 
       {/* About Modal */}
-      <AboutModal open={showAbout} onClose={() => setShowAbout(false)} lang={lang} />
+      <AboutModal open={showAbout} onClose={() => setShowAbout(false)} lang={lang} onOpenComprehensiveGuide={() => setShowComprehensiveGuide(true)} />
 
       {/* Comprehensive Guide Modal */}
       <Suspense fallback={null}>
