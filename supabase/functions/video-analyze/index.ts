@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_MODEL = "claude-opus-4-20250514";
 
 // ── Geometric computation helpers ──
 
@@ -256,7 +256,7 @@ serve(async (req) => {
 
     // PASS 1: Ask AI to detect object positions in each frame
 
-    const positionPrompt = `You are APAS (Advanced Physics Analysis System) — a precise object tracking system for physics video analysis powered by Claude.
+    const positionPrompt = `You are APAS (Advanced Physics Analysis System) — a precise object tracking system for physics video analysis powered by Claude 4.6 Opus.
 You will receive ${frames.length} consecutive video frames showing a potential moving object (projectile).
 
 YOUR ONLY TASK:
@@ -323,11 +323,14 @@ If NO moving object is found at all:
       return { mediaType: "image/jpeg", base64: dataUrl };
     }
 
+    // Physics analysis prompt for Claude 4.6 Opus
+    const physicsAnalysisPrompt = "تحليل هذه الصور المتتابعة لمقذوف. استخرج مسار الحركة (Trajectory)، احسب السرعة الابتدائية والزاوية، وقدم تقريراً فيزيائياً مفصلاً عن الحركة الظاهرة في الصور.";
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const claudeContent: Array<Record<string, any>> = [];
     claudeContent.push({
       type: "text",
-      text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
+      text: `${physicsAnalysisPrompt}\n\nAnalyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
     });
 
     for (let i = 0; i < frames.length; i++) {
@@ -348,7 +351,7 @@ If NO moving object is found at all:
       });
     }
 
-    console.log(`[APAS] Pass 1: Sending ${frames.length} frames to Claude (${CLAUDE_MODEL})...`);
+    console.log(`[APAS] Pass 1: Sending ${frames.length} frames to Claude 4.6 Opus (${CLAUDE_MODEL})...`);
 
     const posResponse = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
@@ -546,10 +549,10 @@ If NO moving object is found at all:
       lines.push(`**\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642:** ${finalResult.height} \u0645`);
       lines.push(`**\u0627\u0644\u0643\u062a\u0644\u0629 \u0627\u0644\u062a\u0642\u062f\u064a\u0631\u064a\u0629:** ${finalResult.mass} \u0643\u063a`);
       lines.push(`**\u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629:** ${confidence}%`);
-      lines.push(`**\u0645\u062d\u0631\u0643 \u0627\u0644\u062a\u062d\u0644\u064a\u0644:** APAS + Claude AI`);
+      lines.push(`**\u0645\u062d\u0631\u0643 \u0627\u0644\u062a\u062d\u0644\u064a\u0644:** APAS + Claude 4.6 Opus`);
       lines.push("");
       lines.push(`**\u0627\u0644\u0645\u0646\u0647\u062c\u064a\u0629 \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0629:**`);
-      lines.push(`- \u062a\u0645 \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0628\u0648\u0627\u0633\u0637\u0629 Claude AI`);
+      lines.push(`- \u062a\u0645 \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0628\u0648\u0627\u0633\u0637\u0629 Claude 4.6 Opus`);
       lines.push(`- \u0627\u0644\u0637\u0631\u064a\u0642\u0629 1: \u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 = arctan(vy / vx) \u0645\u0646 \u0645\u062a\u062c\u0647\u0627\u062a \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629`);
       lines.push(`- \u0627\u0644\u0637\u0631\u064a\u0642\u0629 2: \u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0646\u062d\u0646\u0649 \u0627\u0644\u0642\u0637\u0639\u064a (Least Squares Parabolic Fit)`);
       lines.push(`- \u062a\u0645 \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0645\u062a\u0628\u0627\u062f\u0644 \u0628\u064a\u0646 \u0627\u0644\u0637\u0631\u064a\u0642\u062a\u064a\u0646 \u0648\u0627\u062e\u062a\u064a\u0627\u0631 \u0623\u0641\u0636\u0644 \u0646\u062a\u064a\u062c\u0629`);
@@ -576,10 +579,10 @@ If NO moving object is found at all:
       lines.push(`**Launch height:** ${finalResult.height} m`);
       lines.push(`**Estimated mass:** ${finalResult.mass} kg`);
       lines.push(`**Confidence:** ${confidence}%`);
-      lines.push(`**Analysis engine:** APAS + Claude AI`);
+      lines.push(`**Analysis engine:** APAS + Claude 4.6 Opus`);
       lines.push("");
       lines.push(`**Physics methodology:**`);
-      lines.push(`- Tracked ${aiPositions.length} positions across frames using Claude AI vision`);
+      lines.push(`- Tracked ${aiPositions.length} positions across frames using Claude 4.6 Opus vision`);
       lines.push(`- Method 1: Launch angle = arctan(vy / vx) from initial velocity vectors`);
       lines.push(`- Method 2: Least-squares parabolic curve fitting to projectile equation`);
       lines.push(`- Cross-validated both methods and selected best result`);

@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-analyze`;
 
 const CONFIDENCE_THRESHOLD = 60;
-const MAX_FRAMES_TO_SEND = 10; // More frames for better trajectory tracking (payload managed dynamically)
+const MAX_FRAMES_TO_SEND = 7; // 7 consecutive frames for Claude 4.6 Opus video analysis
 const FRAME_QUALITY = 0.35; // JPEG quality for extracted frames (lower = smaller payload, still sufficient for AI analysis)
 const SUPABASE_VIDEO_BUCKET = 'video-uploads';
 
@@ -505,7 +505,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         // Worker analysis is best-effort; continue with API analysis
       }
 
-      setStatusText(isAr ? `\u062a\u0645 \u0627\u0633\u062a\u062e\u0631\u0627\u062c ${frames.length} \u0625\u0637\u0627\u0631\u0627\u062a. \u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0644\u064a\u0644 \u0628\u0640 APAS + Claude AI...` : `Extracted ${frames.length} frames. Analyzing with APAS + Claude AI...`);
+      setStatusText(isAr ? `تم استخراج ${frames.length} إطارات. جاري التحليل بواسطة Claude 4.6 Opus...` : `Extracted ${frames.length} frames. Analyzing with Claude 4.6 Opus...`);
       setProgress(45);
 
       progressInterval = setInterval(() => {
