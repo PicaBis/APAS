@@ -751,20 +751,20 @@ const Index = () => {
             {/* ═══ CENTER — Canvas & Results ═══ */}
             <div data-tour="center-canvas" className="space-y-3 sm:space-y-5 order-1 md:order-2 min-w-0">
 
-              {/* Calculations Button — above canvas */}
+              {/* Calculations Button — above canvas, unlocks after image/video analysis */}
               <div className="flex items-center justify-center">
                 <button
-                  onClick={() => { if (sim.trajectoryData.length > 0 && sim.prediction) { setShowCalculationsModal(true); playClick(sim.isMuted); } }}
-                  disabled={!(sim.trajectoryData.length > 0 && sim.prediction)}
+                  onClick={() => { if (lastAnalyzedMediaSrc) { setShowCalculationsModal(true); playClick(sim.isMuted); } }}
+                  disabled={!lastAnalyzedMediaSrc}
                   className={`relative flex items-center gap-1.5 group transition-all duration-300 ${
-                    sim.trajectoryData.length > 0 && sim.prediction
+                    lastAnalyzedMediaSrc
                       ? 'apas-assistant-btn rounded-lg px-3 py-1.5 text-white shadow-lg cursor-pointer hover:shadow-xl hover:scale-[1.02]'
                       : 'rounded-lg px-3 py-1.5 bg-secondary/50 text-muted-foreground cursor-not-allowed opacity-60 border border-border/50'
                   }`}
-                  title={!(sim.trajectoryData.length > 0 && sim.prediction) ? (lang === 'ar' ? 'شغّل المحاكاة أولاً لعرض الحسابات' : 'Run simulation first to view calculations') : ''}
+                  title={!lastAnalyzedMediaSrc ? (lang === 'ar' ? 'حلّل صورة أو فيديو أولاً لعرض الحسابات' : lang === 'fr' ? 'Analysez d\'abord une image ou vidéo' : 'Analyze an image or video first to view calculations') : ''}
                 >
                   <span className="relative flex items-center justify-center w-4 h-4">
-                    {sim.trajectoryData.length > 0 && sim.prediction ? (
+                    {lastAnalyzedMediaSrc ? (
                       <>
                         <Calculator className="w-4 h-4 sparkle-icon-flash" />
                         <span className="absolute -top-1 -right-1 flex h-2 w-2">
