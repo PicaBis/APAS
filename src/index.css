@@ -8,43 +8,43 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 25% 10%;
+    --background: 230 25% 96%;
+    --foreground: 230 30% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 10%;
+    --card-foreground: 230 30% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 10%;
-    --primary: 172 66% 50%;
-    --primary-foreground: 220 25% 8%;
-    --secondary: 220 15% 93%;
-    --secondary-foreground: 220 20% 15%;
-    --muted: 220 12% 91%;
-    --muted-foreground: 220 10% 40%;
-    --accent: 172 40% 92%;
-    --accent-foreground: 172 60% 25%;
+    --popover-foreground: 230 30% 10%;
+    --primary: 230 45% 45%;
+    --primary-foreground: 45 60% 65%;
+    --secondary: 230 18% 93%;
+    --secondary-foreground: 230 25% 15%;
+    --muted: 230 14% 91%;
+    --muted-foreground: 230 12% 40%;
+    --accent: 230 30% 92%;
+    --accent-foreground: 230 45% 35%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 16% 88%;
-    --input: 220 14% 88%;
-    --ring: 172 66% 50%;
+    --border: 230 18% 88%;
+    --input: 230 16% 88%;
+    --ring: 42 55% 55%;
     --radius: 0.75rem;
 
-    --apas-sky-from: 220 18% 95%;
-    --apas-sky-to: 220 20% 97%;
+    --apas-sky-from: 230 22% 95%;
+    --apas-sky-to: 230 24% 97%;
 
-    --sidebar-background: 220 18% 95%;
-    --sidebar-foreground: 220 25% 10%;
-    --sidebar-primary: 172 66% 50%;
-    --sidebar-primary-foreground: 220 25% 8%;
-    --sidebar-accent: 220 14% 90%;
-    --sidebar-accent-foreground: 220 20% 15%;
-    --sidebar-border: 220 14% 86%;
-    --sidebar-ring: 172 66% 50%;
-    --chart-1: 172 66% 50%;
-    --chart-2: 199 89% 48%;
-    --chart-3: 142 71% 45%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 0 84% 60%;
+    --sidebar-background: 230 22% 95%;
+    --sidebar-foreground: 230 30% 10%;
+    --sidebar-primary: 230 45% 45%;
+    --sidebar-primary-foreground: 45 60% 65%;
+    --sidebar-accent: 230 16% 90%;
+    --sidebar-accent-foreground: 230 25% 15%;
+    --sidebar-border: 230 16% 86%;
+    --sidebar-ring: 42 55% 55%;
+    --chart-1: 230 45% 50%;
+    --chart-2: 42 55% 55%;
+    --chart-3: 210 60% 50%;
+    --chart-4: 260 45% 55%;
+    --chart-5: 0 65% 55%;
     --sidebar: 220 18% 95%;
     --font-sans: 'Inter', 'Noto Sans Arabic', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -61,42 +61,42 @@
   }
 
   .dark {
-    --background: 225 22% 9%;
-    --foreground: 210 15% 93%;
-    --card: 225 20% 12%;
-    --card-foreground: 210 15% 93%;
-    --popover: 225 20% 12%;
-    --popover-foreground: 210 15% 93%;
-    --primary: 172 66% 50%;
-    --primary-foreground: 225 25% 6%;
-    --secondary: 225 16% 16%;
-    --secondary-foreground: 210 12% 90%;
-    --muted: 225 14% 18%;
-    --muted-foreground: 215 10% 58%;
-    --accent: 225 16% 18%;
-    --accent-foreground: 172 50% 72%;
+    --background: 235 35% 9%;
+    --foreground: 220 15% 93%;
+    --card: 235 30% 13%;
+    --card-foreground: 220 15% 93%;
+    --popover: 235 30% 13%;
+    --popover-foreground: 220 15% 93%;
+    --primary: 230 50% 55%;
+    --primary-foreground: 45 65% 70%;
+    --secondary: 235 22% 17%;
+    --secondary-foreground: 220 12% 90%;
+    --muted: 235 20% 19%;
+    --muted-foreground: 225 12% 58%;
+    --accent: 235 22% 19%;
+    --accent-foreground: 42 55% 65%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 14% 22%;
-    --input: 220 14% 20%;
-    --ring: 172 66% 50%;
+    --border: 235 18% 22%;
+    --input: 235 18% 20%;
+    --ring: 42 55% 55%;
 
-    --apas-sky-from: 225 20% 11%;
-    --apas-sky-to: 225 18% 13%;
+    --apas-sky-from: 235 28% 11%;
+    --apas-sky-to: 235 25% 13%;
 
-    --sidebar-background: 225 18% 12%;
-    --sidebar-foreground: 210 15% 92%;
-    --sidebar-primary: 172 66% 50%;
-    --sidebar-primary-foreground: 225 25% 6%;
-    --sidebar-accent: 225 14% 18%;
-    --sidebar-accent-foreground: 210 12% 88%;
-    --sidebar-border: 220 12% 24%;
-    --sidebar-ring: 172 66% 50%;
-    --chart-1: 172 66% 55%;
-    --chart-2: 199 89% 55%;
-    --chart-3: 142 60% 50%;
-    --chart-4: 38 80% 55%;
-    --chart-5: 0 65% 55%;
+    --sidebar-background: 235 25% 12%;
+    --sidebar-foreground: 220 15% 92%;
+    --sidebar-primary: 230 50% 55%;
+    --sidebar-primary-foreground: 45 65% 70%;
+    --sidebar-accent: 235 20% 19%;
+    --sidebar-accent-foreground: 220 12% 88%;
+    --sidebar-border: 235 16% 24%;
+    --sidebar-ring: 42 55% 55%;
+    --chart-1: 230 50% 60%;
+    --chart-2: 42 60% 58%;
+    --chart-3: 210 55% 55%;
+    --chart-4: 260 50% 60%;
+    --chart-5: 0 60% 55%;
   }
 }
 
@@ -681,7 +681,7 @@ body, .apas-panel, .apas-item, .eq-box, .academic-table, select, input, textarea
 }
 .apas-assistant-btn {
   animation: assistantPulse 3s ease-in-out infinite, assistantFloat 4s ease-in-out infinite;
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.85) 50%, hsl(172 80% 40%) 100%);
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.85) 50%, hsl(230 55% 40%) 100%);
   position: relative;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);

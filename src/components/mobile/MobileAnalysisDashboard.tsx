@@ -81,9 +81,9 @@ const MobileAnalysisDashboard: React.FC<MobileAnalysisDashboardProps> = ({
       label: lang === 'ar' ? 'مكونات السرعة' : lang === 'fr' ? 'Composantes' : 'Velocity Components',
       value: `${vx.toFixed(1)} / ${vy.toFixed(1)}`,
       unit: 'Vx/Vy',
-      color: 'text-teal-500',
-      bg: 'from-teal-500/15 to-teal-500/5',
-      border: 'border-teal-500/20',
+      color: 'text-indigo-500',
+      bg: 'from-indigo-500/15 to-indigo-500/5',
+      border: 'border-indigo-500/20',
     },
   ];
 

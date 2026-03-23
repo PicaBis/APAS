@@ -207,7 +207,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               preview={
                 <span
                   className="w-3.5 h-3.5 rounded-full inline-block border border-border/30"
-                  style={{ backgroundColor: `hsl(${accentColors.find(c => c.id === accentColor)?.hsl || '172 66% 50%'})` }}
+                  style={{ backgroundColor: `hsl(${accentColors.find(c => c.id === accentColor)?.hsl || '230 45% 45%'})` }}
                 />
               }
             >

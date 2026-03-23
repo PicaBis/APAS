@@ -11,19 +11,20 @@ export function useAccentTheme(lang: string, nightMode: boolean) {
   const tLabel = (ar: string, en: string, fr: string) => lang === 'ar' ? ar : lang === 'fr' ? fr : en;
 
   const ALL_ACCENT_COLORS: AccentColor[] = useMemo(() => [
-    { id: 'teal', label: tLabel('أزرق مخضر', 'Teal', 'Sarcelle'), hsl: '172 66% 50%', ring: '172 66% 50%' },
-    { id: 'blue', label: tLabel('أزرق', 'Blue', 'Bleu'), hsl: '217 91% 60%', ring: '217 91% 60%' },
-    { id: 'purple', label: tLabel('بنفسجي', 'Purple', 'Violet'), hsl: '270 70% 60%', ring: '270 70% 60%' },
-    { id: 'orange', label: tLabel('برتقالي', 'Orange', 'Orange'), hsl: '25 95% 53%', ring: '25 95% 53%' },
-    { id: 'green', label: tLabel('أخضر', 'Green', 'Vert'), hsl: '142 71% 45%', ring: '142 71% 45%' },
-    { id: 'rose', label: tLabel('وردي', 'Rose', 'Rose'), hsl: '346 77% 55%', ring: '346 77% 55%' },
-    { id: 'white', label: tLabel('أبيض', 'White', 'Blanc'), hsl: '0 0% 100%', ring: '0 0% 100%' },
-    { id: 'black', label: tLabel('أسود', 'Black', 'Noir'), hsl: '0 0% 10%', ring: '0 0% 10%' },
+        { id: 'navy', label: tLabel('كحلي', 'Navy', 'Marine'), hsl: '230 45% 45%', ring: '42 55% 55%' },
+        { id: 'gold', label: tLabel('ذهبي', 'Gold', 'Or'), hsl: '42 55% 55%', ring: '42 55% 55%' },
+        { id: 'blue', label: tLabel('أزرق', 'Blue', 'Bleu'), hsl: '217 91% 60%', ring: '217 91% 60%' },
+        { id: 'purple', label: tLabel('بنفسجي', 'Purple', 'Violet'), hsl: '270 70% 60%', ring: '270 70% 60%' },
+        { id: 'orange', label: tLabel('برتقالي', 'Orange', 'Orange'), hsl: '25 95% 53%', ring: '25 95% 53%' },
+        { id: 'green', label: tLabel('أخضر', 'Green', 'Vert'), hsl: '142 71% 45%', ring: '142 71% 45%' },
+        { id: 'rose', label: tLabel('وردي', 'Rose', 'Rose'), hsl: '346 77% 55%', ring: '346 77% 55%' },
+        { id: 'white', label: tLabel('أبيض', 'White', 'Blanc'), hsl: '0 0% 100%', ring: '0 0% 100%' },
+        { id: 'black', label: tLabel('أسود', 'Black', 'Noir'), hsl: '0 0% 10%', ring: '0 0% 10%' },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [lang]);
 
   const [accentColor, setAccentColor] = useState<string>(() => {
-    try { return localStorage.getItem('apas_accentColor') || 'teal'; } catch { return 'teal'; }
+    try { return localStorage.getItem('apas_accentColor') || 'navy'; } catch { return 'navy'; }
   });
 
   // Filter: hide black in night mode, hide white in day mode
@@ -35,8 +36,8 @@ export function useAccentTheme(lang: string, nightMode: boolean) {
 
   // Auto-reset accent if it becomes unavailable after mode switch
   useEffect(() => {
-    if (accentColor === 'black' && nightMode) setAccentColor('teal');
-    if (accentColor === 'white' && !nightMode) setAccentColor('teal');
+        if (accentColor === 'black' && nightMode) setAccentColor('navy');
+        if (accentColor === 'white' && !nightMode) setAccentColor('navy');
   }, [nightMode, accentColor]);
 
   // Detect contrast conflict

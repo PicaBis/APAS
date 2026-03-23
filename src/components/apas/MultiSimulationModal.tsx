@@ -52,7 +52,7 @@ const ENVIRONMENTS = [
   { name: { ar: 'الزهرة', en: 'Venus', fr: 'Vénus' }, gravity: 8.87, emoji: '🟡' },
 ];
 
-const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6'];
+const COLORS = ['#ef4444', '#c9a84c', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#4a6fa5'];
 
 export default function MultiSimulationModal({
   open, onClose, lang, velocity, angle, height, gravity, airResistance, mass,

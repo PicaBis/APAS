@@ -313,17 +313,17 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   }, [zoom]);
 
   // Theme colors — memoized to avoid re-creating on every render
-  const colors = useMemo(() => nightMode ? {
-    bg: '#1a1f2e', grid: '#2a3040', gridMinor: '#222838', axis: '#8090a8', axisLabel: '#8090a8',
-    ground: '#8090a8', trajectory: '#e2e8f0', projectile: '#e2e8f0',
-    projectileStroke: '#1a1f2e', dot: '#94a3b8', dotLabel: '#cbd5e1',
-    infoBox: 'rgba(26,31,46,0.95)', infoBorder: '#2a3040', infoHeader: '#222838',
-    infoText: '#cbd5e1', infoTextDim: '#8090a8', theoLine: '#4a5568',
-    compLine: '#6b7280', countdownBg: 'rgba(26,31,46,0.88)', countdownText: '#e2e8f0',
-    legendBg: 'rgba(26,31,46,0.95)', legendBorder: '#2a3040', legendText: '#cbd5e1',
-    velocity: '#8090a8', velocityArrow: '#8090a8',
-    originDot: '#8090a8',
-  } : {
+    const colors = useMemo(() => nightMode ? {
+      bg: '#151535', grid: '#1e2144', gridMinor: '#1a1a3e', axis: '#8890b0', axisLabel: '#8890b0',
+      ground: '#8890b0', trajectory: '#e0e4f0', projectile: '#e0e4f0',
+      projectileStroke: '#151535', dot: '#8a9cc5', dotLabel: '#c9cfe0',
+      infoBox: 'rgba(26,26,62,0.95)', infoBorder: '#2d3a6e', infoHeader: '#1e2144',
+      infoText: '#c9cfe0', infoTextDim: '#8890b0', theoLine: '#3a4a8a',
+      compLine: '#6b7db5', countdownBg: 'rgba(26,26,62,0.88)', countdownText: '#e0e4f0',
+      legendBg: 'rgba(26,26,62,0.95)', legendBorder: '#2d3a6e', legendText: '#c9cfe0',
+      velocity: '#8890b0', velocityArrow: '#8890b0',
+      originDot: '#8890b0',
+    } : {
     bg: '#ffffff', grid: '#f0f0f0', gridMinor: '#f8f8f8', axis: '#333', axisLabel: '#666',
     ground: '#333', trajectory: '#222', projectile: '#111',
     projectileStroke: '#fff', dot: '#444', dotLabel: '#333',
@@ -1356,7 +1356,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
             // Draw main friction ray with dashed line
             const frEndX = bx + frDirX * frLen;
             const frEndY = by - frDirY * frLen;
-            const frColor = isUnderwater ? '#06b6d4' : '#38bdf8'; // cyan for water, light blue for air
+            const frColor = isUnderwater ? '#6b7db5' : '#8a9cc5'; // indigo for water, light slate for air
 
             ctx.save();
             ctx.beginPath();
@@ -1435,7 +1435,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           const accMag = activePt.acceleration;
           if (accMag > 0.005) {
             const accLen = Math.max(minAccArrowLen, (accMag / Math.max(gravity, 0.01)) * accPixelBase);
-            drawArrow(bx, by, bx + (activePt.ax / accMag) * accLen, by - (activePt.ay / accMag) * accLen, '#06b6d4', 'a');
+            drawArrow(bx, by, bx + (activePt.ax / accMag) * accLen, by - (activePt.ay / accMag) * accLen, '#6b7db5', 'a');
           }
         }
 

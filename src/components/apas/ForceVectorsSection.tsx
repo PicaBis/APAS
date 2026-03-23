@@ -20,11 +20,11 @@ const BASE_VECTORS: { key: keyof VectorVisibility; color: string; labelAr: strin
   { key: 'Fd', color: '#f59e0b', labelAr: 'قوة السحب Fd', labelEn: 'Drag Fd' },
   { key: 'Fw', color: '#0ea5e9', labelAr: 'قوة الرياح Fw', labelEn: 'Wind Force Fw' },
   { key: 'Fnet', color: '#8b5cf6', labelAr: 'القوة المحصلة Fnet', labelEn: 'Net Force Fnet' },
-  { key: 'acc', color: '#06b6d4', labelAr: 'متجه التسارع a', labelEn: 'Acceleration a' },
+  { key: 'acc', color: '#6b7db5', labelAr: 'متجه التسارع a', labelEn: 'Acceleration a' },
 ];
 
 const FLUID_VECTOR: { key: keyof VectorVisibility; color: string; labelAr: string; labelEn: string } = {
-  key: 'Ffluid', color: '#14b8a6', labelAr: 'قوة مقاومة المائع Ffluid', labelEn: 'Fluid Resistance Ffluid',
+  key: 'Ffluid', color: '#4a6fa5', labelAr: 'قوة مقاومة المائع Ffluid', labelEn: 'Fluid Resistance Ffluid',
 };
 
 export default function ForceVectorsSection({ lang, showExternalForces, onToggle, vectorVisibility, onVectorToggle, isWaterEnvironment = false, hydrodynamicEnabled = false }: Props) {

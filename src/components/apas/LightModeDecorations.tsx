@@ -112,7 +112,7 @@ const FooterRobot: React.FC = () => {
           {/* Eye glow — cyan */}
           <radialGradient id="rbEyeGlow" cx="0.5" cy="0.5" r="0.5">
             <stop offset="0%" stopColor="#22d3ee" />
-            <stop offset="60%" stopColor="#06b6d4" />
+            <stop offset="60%" stopColor="#6b7db5" />
             <stop offset="100%" stopColor="#0891b2" />
           </radialGradient>
           {/* Core energy gradient */}
