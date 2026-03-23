@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Download, Monitor } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 
 import AboutModal from '@/components/apas/AboutModal';
+const ComprehensiveGuideModal = lazy(() => import('@/components/apas/ComprehensiveGuideModal'));
 import BugReportButton from '@/components/apas/BugReportButton';
 import ApasLogo from '@/components/apas/ApasLogo';
 import SplashScreen from '@/components/apas/SplashScreen';
@@ -199,6 +200,7 @@ const LandingPage: React.FC = () => {
     try { return localStorage.getItem('apas_nightMode') === 'true'; } catch { return false; }
   });
   const [showAbout, setShowAbout] = useState(false);
+  const [showComprehensiveGuide, setShowComprehensiveGuide] = useState(false);
   const [showSplash] = useState(false);
   const [muted, setMuted] = useState(() => {
     try { return localStorage.getItem('apas_landing_muted') === 'true'; } catch { return false; }
@@ -353,6 +355,16 @@ const LandingPage: React.FC = () => {
               <Info className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
               <span className="hidden sm:inline font-medium">
                 {lang === 'ar' ? '\u062d\u0648\u0644' : lang === 'fr' ? '\u00c0 Propos' : 'About'}
+              </span>
+            </button>
+            <button
+              onClick={() => { playLandingNav(muted); setShowComprehensiveGuide(true); }}
+              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+              title={lang === 'ar' ? '\u0627\u0644\u062f\u0644\u064a\u0644 \u0627\u0644\u0634\u0627\u0645\u0644' : lang === 'fr' ? 'Guide Complet' : 'Comprehensive Guide'}
+            >
+              <BookOpen className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
+              <span className="hidden sm:inline font-medium">
+                {lang === 'ar' ? '\u0627\u0644\u062f\u0644\u064a\u0644 \u0627\u0644\u0634\u0627\u0645\u0644' : lang === 'fr' ? 'Guide' : 'Guide'}
               </span>
             </button>
             <button
@@ -570,6 +582,11 @@ const LandingPage: React.FC = () => {
 
       {/* About Modal */}
       <AboutModal open={showAbout} onClose={() => setShowAbout(false)} lang={lang} />
+
+      {/* Comprehensive Guide Modal */}
+      <Suspense fallback={null}>
+        <ComprehensiveGuideModal open={showComprehensiveGuide} onClose={() => setShowComprehensiveGuide(false)} lang={lang} />
+      </Suspense>
 
       {/* Bug Report Button */}
       <BugReportButton lang={lang} />

@@ -19,6 +19,7 @@ const CanvasProtractor = lazy(() => import('@/components/apas/CanvasProtractor')
 const NoiseFilter = lazy(() => import('@/components/apas/NoiseFilter'));
 const LiveCalibration = lazy(() => import('@/components/apas/LiveCalibration'));
 const SecurityPrivacy = lazy(() => import('@/components/apas/SecurityPrivacy'));
+const ComprehensiveGuideModal = lazy(() => import('@/components/apas/ComprehensiveGuideModal'));
 
 interface ModalsOverlaysProps {
   lang: string;
@@ -92,6 +93,9 @@ interface ModalsOverlaysProps {
   setShowSecurityPrivacy: (v: boolean) => void;
   autoDeleteVideos: boolean;
   onToggleAutoDelete: (enabled: boolean) => void;
+  // Comprehensive Guide
+  showComprehensiveGuide: boolean;
+  setShowComprehensiveGuide: (v: boolean) => void;
   // Guest Restriction
   showRestrictionOverlay: string | null;
   setShowRestrictionOverlay: (v: string | null) => void;
@@ -112,6 +116,7 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
     showNoiseFilter, setShowNoiseFilter, setTrajectoryData,
     showLiveCalibration, setShowLiveCalibration, setCalibrationScale, calibrationMediaSrc,
     showSecurityPrivacy, setShowSecurityPrivacy, autoDeleteVideos, onToggleAutoDelete,
+    showComprehensiveGuide, setShowComprehensiveGuide,
     showRestrictionOverlay, setShowRestrictionOverlay,
   } = props;
 
@@ -197,9 +202,18 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
         onOpenNoiseFilter={() => setShowNoiseFilter(true)}
         onOpenLiveCalibration={() => setShowLiveCalibration(true)}
         onOpenSecurityPrivacy={() => setShowSecurityPrivacy(true)}
+        onOpenComprehensiveGuide={() => setShowComprehensiveGuide(true)}
         theme3d={theme3d}
         onTheme3dChange={onTheme3dChange}
       />
+
+      <Suspense fallback={null}>
+        <ComprehensiveGuideModal
+          open={showComprehensiveGuide}
+          onClose={() => setShowComprehensiveGuide(false)}
+          lang={lang}
+        />
+      </Suspense>
 
       <Suspense fallback={null}>
         <ScientificCalculator

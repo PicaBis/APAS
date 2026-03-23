@@ -56,8 +56,6 @@ import AcademicAmbient from '@/components/apas/AcademicAmbient';
 import FooterRobot from '@/components/apas/LightModeDecorations';
 import SensorLab from '@/components/apas/SensorLab';
 import VideoOverlay from '@/components/apas/VideoOverlay';
-import ObserverRelativityDashboard from '@/components/apas/ObserverRelativityDashboard';
-import TheoreticalVsRealComparison from '@/components/apas/TheoreticalVsRealComparison';
 import QuickStartTips from '@/components/apas/QuickStartTips';
 const DynamicAnalyticsDashboard = lazy(() => import('@/components/apas/DynamicAnalyticsDashboard'));
 const EnergyAnalysis = lazy(() => import('@/components/apas/EnergyAnalysis'));
@@ -134,6 +132,7 @@ const Index = () => {
   const [showNoiseFilter, setShowNoiseFilter] = useState(false);
   const [showLiveCalibration, setShowLiveCalibration] = useState(false);
   const [showSecurityPrivacy, setShowSecurityPrivacy] = useState(false);
+  const [showComprehensiveGuide, setShowComprehensiveGuide] = useState(false);
   const [calibrationScale, setCalibrationScale] = useState<number | null>(null);
   const [lastAnalyzedMediaSrc, setLastAnalyzedMediaSrc] = useState<string | null>(null);
   const [lastAnalyzedMediaType, setLastAnalyzedMediaType] = useState<'video' | 'image'>('video');
@@ -902,32 +901,6 @@ const Index = () => {
                   />
                 )}
 
-                {/* Dynamic Analytics Dashboard */}
-                {showDynamicDashboard && sim.trajectoryData.length > 0 && (
-                  <Suspense fallback={null}>
-                    <ObserverRelativityDashboard
-                      lang={lang}
-                      trajectoryData={sim.trajectoryData}
-                      currentTime={sim.currentTime}
-                      mass={sim.mass}
-                      gravity={sim.gravity}
-                      frameVelocity={relativity.frameVelocity}
-                      relativityEnabled={relativity.enabled}
-                      muted={sim.isMuted}
-                    />
-                  </Suspense>
-                )}
-
-                {/* Theoretical vs Real-world Comparison */}
-                {showTheoreticalComparison && (
-                  <TheoreticalVsRealComparison
-                    lang={lang}
-                    theoreticalData={sim.theoreticalData?.map(p => ({ x: p.x, y: p.y, time: p.time })) ?? sim.trajectoryData.map(p => ({ x: p.x, y: p.y, time: p.time }))}
-                    realWorldData={sim.trajectoryData}
-                    currentTime={sim.currentTime}
-                    muted={sim.isMuted}
-                  />
-                )}
                 {/* ── Results ── */}
                 {sim.prediction && (
                   <ResultsSection
@@ -1305,6 +1278,7 @@ const Index = () => {
         setCalibrationScale={setCalibrationScale} calibrationMediaSrc={lastAnalyzedMediaSrc}
         showSecurityPrivacy={showSecurityPrivacy} setShowSecurityPrivacy={setShowSecurityPrivacy}
         autoDeleteVideos={autoDeleteVideos} onToggleAutoDelete={setAutoDeleteVideos}
+        showComprehensiveGuide={showComprehensiveGuide} setShowComprehensiveGuide={setShowComprehensiveGuide}
         showRestrictionOverlay={showRestrictionOverlay} setShowRestrictionOverlay={setShowRestrictionOverlay}
       />
     </PageTransition>

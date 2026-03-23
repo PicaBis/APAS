@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ChevronDown, Globe, Volume2, VolumeX, Moon, Sun, Palette, Info, FileText, Wrench, Calculator, Ruler, Settings, Compass, Filter, Crosshair, Shield, Box } from 'lucide-react';
+import { X, ChevronDown, Globe, Volume2, VolumeX, Moon, Sun, Palette, Info, FileText, BookOpen, Wrench, Calculator, Ruler, Settings, Compass, Filter, Crosshair, Shield, Box } from 'lucide-react';
 import { playNav, playUIClick, playToggle } from '@/utils/sound';
 import type { Theme3DId } from '@/simulation/sceneBuilder3D';
 
@@ -23,6 +23,8 @@ interface SettingsPanelProps {
   onOpenGuide: () => void;
   // Documentation
   onOpenDocumentation: () => void;
+  // Comprehensive Guide
+  onOpenComprehensiveGuide: () => void;
   // Tools
   onOpenCalculator: () => void;
   onToggleRuler: () => void;
@@ -53,6 +55,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onAccentChange,
   onOpenGuide,
   onOpenDocumentation,
+  onOpenComprehensiveGuide,
   onOpenCalculator,
   onToggleRuler,
   rulerActive,
@@ -399,7 +402,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   className="w-full text-xs font-medium py-2.5 px-3 rounded-lg flex items-center gap-2 text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 transition-all duration-300"
                 >
                   <Info className="w-4 h-4 text-primary" />
-                  {t('دليل التطبيق', 'App Guide', 'Guide de l\'Application')}
+                  {t('الدليل السريع', 'Quick Guide', 'Guide Rapide')}
                 </button>
                 <button
                   onClick={() => { onOpenDocumentation(); onClose(); playNav(isMuted); }}
@@ -407,6 +410,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 >
                   <FileText className="w-4 h-4 text-primary" />
                   {t('التوثيق', 'Documentation', 'Documentation')}
+                </button>
+                <button
+                  onClick={() => { onOpenComprehensiveGuide(); onClose(); playNav(isMuted); }}
+                  className="w-full text-xs font-medium py-2.5 px-3 rounded-lg flex items-center gap-2 text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 transition-all duration-300"
+                >
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  {t('الدليل الشامل للتطبيق', 'Comprehensive Guide', 'Guide Complet')}
                 </button>
               </div>
             </SettingsSection>
