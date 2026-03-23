@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com";
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 // ── Geometric computation helpers ──
 
@@ -399,7 +399,7 @@ serve(async (req) => {
 
     const physicsPrompt = `\u0623\u0646\u062a \u062e\u0628\u064a\u0631 \u0641\u064a\u0632\u064a\u0627\u0626\u064a \u0623\u0643\u0627\u062f\u064a\u0645\u064a. \u0642\u0645 \u0628\u062a\u062d\u0644\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 \u0644\u062d\u0631\u0643\u0629 \u0645\u0642\u0630\u0648\u0641. \u0627\u0633\u062a\u062e\u0631\u062c \u0627\u0644\u0625\u062d\u062f\u0627\u062b\u064a\u0627\u062a (x, y) \u0644\u0643\u0644 \u0625\u0637\u0627\u0631\u060c \u0648\u0627\u062d\u0633\u0628 \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629 \u0648\u0627\u0644\u0632\u0627\u0648\u064a\u0629 \u0648\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639. \u0642\u062f\u0645 \u062a\u0642\u0631\u064a\u0631\u0627\u064b \u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0627\u064b \u0645\u0641\u0635\u0644\u0627\u064b \u0628\u0627\u0644\u0644\u063a\u062a\u064a\u0646 \u0627\u0644\u0639\u0631\u0628\u064a\u0629 \u0648\u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a\u0629\u060c \u0648\u0627\u0631\u0633\u0645 \u0627\u0644\u0645\u0633\u0627\u0631 \u0639\u0644\u0649 \u0627\u0644\u0643\u0627\u0646\u0641\u0627\u0633.
 
-You are APAS (Advanced Physics Analysis System) \u2014 a precise physics video analysis system powered by Gemini 1.5 Flash with native video understanding.
+You are APAS (Advanced Physics Analysis System) \u2014 a precise physics video analysis system powered by Gemini 2.5 Flash with native video understanding.
 You are analyzing a video of projectile motion. Because you can see the ACTUAL MOTION (not just static frames), your tracking should be highly accurate.
 ${trimInfo}
 
@@ -442,8 +442,8 @@ RESPOND WITH ONLY THIS JSON (no other text, no markdown fences):
 If NO moving object is found at all:
 {"detected": false, "positions": []}`;
 
-    // Step 5: Call Gemini 1.5 Flash with the video and prompt
-    console.log(`[APAS-Gemini] Calling Gemini 1.5 Flash for physics analysis...`);
+    // Step 5: Call Gemini 2.5 Flash with the video and prompt
+    console.log(`[APAS-Gemini] Calling Gemini 2.5 Flash for physics analysis...`);
 
     const genRes = await fetch(
       `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
@@ -703,7 +703,7 @@ If NO moving object is found at all:
 
       lines.push(`## \u0627\u0644\u0645\u0646\u0647\u062c\u064a\u0629`);
       lines.push("");
-      lines.push(`1. \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 \u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0648\u0627\u0633\u0637\u0629 Gemini 1.5 Flash (\u062a\u062d\u0644\u064a\u0644 \u062d\u0631\u0643\u0629 \u0623\u0635\u0644\u064a)`);
+      lines.push(`1. \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 \u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0648\u0627\u0633\u0637\u0629 Gemini 2.5 Flash (\u062a\u062d\u0644\u064a\u0644 \u062d\u0631\u0643\u0629 \u0623\u0635\u0644\u064a)`);
       lines.push(`2. \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u0641\u064a\u062f\u064a\u0648`);
       lines.push(`3. \u062d\u0633\u0627\u0628 \u0627\u0644\u0632\u0627\u0648\u064a\u0629: \u03b8 = arctan(v_y / v_x)`);
       lines.push(`4. \u0645\u0637\u0627\u0628\u0642\u0629 \u0645\u0646\u062d\u0646\u0649 \u0642\u0637\u0639\u064a (Least Squares)`);
@@ -711,7 +711,7 @@ If NO moving object is found at all:
       lines.push(`6. \u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0634\u0627\u0630\u0629 (MAD)`);
       lines.push("");
       lines.push(`---`);
-      lines.push(`*\u0645\u062d\u0631\u0643 \u0627\u0644\u062a\u062d\u0644\u064a\u0644: APAS + Gemini 1.5 Flash (Native Video)*`);
+      lines.push(`*\u0645\u062d\u0631\u0643 \u0627\u0644\u062a\u062d\u0644\u064a\u0644: APAS + Gemini 2.5 Flash (Native Video)*`);
     } else {
       // English structured output
       lines.push(`## Basic Information`);
@@ -769,7 +769,7 @@ If NO moving object is found at all:
 
       lines.push(`## Methodology`);
       lines.push("");
-      lines.push(`1. Native video analysis via Gemini 1.5 Flash (motion analysis)`);
+      lines.push(`1. Native video analysis via Gemini 2.5 Flash (motion analysis)`);
       lines.push(`2. Tracked ${aiPositions.length} positions across video`);
       lines.push(`3. Angle: \u03b8 = arctan(v_y / v_x)`);
       lines.push(`4. Parabolic Curve Fit (Least Squares)`);
@@ -777,7 +777,7 @@ If NO moving object is found at all:
       lines.push(`6. Outlier filtering (MAD)`);
       lines.push("");
       lines.push(`---`);
-      lines.push(`*Analysis engine: APAS + Gemini 1.5 Flash (Native Video)*`);
+      lines.push(`*Analysis engine: APAS + Gemini 2.5 Flash (Native Video)*`);
     }
 
     const finalText = lines.join("\n");
