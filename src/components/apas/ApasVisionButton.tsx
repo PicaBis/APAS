@@ -5,6 +5,7 @@ import { Camera, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Uploa
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeImageQuality, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
+import { cleanLatex } from '@/utils/cleanLatex';
 import LiveWeatherOverlay from '@/components/apas/LiveWeatherOverlay';
 import GyroLevel from '@/components/apas/GyroLevel';
 import AROverlay from '@/components/apas/AROverlay';
@@ -746,7 +747,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                     {isAr ? 'التحليل' : 'Analysis'}
                   </p>
                   <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                    <ReactMarkdown>{analysisText}</ReactMarkdown>
+                    <ReactMarkdown>{cleanLatex(analysisText)}</ReactMarkdown>
                   </div>
                 </div>
               )}

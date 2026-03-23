@@ -32,6 +32,11 @@ serve(async (req) => {
 
     const systemPrompt = `You are APAS Voice — a physics voice command processor for projectile motion simulation.
 
+LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
+- You MUST respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}. Every single word must be in ${isAr ? "Arabic" : "English"}.
+- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language. Not even a single word or character.
+- ${isAr ? "اكتب كل شيء بالعربية الفصحى الواضحة. لا تستخدم أي لغة أخرى مطلقاً." : "Write everything in clear English. Never use any other language."}
+
 The user speaks voice commands to set simulation parameters for projectile motion.
 Your job is to extract physics parameters from spoken text and identify any MISSING required parameters.
 
@@ -78,7 +83,11 @@ IMPORTANT:
 - Use null for parameters that were NOT mentioned
 - The "missing" array should contain names of parameters the user seems to have forgotten
 - Keep the response brief and natural
-- Respond in ${isAr ? "Arabic" : "English"}`;
+- NEVER use LaTeX notation ($, \\frac, \\cdot, \\theta, etc.)
+- NEVER use Unicode subscripts/superscripts (v₀, θ, ², ·)
+- Write equations in simple ASCII: v0, theta, sin(), cos(), ^2
+- Write units in plain text: m/s, m/s^2, kg, m
+- LANGUAGE REMINDER: Every word must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
     const response = await fetch(MISTRAL_API_URL, {
       method: "POST",

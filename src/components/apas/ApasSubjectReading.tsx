@@ -5,6 +5,7 @@ import { BookOpen, Loader2, X, Upload, Eye, CheckCircle, AlertTriangle, XCircle 
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeImageQuality, getIssueMessage } from '@/utils/mediaQuality';
+import { cleanLatex } from '@/utils/cleanLatex';
 
 const EDGE_SUBJECT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subject-reading`;
 
@@ -397,7 +398,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
                         {isAr ? 'شرح التمرين' : 'Exercise Explanation'}
                       </p>
                       <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                        <ReactMarkdown>{explanationText}</ReactMarkdown>
+                        <ReactMarkdown>{cleanLatex(explanationText)}</ReactMarkdown>
                       </div>
                     </div>
                   )}
@@ -421,7 +422,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
                         {isAr ? 'الحل' : 'Solution'}
                       </p>
                       <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                        <ReactMarkdown>{solutionText}</ReactMarkdown>
+                        <ReactMarkdown>{cleanLatex(solutionText)}</ReactMarkdown>
                       </div>
                       {subjectData.isProjectileMotion && (
                         <div className="mt-3 p-2 rounded-md bg-green-500/10 border border-green-500/20">

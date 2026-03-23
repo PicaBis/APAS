@@ -29,10 +29,15 @@ Your task is to read physics exercises/problems from images and solve them step 
 
 ANALYSIS ID: ${analysisId}
 
+LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
+- You MUST respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}. Every single word must be in ${isAr ? "Arabic" : "English"}.
+- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language. Not even a single word or character.
+- ${isAr ? "اكتب كل شيء بالعربية الفصحى الواضحة. لا تستخدم أي لغة أخرى مطلقاً." : "Write everything in clear English. Never use any other language."}
+
 INSTRUCTIONS:
 1. Look at the image and determine if it contains a physics problem or exercise
 2. The problem could be handwritten, printed, or from a textbook
-3. It may be in Arabic, French, or English
+3. It may be in Arabic, French, or English — but YOUR response must ALWAYS be in ${isAr ? "Arabic" : "English"}
 4. Focus ONLY on projectile motion problems (المقذوفات / mouvement de projectile)
 
 IF NO PHYSICS PROBLEM IS FOUND:
@@ -105,9 +110,26 @@ Then provide in ${isAr ? "Arabic" : "English"}:
 IMPORTANT RULES:
 - Be thorough in the solution. Show ALL work and intermediate steps.
 - Use simple ASCII math notation (not LaTeX): v0, theta, sin(), cos(), sqrt(), ^2
-- NEVER use LaTeX ($, \\frac, \\cdot, etc.)
-- If gravity is not specified, use g = 9.81 m/s² (or 10 m/s² if the exercise says so)
-- Always respond in ${isAr ? "Arabic" : "English"}`;
+- NEVER use LaTeX notation. Specifically NEVER use any of these:
+  * Dollar signs: $...$ or $$...$$
+  * Backslash commands: \\frac, \\cdot, \\theta, \\sqrt, \\text, \\left, \\right, \\implies, \\circ, \\times
+  * Curly brace groups: {numerator}{denominator}
+  * Unicode subscripts/superscripts: v₀, θ, ², ·
+- CORRECT equation format examples:
+  * vx = v0 * cos(theta)
+  * vy = v0 * sin(theta) - g * t
+  * R = v0^2 * sin(2 * theta) / g
+  * H = v0^2 * sin(theta)^2 / (2 * g)
+  * v0x = 20 * cos(30°) = 20 * (sqrt(3) / 2) = 10 * sqrt(3) m/s
+- WRONG equation format (NEVER do this):
+  * $v_{0x} = v_0 \\cdot \\cos(\\theta)$
+  * \\frac{v_0^2}{2g}
+  * v₀·cos(θ)·t
+  * \\text{م/ث}
+- Write units in plain text: m/s, m/s^2, kg, m, J, N
+- ${isAr ? "اكتب الوحدات بالعربية البسيطة: م/ث، م/ث^2، كغ، م، جول، نيوتن" : "Write units in plain text"}
+- If gravity is not specified, use g = 9.81 m/s^2 (or 10 m/s^2 if the exercise says so)
+- LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
     const response = await fetch(MISTRAL_API_URL, {
       method: "POST",

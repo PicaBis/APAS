@@ -3,26 +3,12 @@ import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import { Lightbulb, X, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { playClick } from '@/utils/sound';
+import { cleanLatex } from '@/utils/cleanLatex';
 
 // AI calls go through edge functions which handle Groq→Mistral fallback internally
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
-function cleanLatex(text: string): string {
-  let s = text;
-  s = s.replace(/\$\$([^$]+)\$\$/g, '`$1`');
-  s = s.replace(/\$([^$]+)\$/g, '`$1`');
-  s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1) / ($2)');
-  s = s.replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)');
-  s = s.replace(/\\cdot/g, '*');
-  s = s.replace(/\\times/g, '*');
-  s = s.replace(/\\theta/g, 'theta');
-  s = s.replace(/\\sin/g, 'sin');
-  s = s.replace(/\\cos/g, 'cos');
-  s = s.replace(/\\text\{([^}]+)\}/g, '$1');
-  s = s.replace(/\\,/g, ' ');
-  s = s.replace(/\\quad/g, '  ');
-  return s;
-}
+// cleanLatex is now imported from @/utils/cleanLatex
 
 async function consumeStream(
   body: ReadableStream<Uint8Array>,

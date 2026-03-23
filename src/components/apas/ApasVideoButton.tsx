@@ -5,6 +5,7 @@ import { Video, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeVideoFrame, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
+import { cleanLatex } from '@/utils/cleanLatex';
 import { analyzeBatchInWorker, getVideoQualityMessage, terminateVideoWorker } from '@/utils/videoWorkerManager';
 
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-analyze`;
@@ -843,7 +844,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
                     {isAr ? 'التحليل' : 'Analysis'}
                   </p>
                   <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                    <ReactMarkdown>{analysisText}</ReactMarkdown>
+                    <ReactMarkdown>{cleanLatex(analysisText)}</ReactMarkdown>
                   </div>
                 </div>
               )}

@@ -24,6 +24,11 @@ Your task is to analyze each uploaded image INDEPENDENTLY and UNIQUELY.
 ANALYSIS ID: ${analysisId}
 TIMESTAMP: ${timestamp}
 
+LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
+- You MUST respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}. Every single word must be in ${isAr ? "Arabic" : "English"}.
+- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language. Not even a single word or character.
+- ${isAr ? "اكتب كل شيء بالعربية الفصحى الواضحة. لا تستخدم أي لغة أخرى مطلقاً." : "Write everything in clear English. Never use any other language."}
+
 CRITICAL INSTRUCTIONS:
 1. You MUST analyze THIS SPECIFIC image from scratch. Do NOT reuse any previous analysis values.
 2. Look at the EXACT visual details: body posture, arm position, object size, trajectory angle, background scale references.
@@ -91,7 +96,14 @@ Then provide a SHORT analysis in ${isAr ? "Arabic" : "English"}:
 - ${isAr ? "المسار المتوقع" : "Expected trajectory"}
 - ${isAr ? "ملاحظات فيزيائية" : "Physics notes"}
 
-IMPORTANT: Each value MUST be justified by what you actually SEE in this specific image. Never use default/template values.`;
+EQUATION & FORMATTING RULES:
+- NEVER use LaTeX notation ($, \\frac, \\cdot, \\theta, \\sqrt, \\text, etc.)
+- NEVER use Unicode subscripts/superscripts (v₀, θ, ², ·)
+- Write equations in simple ASCII: v0 * cos(theta), sqrt(2 * g * h), v^2
+- Write units in plain text: m/s, m/s^2, kg, m
+
+IMPORTANT: Each value MUST be justified by what you actually SEE in this specific image. Never use default/template values.
+LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
     const { text, provider } = await aiComplete({
       modelType: "vision",

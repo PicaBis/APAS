@@ -5,6 +5,7 @@ import { MessageCircle, X, Send, Loader2, Trash2, User, Volume2, VolumeX, Mic, A
 import ApasLogo from '@/components/apas/ApasLogo';
 import { toast } from 'sonner';
 import { playClick } from '@/utils/sound';
+import { cleanLatex } from '@/utils/cleanLatex';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -28,44 +29,7 @@ interface Props {
 
 // AI calls go through edge functions which handle Groq→Mistral fallback internally
 
-/** Strip LaTeX artifacts from AI responses */
-function cleanLatex(text: string): string {
-  let s = text;
-  // Remove $...$ wrappers
-  s = s.replace(/\$\$([^$]+)\$\$/g, '`$1`');
-  s = s.replace(/\$([^$]+)\$/g, '`$1`');
-  // Replace common LaTeX commands
-  s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1) / ($2)');
-  s = s.replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)');
-  s = s.replace(/\\cdot/g, '*');
-  s = s.replace(/\\times/g, '*');
-  s = s.replace(/\\theta/g, 'theta');
-  s = s.replace(/\\alpha/g, 'alpha');
-  s = s.replace(/\\beta/g, 'beta');
-  s = s.replace(/\\pi/g, 'pi');
-  s = s.replace(/\\sin/g, 'sin');
-  s = s.replace(/\\cos/g, 'cos');
-  s = s.replace(/\\tan/g, 'tan');
-  s = s.replace(/\\left/g, '');
-  s = s.replace(/\\right/g, '');
-  s = s.replace(/\\text\{([^}]+)\}/g, '$1');
-  s = s.replace(/\\_/g, '_');
-  s = s.replace(/\\,/g, ' ');
-  s = s.replace(/\\;/g, ' ');
-  s = s.replace(/\\quad/g, '  ');
-  // Replace Unicode math symbols
-  s = s.replace(/·/g, '*');
-  s = s.replace(/θ/g, 'theta');
-  s = s.replace(/π/g, 'pi');
-  s = s.replace(/²/g, '^2');
-  s = s.replace(/³/g, '^3');
-  s = s.replace(/₀/g, '0');
-  s = s.replace(/₁/g, '1');
-  s = s.replace(/₂/g, '2');
-  s = s.replace(/ₓ/g, 'x');
-  s = s.replace(/ᵧ/g, 'y');
-  return s;
-}
+// cleanLatex is now imported from @/utils/cleanLatex
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function getGracefulFallback(text: string, lang: string) {
@@ -481,8 +445,10 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
 
     const systemPrompt = `You are APAS Assistant — an expert, passionate physics teacher AND application guide for the APAS projectile motion simulator.
 
-LANGUAGE RULES (CRITICAL):
-- You MUST respond ONLY in ${lang === 'ar' ? 'Arabic' : 'English'}. NEVER use Russian, French, Chinese, or any other language. Not even a single word.
+LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
+- You MUST respond ONLY in ${lang === 'ar' ? 'Arabic (العربية)' : 'English'}. Every single word must be in ${lang === 'ar' ? 'Arabic' : 'English'}.
+- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language. Not even a single word or character.
+- ${lang === 'ar' ? 'اكتب كل شيء بالعربية الفصحى الواضحة. لا تستخدم أي لغة أخرى مطلقاً.' : 'Write everything in clear English. Never use any other language.'}
 
 You have TWO roles:
 1. **Physics Tutor:** Answer questions about projectile motion, kinematics, and classical mechanics
@@ -506,11 +472,22 @@ FORMATTING RULES:
 - Make the text scannable — avoid long dense paragraphs
 - Use numbered lists (1. 2. 3.) for step-by-step explanations
 
-EQUATION FORMATTING RULES:
-- Use equations in VERY SIMPLE format like: vy = v0 * sin(theta) - g * t
-- NEVER use LaTeX notation like $v_y = v_0 \\cdot \\sin(\\theta) - g \\cdot t$
-- NEVER use complex symbols like v₀, θ, ·, etc.
-- Use only basic characters: v0, theta, sin, cos, *, /, +, -, ^
+EQUATION FORMATTING RULES (VERY IMPORTANT — MUST FOLLOW):
+- NEVER use LaTeX notation. Specifically NEVER use any of these:
+  * Dollar signs: $...$ or $$...$$
+  * Backslash commands: \\frac, \\cdot, \\theta, \\sqrt, \\text, \\left, \\right, \\implies, \\circ, \\times
+  * Curly brace groups for math: {numerator}{denominator}
+  * Unicode subscripts/superscripts: v₀, θ, ², ·
+- Write equations in simple readable format using only basic ASCII characters
+- Use: v0, theta, sin(), cos(), tan(), sqrt(), ^2, *, /, +, -
+- CORRECT equation format examples:
+  * vy = v0 * sin(theta) - g * t
+  * R = v0^2 * sin(2 * theta) / g
+  * F = m * a
+- WRONG equation format (NEVER do this):
+  * $v_y = v_0 \\cdot \\sin(\\theta)$
+  * v₀·cos(θ)·t
+  * \\frac{v^2}{2g}
 
 **APAS Application Features (use this to answer app questions):**
 - **Left Panel:** Contains parameter inputs (velocity, angle, height, mass, gravity, air resistance), equations panel, export section, and display options
