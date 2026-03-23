@@ -212,6 +212,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
   const [showModal, setShowModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -658,27 +659,19 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
 
       <div className="flex items-center gap-1">
         <button
-          onClick={() => fileRef.current?.click()}
+          onClick={() => setShowChoiceModal(true)}
           disabled={isAnalyzing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60"
-          title={isAr ? '\u0631\u0641\u0639 \u0641\u064a\u062f\u064a\u0648' : 'Upload Video'}
+          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
+          title={isAr ? 'فيديو APAS' : 'APAS Video'}
         >
           <div className="relative">
-            <Upload className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
+            <Video className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
             {isAnalyzing && (
               <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
             )}
           </div>
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground hidden xs:inline">{isAr ? '\u0631\u0641\u0639 \u0641\u064a\u062f\u064a\u0648' : 'Upload Video'}</span>
-        </button>
-        <button
-          onClick={openCamera}
-          disabled={isAnalyzing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60"
-          title={isAr ? '\u062a\u0635\u0648\u064a\u0631 \u0641\u064a\u062f\u064a\u0648 \u0628\u0627\u0644\u0643\u0627\u0645\u064a\u0631\u0627' : 'Record with Camera'}
-        >
-          <VideoIcon className="w-4 h-4 text-red-500 transition-transform duration-200 group-hover:scale-110" />
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground hidden xs:inline">{isAr ? '\u062a\u0635\u0648\u064a\u0631' : 'Record'}</span>
+          <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Video</span>
+          <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'فيديو' : 'Video'}</span>
         </button>
 
         {history.length > 0 && (
@@ -694,6 +687,50 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           </button>
         )}
       </div>
+
+      {/* Choice Modal — Upload or Record */}
+      {showChoiceModal && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowChoiceModal(false)}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-xs overflow-hidden animate-slideDown"
+            dir={isAr ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">APAS Video</h3>
+              </div>
+              <button onClick={() => setShowChoiceModal(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-2">
+              <button
+                onClick={() => { setShowChoiceModal(false); fileRef.current?.click(); }}
+                className="group w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 hover:shadow-md"
+              >
+                <Upload className="w-5 h-5 text-primary transition-transform duration-200 group-hover:scale-110" />
+                <div className="text-start">
+                  <p className="text-xs font-semibold text-foreground">{isAr ? 'تحميل فيديو' : 'Upload Video'}</p>
+                  <p className="text-[10px] text-muted-foreground">{isAr ? 'اختر فيديو من جهازك' : 'Choose a video from your device'}</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { setShowChoiceModal(false); openCamera(); }}
+                className="group w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 hover:shadow-md"
+              >
+                <VideoIcon className="w-5 h-5 text-red-500 transition-transform duration-200 group-hover:scale-110" />
+                <div className="text-start">
+                  <p className="text-xs font-semibold text-foreground">{isAr ? 'تسجيل فيديو' : 'Record Video'}</p>
+                  <p className="text-[10px] text-muted-foreground">{isAr ? 'استخدم الكاميرا لتسجيل فيديو' : 'Use your camera to record a video'}</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* History Modal */}
       {showHistory && createPortal(
@@ -1138,16 +1175,6 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                 </>
               )}
 
-              {!isAnalyzing && analysisText && (
-                <div className="border border-border rounded-lg p-3 bg-secondary/20">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    {isAr ? 'التحليل' : 'Analysis'}
-                  </p>
-                  <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                    <ReactMarkdown>{cleanLatex(analysisText)}</ReactMarkdown>
-                  </div>
-                </div>
-              )}
             </div>
 
             {!isAnalyzing && (

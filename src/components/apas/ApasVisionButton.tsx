@@ -51,6 +51,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
   const [showModal, setShowModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -374,27 +375,19 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
 
       <div className="flex items-center gap-1">
         <button
-          onClick={() => fileRef.current?.click()}
+          onClick={() => setShowChoiceModal(true)}
           disabled={isAnalyzing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60"
-          title={isAr ? 'رفع صورة' : 'Upload Image'}
+          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
+          title={isAr ? 'رؤية APAS' : 'APAS Vision'}
         >
           <div className="relative">
-            <Upload className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
+            <Aperture className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
             {isAnalyzing && (
               <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
             )}
           </div>
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground hidden xs:inline">{isAr ? 'رفع صورة' : 'Upload Image'}</span>
-        </button>
-        <button
-          onClick={openCamera}
-          disabled={isAnalyzing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60"
-          title={isAr ? 'التقاط صورة بالكاميرا' : 'Capture with Camera'}
-        >
-          <Aperture className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground hidden xs:inline">{isAr ? 'التقاط' : 'Capture'}</span>
+          <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Vision</span>
+          <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'صورة' : 'Image'}</span>
         </button>
 
         {history.length > 0 && (
@@ -410,6 +403,50 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
           </button>
         )}
       </div>
+
+      {/* Choice Modal — Upload or Capture */}
+      {showChoiceModal && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowChoiceModal(false)}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-xs overflow-hidden animate-slideDown"
+            dir={isAr ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <Aperture className="w-4 h-4 text-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">APAS Vision</h3>
+              </div>
+              <button onClick={() => setShowChoiceModal(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-2">
+              <button
+                onClick={() => { setShowChoiceModal(false); fileRef.current?.click(); }}
+                className="group w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 hover:shadow-md"
+              >
+                <Upload className="w-5 h-5 text-primary transition-transform duration-200 group-hover:scale-110" />
+                <div className="text-start">
+                  <p className="text-xs font-semibold text-foreground">{isAr ? 'تحميل صورة' : 'Upload Image'}</p>
+                  <p className="text-[10px] text-muted-foreground">{isAr ? 'اختر صورة من جهازك' : 'Choose an image from your device'}</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { setShowChoiceModal(false); openCamera(); }}
+                className="group w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 hover:shadow-md"
+              >
+                <Camera className="w-5 h-5 text-primary transition-transform duration-200 group-hover:scale-110" />
+                <div className="text-start">
+                  <p className="text-xs font-semibold text-foreground">{isAr ? 'التقاط صورة' : 'Capture Photo'}</p>
+                  <p className="text-[10px] text-muted-foreground">{isAr ? 'استخدم الكاميرا للتصوير' : 'Use your camera to take a photo'}</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* History Modal */}
       {showHistory && createPortal(
@@ -749,13 +786,6 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                   <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
                     <ReactMarkdown>{cleanLatex(analysisText)}</ReactMarkdown>
                   </div>
-                </div>
-              )}
-
-              {/* Weather data section in analysis results */}
-              {!isAnalyzing && analysisData && (
-                <div className="w-full">
-                  <LiveWeatherOverlay lang={lang} onWeatherData={setWeatherData} />
                 </div>
               )}
             </div>

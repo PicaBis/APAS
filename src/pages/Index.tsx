@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense, lazy, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter } from 'lucide-react';
+import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock } from 'lucide-react';
 import { useSimulation } from '@/hooks/useSimulation';
 import { useAdvancedPhysics } from '@/hooks/useAdvancedPhysics';
 import { playClick, playUIClick, playToggle, playSectionToggle, playSliderChange, playSnapshotSound, playModeSwitch, playZoomSound, playNav } from '@/utils/sound';
@@ -60,7 +61,6 @@ import QuickStartTips from '@/components/apas/QuickStartTips';
 import CalculationsSection from '@/components/apas/CalculationsSection';
 const DynamicAnalyticsDashboard = lazy(() => import('@/components/apas/DynamicAnalyticsDashboard'));
 const EnergyAnalysis = lazy(() => import('@/components/apas/EnergyAnalysis'));
-const DerivationPanel = lazy(() => import('@/components/apas/DerivationPanel'));
 const MonteCarloPanel = lazy(() => import('@/components/apas/MonteCarloPanel'));
 const SimulationRecorder = lazy(() => import('@/components/apas/SimulationRecorder'));
 const EquationEngine = lazy(() => import('@/components/apas/EquationEngine'));
@@ -108,7 +108,7 @@ const Index = () => {
   const [showAIMetrics, setShowAIMetrics] = useState(false);
   const [showPathInfo, setShowPathInfo] = useState(false);
   const [showChartSection, setShowChartSection] = useState(false);
-  const [showCalculations, setShowCalculations] = useState(false);
+  const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const [chartAxisX, setChartAxisX] = useState('');
   const [chartAxisY, setChartAxisY] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -612,7 +612,7 @@ const Index = () => {
                       )}
                     </button>
                     <ToggleOption label={lang === 'ar' ? '\u0627\u0631\u062a\u062f\u0627\u062f \u0627\u0644\u0645\u0642\u0630\u0648\u0641' : lang === 'fr' ? 'Rebond du Projectile' : 'Bouncing'} active={sim.enableBounce}
-                      onClick={() => { sim.setEnableBounce(!sim.enableBounce); playToggle(sim.isMuted, !sim.enableBounce); }} icon={<span className="text-xs">&x26be;</span>} />
+                      onClick={() => { sim.setEnableBounce(!sim.enableBounce); playToggle(sim.isMuted, !sim.enableBounce); }} icon={<ArrowDownUp className="w-3.5 h-3.5" />} />
                     {sim.enableBounce && (
                       <div className="px-1 pb-1">
                         <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
@@ -750,6 +750,38 @@ const Index = () => {
 
             {/* ═══ CENTER — Canvas & Results ═══ */}
             <div data-tour="center-canvas" className="space-y-3 sm:space-y-5 order-1 md:order-2 min-w-0">
+
+              {/* Calculations Button — above canvas */}
+              <div className="flex items-center justify-center">
+                <button
+                  onClick={() => { if (sim.trajectoryData.length > 0 && sim.prediction) { setShowCalculationsModal(true); playClick(sim.isMuted); } }}
+                  disabled={!(sim.trajectoryData.length > 0 && sim.prediction)}
+                  className={`relative flex items-center gap-1.5 group transition-all duration-300 ${
+                    sim.trajectoryData.length > 0 && sim.prediction
+                      ? 'apas-assistant-btn rounded-lg px-3 py-1.5 text-white shadow-lg cursor-pointer hover:shadow-xl hover:scale-[1.02]'
+                      : 'rounded-lg px-3 py-1.5 bg-secondary/50 text-muted-foreground cursor-not-allowed opacity-60 border border-border/50'
+                  }`}
+                  title={!(sim.trajectoryData.length > 0 && sim.prediction) ? (lang === 'ar' ? 'شغّل المحاكاة أولاً لعرض الحسابات' : 'Run simulation first to view calculations') : ''}
+                >
+                  <span className="relative flex items-center justify-center w-4 h-4">
+                    {sim.trajectoryData.length > 0 && sim.prediction ? (
+                      <>
+                        <Calculator className="w-4 h-4 sparkle-icon-flash" />
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/60 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white shadow-sm"></span>
+                        </span>
+                      </>
+                    ) : (
+                      <Lock className="w-3.5 h-3.5" />
+                    )}
+                  </span>
+                  <span className="relative z-10 text-[11px] font-bold whitespace-nowrap flex items-center gap-1 tracking-wide" dir={isRTL ? 'rtl' : 'ltr'}>
+                    <span>{lang === 'ar' ? 'كيف تم الحساب' : lang === 'fr' ? 'Calculs' : 'Calculations'}</span>
+                    <span className="font-extrabold">APAS</span>
+                  </span>
+                </button>
+              </div>
 
               {/* Canvas area */}
               <div ref={canvasContainerRef} className={isFullscreen ? 'fixed inset-0 z-50 bg-background flex flex-col' : ''}>
@@ -976,21 +1008,6 @@ const Index = () => {
                   )}
                 </CollapsibleSection>
 
-                {/* How Calculations Were Made */}
-                <CollapsibleSection
-                  title={lang === 'ar' ? '🧮 كيف تم الحساب' : lang === 'fr' ? '🧮 Comment les Calculs Ont Été Faits' : '🧮 How Calculations Were Made'}
-                  icon="🧮"
-                  open={showCalculations}
-                  toggle={() => setShowCalculations(!showCalculations)}
-                  miniPreview={
-                    <span className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                      {lang === 'ar' ? 'خطوة بخطوة' : 'Step by step'}
-                    </span>
-                  }
-                >
-                  <CalculationsSection lang={lang} />
-                </CollapsibleSection>
-
                 {/* Equations & Details */}
                 <Collapsible defaultOpen={false} className="border border-border/50 rounded-xl bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 overflow-hidden">
                   <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300">
@@ -1143,7 +1160,6 @@ const Index = () => {
                         </div>
                       </CollapsibleSection>
                       <Suspense fallback={null}><EnergyAnalysis lang={lang} trajectoryData={sim.trajectoryData} currentTime={sim.currentTime} mass={sim.mass} airResistance={sim.airResistance} gravity={sim.gravity} velocity={sim.velocity} angle={sim.angle} height={sim.height} spinRate={sim.spinRate} projectileRadius={sim.projectileRadius} /></Suspense>
-                      <Suspense fallback={null}><DerivationPanel lang={lang} velocity={sim.velocity} angle={sim.angle} height={sim.height} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} /></Suspense>
                       <Suspense fallback={null}><MonteCarloPanel lang={lang} muted={sim.isMuted} velocity={sim.velocity} angle={sim.angle} height={sim.height} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} /></Suspense>
                       <Suspense fallback={null}><CrowdsourcedAccuracy lang={lang} velocity={sim.velocity} angle={sim.angle} height={sim.height} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} prediction={sim.prediction} muted={sim.isMuted} /></Suspense>
                     </div>
@@ -1298,6 +1314,33 @@ const Index = () => {
         showComprehensiveGuide={showComprehensiveGuide} setShowComprehensiveGuide={setShowComprehensiveGuide}
         showRestrictionOverlay={showRestrictionOverlay} setShowRestrictionOverlay={setShowRestrictionOverlay}
       />
+
+      {/* Calculations Modal — centered, scrollable */}
+      {showCalculationsModal && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowCalculationsModal(false)}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-slideDown"
+            dir={isRTL ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">
+                  {lang === 'ar' ? 'كيف تم الحساب — APAS' : lang === 'fr' ? 'Comment les Calculs Ont Été Faits — APAS' : 'How Calculations Were Made — APAS'}
+                </h3>
+              </div>
+              <button onClick={() => setShowCalculationsModal(false)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <CalculationsSection lang={lang} />
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </PageTransition>
   );
 };
