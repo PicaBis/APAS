@@ -72,6 +72,8 @@ function computeLaunchAngle(positions: Position[]): number {
 function fitParabolicTrajectory(
   positions: Position[],
   imageWidth: number,
+  calibrationMeters?: number,
+  gravityOverride?: number,
 ): { angle: number; velocity: number; r_squared: number } | null {
   if (positions.length < 4) return null;
 
@@ -118,8 +120,11 @@ function fitParabolicTrajectory(
   const r_squared = ssTot > 0 ? 1 - ssRes / ssTot : 0;
 
   // Estimate velocity from quadratic coefficient
-  const metersPerPixel = 8 / imageWidth;
-  const g = 9.81;
+  // Use user-provided calibration scale if available, otherwise default to 8m field of view
+  const fieldOfView = (typeof calibrationMeters === 'number' && calibrationMeters > 0) ? calibrationMeters : 8;
+  const metersPerPixel = fieldOfView / imageWidth;
+  // Use environment gravity from frontend (supports Moon, Mars, etc.) or default to Earth
+  const g = (typeof gravityOverride === 'number' && gravityOverride > 0) ? gravityOverride : 9.81;
   const cosTheta = Math.cos(angle * Math.PI / 180);
 
   if (Math.abs(b) > 1e-6 && Math.abs(cosTheta) > 0.01) {
@@ -167,7 +172,7 @@ function classifyMotion(positions: Position[]): "vertical" | "horizontal" | "pro
 /**
  * Estimate initial launch velocity from first few frames.
  */
-function estimateVelocity(positions: Position[], imageWidth: number): number {
+function estimateVelocity(positions: Position[], imageWidth: number, calibrationMeters?: number): number {
   if (positions.length < 2) return 15;
 
   const launchFrames = Math.min(3, positions.length - 1);
@@ -187,7 +192,8 @@ function estimateVelocity(positions: Position[], imageWidth: number): number {
 
   if (count === 0) return 15;
   const avgPixelSpeed = totalSpeed / count;
-  const metersPerPixel = 8 / imageWidth;
+  const fieldOfView = (typeof calibrationMeters === 'number' && calibrationMeters > 0) ? calibrationMeters : 8;
+  const metersPerPixel = fieldOfView / imageWidth;
   const velocityMs = avgPixelSpeed * metersPerPixel;
 
   return Math.max(3, Math.min(80, Math.round(velocityMs * 10) / 10));
@@ -230,7 +236,7 @@ serve(async (req) => {
   }
 
   try {
-    const { frames, lang, videoName, totalFrames, fps } = await req.json();
+    const { frames, lang, videoName, totalFrames, fps, calibrationMeters, gravity: userGravity } = await req.json();
 
     if (!frames || !Array.isArray(frames) || frames.length === 0) {
       return new Response(JSON.stringify({ error: "No frames provided" }), {
@@ -400,7 +406,7 @@ If NO moving object is found at all:
       console.log(`Velocity-vector angle: ${velocityAngle}deg`);
 
       // Method 2: Parabolic curve fitting
-      const curveFit = fitParabolicTrajectory(cleanPositions, imageWidth);
+      const curveFit = fitParabolicTrajectory(cleanPositions, imageWidth, calibrationMeters, userGravity);
       let curveAngle: number | null = null;
       let curveVelocity: number | null = null;
 
@@ -412,7 +418,7 @@ If NO moving object is found at all:
       }
 
       // Method 3: Linear velocity estimation
-      const linearVelocity = estimateVelocity(cleanPositions, imageWidth);
+      const linearVelocity = estimateVelocity(cleanPositions, imageWidth, calibrationMeters);
       console.log(`Linear velocity estimate: ${linearVelocity} m/s`);
 
       // Cross-validate and select best values

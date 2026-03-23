@@ -56,6 +56,7 @@ import AcademicAmbient from '@/components/apas/AcademicAmbient';
 import FooterRobot from '@/components/apas/LightModeDecorations';
 import SensorLab from '@/components/apas/SensorLab';
 const EnergyAnalysis = lazy(() => import('@/components/apas/EnergyAnalysis'));
+const DerivationPanel = lazy(() => import('@/components/apas/DerivationPanel'));
 const MonteCarloPanel = lazy(() => import('@/components/apas/MonteCarloPanel'));
 const SimulationRecorder = lazy(() => import('@/components/apas/SimulationRecorder'));
 const EquationEngine = lazy(() => import('@/components/apas/EquationEngine'));
@@ -729,6 +730,10 @@ const Index = () => {
                 mass={sim.mass}
                 onExportPNG={exportSimulationPNG}
                 muted={sim.isMuted}
+                spinRate={sim.spinRate}
+                projectileRadius={sim.projectileRadius}
+                windSpeed={sim.windSpeed}
+                integrationMethod={sim.selectedIntegrationMethod}
               />
             </aside>
 
@@ -1087,7 +1092,8 @@ const Index = () => {
                           <ExperimentalInput lang={lang} prediction={sim.prediction} onAnalyzed={(has) => setHasExperimentalData(has)} />
                         </div>
                       </CollapsibleSection>
-                      <Suspense fallback={null}><EnergyAnalysis lang={lang} trajectoryData={sim.trajectoryData} currentTime={sim.currentTime} mass={sim.mass} airResistance={sim.airResistance} gravity={sim.gravity} velocity={sim.velocity} angle={sim.angle} height={sim.height} /></Suspense>
+                      <Suspense fallback={null}><EnergyAnalysis lang={lang} trajectoryData={sim.trajectoryData} currentTime={sim.currentTime} mass={sim.mass} airResistance={sim.airResistance} gravity={sim.gravity} velocity={sim.velocity} angle={sim.angle} height={sim.height} spinRate={sim.spinRate} projectileRadius={sim.projectileRadius} /></Suspense>
+                      <Suspense fallback={null}><DerivationPanel lang={lang} velocity={sim.velocity} angle={sim.angle} height={sim.height} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} /></Suspense>
                       <Suspense fallback={null}><MonteCarloPanel lang={lang} muted={sim.isMuted} velocity={sim.velocity} angle={sim.angle} height={sim.height} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} /></Suspense>
                       <Suspense fallback={null}><CrowdsourcedAccuracy lang={lang} velocity={sim.velocity} angle={sim.angle} height={sim.height} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} prediction={sim.prediction} muted={sim.isMuted} /></Suspense>
                     </div>

@@ -78,8 +78,8 @@ export const TRANSLATIONS = {
     classicalModelName: 'كلاسيكي (بدون مقاومة)',
     lrModelName: 'Polynomial Regression',
     dtModelName: 'Decision Tree (تقريبي)',
-    nnModelName: 'Neural Network (شبكة عصبية)',
-    svrModelName: 'SVR (RBF Kernel)',
+    nnModelName: 'دالة أساس غير خطية (تقريب متعدد الطبقات)',
+    svrModelName: 'استيفاء RBF (دالة شعاعية)',
     rfModelName: 'Random Forest (غابة عشوائية)',
     canvasLegend: 'مفتاح النماذج',
     // UI actions & labels
@@ -181,8 +181,8 @@ export const TRANSLATIONS = {
     classicalModelName: 'Classical (no drag)',
     lrModelName: 'Polynomial Regression',
     dtModelName: 'Decision Tree (approx.)',
-    nnModelName: 'Neural Network (3-layer)',
-    svrModelName: 'SVR (RBF Kernel)',
+    nnModelName: 'Nonlinear Basis Function (multi-layer)',
+    svrModelName: 'RBF Interpolation',
     rfModelName: 'Random Forest',
     canvasLegend: 'Model Legend',
     // UI actions & labels
@@ -284,8 +284,8 @@ export const TRANSLATIONS = {
     classicalModelName: 'Classique (sans résistance)',
     lrModelName: 'Régression Polynomiale',
     dtModelName: 'Arbre de Décision (approx.)',
-    nnModelName: 'Réseau de Neurones (3 couches)',
-    svrModelName: 'SVR (Noyau RBF)',
+    nnModelName: 'Fonction de Base Non-linéaire (multi-couches)',
+    svrModelName: 'Interpolation RBF',
     rfModelName: 'Forêt Aléatoire',
     canvasLegend: 'Légende des Modèles',
     // UI actions & labels

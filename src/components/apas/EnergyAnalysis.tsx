@@ -14,24 +14,37 @@ interface Props {
   velocity: number;
   angle: number;
   height: number;
+  spinRate?: number;
+  projectileRadius?: number;
 }
 
-export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass, airResistance, gravity, velocity, angle, height }: Props) {
+export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass, airResistance, gravity, velocity, angle, height, spinRate = 0, projectileRadius = 0.05 }: Props) {
   const isRTL = lang === 'ar';
   const [isOpen, setIsOpen] = useState(false);
+
+  // Rotational kinetic energy: KE_rot = 0.5 * I * omega^2
+  // For a solid sphere: I = (2/5) * m * r^2
+  const rotationalKE = spinRate > 0
+    ? 0.5 * (2 / 5) * mass * projectileRadius * projectileRadius * spinRate * spinRate
+    : 0;
 
   const energyData = useMemo(() => {
     if (!trajectoryData.length) return [];
     const step = Math.max(1, Math.floor(trajectoryData.length / 150));
     return trajectoryData
       .filter((_, i) => i % step === 0 || i === trajectoryData.length - 1)
-      .map(p => ({
-        time: Number(p.time.toFixed(3)),
-        KE: Number(p.kineticEnergy.toFixed(2)),
-        PE: Number(p.potentialEnergy.toFixed(2)),
-        Total: Number((p.kineticEnergy + p.potentialEnergy).toFixed(2)),
-      }));
-  }, [trajectoryData]);
+      .map(p => {
+        const translationalKE = p.kineticEnergy;
+        const totalKE = translationalKE + rotationalKE;
+        return {
+          time: Number(p.time.toFixed(3)),
+          KE: Number(totalKE.toFixed(2)),
+          PE: Number(p.potentialEnergy.toFixed(2)),
+          Total: Number((totalKE + p.potentialEnergy).toFixed(2)),
+          ...(rotationalKE > 0 ? { RotKE: Number(rotationalKE.toFixed(2)) } : {}),
+        };
+      });
+  }, [trajectoryData, rotationalKE]);
 
   const analysis = useMemo(() => {
     if (!trajectoryData.length) return null;
@@ -40,9 +53,9 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
     const first = trajectoryData[0];
     const last = trajectoryData[trajectoryData.length - 1];
 
-    const totalInitial = first.kineticEnergy + first.potentialEnergy;
-    const totalCurrent = pt.kineticEnergy + pt.potentialEnergy;
-    const totalFinal = last.kineticEnergy + last.potentialEnergy;
+    const totalInitial = first.kineticEnergy + first.potentialEnergy + rotationalKE;
+    const totalCurrent = pt.kineticEnergy + pt.potentialEnergy + rotationalKE;
+    const totalFinal = last.kineticEnergy + last.potentialEnergy + rotationalKE;
     const loss = Math.max(0, totalInitial - totalCurrent);
     const totalLoss = Math.max(0, totalInitial - totalFinal);
 
@@ -75,7 +88,7 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
       impactKE: last.kineticEnergy,
       impactSpeed: last.speed,
     };
-  }, [trajectoryData, currentTime]);
+  }, [trajectoryData, currentTime, rotationalKE]);
 
   if (!energyData.length || !analysis) return null;
 

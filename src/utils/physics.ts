@@ -58,7 +58,9 @@ const solve3x3 = (A: number[][], b: number[]): number[] => {
   return x;
 };
 
-// ── Neural Network (4 layers) ──
+// ── Nonlinear Basis Function Regression (fixed-weight multi-layer transform) ──
+// Note: Uses predetermined weight matrices — not a trained neural network.
+// This is a nonlinear basis function expansion, not machine learning.
 export const fitNeuralNetwork = (data: Array<{ x: number; y: number }>) => {
   if (data.length < 5) return data.map(p => ({ ...p, yPred: p.y }));
   const xs = data.map(p => p.x), ys = data.map(p => p.y);
@@ -82,7 +84,9 @@ export const fitNeuralNetwork = (data: Array<{ x: number; y: number }>) => {
   });
 };
 
-// ── SVR (RBF Kernel approximation) ──
+// ── RBF Interpolation (Radial Basis Function weighted averaging) ──
+// Note: Uses RBF kernel similarity weighting, not true Support Vector Regression.
+// No margin optimization or SMO algorithm — this is kernel-weighted interpolation.
 export const fitSVR = (data: Array<{ x: number; y: number }>) => {
   if (data.length < 5) return data.map(p => ({ ...p, yPred: p.y }));
   const xs = data.map(p => p.x), ys = data.map(p => p.y);
@@ -273,10 +277,12 @@ export const calculateTrajectory = (
       ay += magnusSign * magnusCoeff * vrx;
     }
     
+    // Symplectic (semi-implicit) Euler: update velocity first, then use new velocity for position
+    // This preserves energy much better than Forward Euler with trivial implementation cost
     const newVx = vx + ax * dt;
     const newVy = vy + ay * dt;
-    const newX = x + vx * dt;
-    const newY = y + vy * dt;
+    const newX = x + newVx * dt;
+    const newY = y + newVy * dt;
     
     return { x: newX, y: newY, vx: newVx, vy: newVy, ax, ay };
   };
@@ -368,11 +374,40 @@ export const calculateTrajectory = (
       ay += magnusSign * magnusCoeff * vrx;
     }
     
-    // Velocity Verlet integration (2nd order accurate for position)
+    // Full Velocity Verlet integration (2nd order accurate for both position and velocity)
+    // Step 1: Update position using current velocity and acceleration
     const newX = x + vx * dt + 0.5 * ax * dt * dt;
     const newY = y + vy * dt + 0.5 * ay * dt * dt;
-    const newVx = vx + ax * dt;
-    const newVy = vy + ay * dt;
+    
+    // Step 2: Compute acceleration at the NEW position
+    const newVrx = (vx + ax * dt) - windSpeed;
+    const newVry = (vy + ay * dt);
+    const newSpeedRel = Math.sqrt(newVrx * newVrx + newVry * newVry);
+    let newEffectiveDrag = airResistance;
+    if (airResistance > 0 && newSpeedRel > 0.01) {
+      const kinematicViscosity2 = AIR_KINEMATIC_VISCOSITY;
+      const Re2 = Math.max(1, (newSpeedRel * projectileRadius * 2) / kinematicViscosity2);
+      let CdCorrection2 = 1.0;
+      if (Re2 < 1000) {
+        CdCorrection2 = (24 / Re2) * (1 + 0.15 * Math.pow(Re2, 0.687)) / 0.47;
+      } else if (Re2 < 200000) {
+        CdCorrection2 = 1.0;
+      } else {
+        CdCorrection2 = 0.2 / 0.47;
+      }
+      newEffectiveDrag = airResistance * Math.max(0.1, Math.min(3.0, CdCorrection2));
+    }
+    const newDrag = newEffectiveDrag * newSpeedRel * newSpeedRel / mass;
+    let ax_new = newSpeedRel > 0 ? -newDrag * newVrx / newSpeedRel : 0;
+    let ay_new = -gravity - (newSpeedRel > 0 ? newDrag * newVry / newSpeedRel : 0);
+    if (magnusCoeff > 0) {
+      ax_new += -magnusSign * magnusCoeff * newVry;
+      ay_new += magnusSign * magnusCoeff * newVrx;
+    }
+    
+    // Step 3: Average old and new accelerations for velocity update
+    const newVx = vx + 0.5 * (ax + ax_new) * dt;
+    const newVy = vy + 0.5 * (ay + ay_new) * dt;
     
     return { x: newX, y: newY, vx: newVx, vy: newVy, ax, ay };
   };
@@ -568,8 +603,8 @@ export const buildAIModels = (
     classical: { pts: classicalPts, metrics: calcMetrics(classicalPts), name: T.classicalModelName, color: '#22c55e', dash: [12, 5] },
     lr: { pts: lrPts, metrics: calcMetrics(lrPts), name: T.lrModelName, color: '#22d3ee', dash: [8, 4] },
     dt: { pts: dtPts, metrics: calcMetrics(dtPts), name: T.dtModelName, color: '#f472b6', dash: [4, 4] },
-    nn: { pts: nnPts, metrics: calcMetrics(nnPts), name: T.nnModelName || 'Neural Network', color: '#a855f7', dash: [10, 3] },
-    svr: { pts: svrPts, metrics: calcMetrics(svrPts), name: T.svrModelName || 'SVR (RBF)', color: '#f59e0b', dash: [6, 6] },
+    nn: { pts: nnPts, metrics: calcMetrics(nnPts), name: T.nnModelName || 'Nonlinear Basis Function', color: '#a855f7', dash: [10, 3] },
+    svr: { pts: svrPts, metrics: calcMetrics(svrPts), name: T.svrModelName || 'RBF Interpolation', color: '#f59e0b', dash: [6, 6] },
     rf: { pts: rfPts, metrics: calcMetrics(rfPts), name: T.rfModelName || 'Random Forest', color: '#ef4444', dash: [3, 3, 10, 3] },
   };
 };

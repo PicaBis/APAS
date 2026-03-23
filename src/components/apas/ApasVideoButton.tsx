@@ -20,6 +20,8 @@ interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
+  calibrationMeters?: number;
+  gravity?: number;
 }
 
 interface AnalysisData {
@@ -180,7 +182,7 @@ const extractFramesFromVideo = (
   });
 };
 
-export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed }: Props) {
+export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed, calibrationMeters, gravity }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
@@ -517,6 +519,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
         videoName: sourceName,
         totalFrames,
         fps,
+        calibrationMeters: calibrationMeters && calibrationMeters > 0 ? calibrationMeters : undefined,
+        gravity: gravity && gravity > 0 ? gravity : undefined,
         hint: 'Look carefully for any moving object (ball, projectile, stone, etc.) across frames. Even small or partially visible objects count as projectiles. Analyze position changes between frames to estimate velocity and angle.',
       });
       let payloadBody = buildPayload();
