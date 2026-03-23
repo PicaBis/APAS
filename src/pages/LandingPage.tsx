@@ -40,6 +40,7 @@ interface LangData {
   downloadTitle: string;
   downloadSubtitle: string;
   downloadBtn: string;
+  downloadBtnLinux: string;
   downloadNote: string;
   downloadNav: string;
   classroomTitle: string;
@@ -83,9 +84,10 @@ const LANG_DATA: Record<Lang, LangData> = {
     ctaTitle: '\u062c\u0627\u0647\u0632 \u0644\u062a\u062c\u0631\u0628\u0629 \u0641\u064a\u0632\u064a\u0627\u0621 \u0627\u0644\u0645\u0642\u0630\u0648\u0641\u0627\u062a \u0628\u0637\u0631\u064a\u0642\u0629 \u062c\u062f\u064a\u062f\u0629\u061f',
     ctaBtn: '\u0627\u0628\u062f\u0623 \u0627\u0644\u0622\u0646',
     downloadTitle: '\u062d\u0645\u0651\u0644 \u062a\u0637\u0628\u064a\u0642 APAS \u0644\u0633\u0637\u062d \u0627\u0644\u0645\u0643\u062a\u0628',
-    downloadSubtitle: '\u062a\u0637\u0628\u064a\u0642 \u0633\u0637\u062d \u0627\u0644\u0645\u0643\u062a\u0628 \u0644\u0646\u0638\u0627\u0645 Windows \u2014 \u064a\u062d\u0645\u0651\u0644 \u062f\u0627\u0626\u0645\u0627\u064b \u0622\u062e\u0631 \u0625\u0635\u062f\u0627\u0631 \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b',
-    downloadBtn: '\u062a\u062d\u0645\u064a\u0644 \u0644\u0640 Windows x64',
-    downloadNote: '\u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u064a\u062a\u0635\u0644 \u0628\u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a \u0644\u062a\u062d\u0645\u064a\u0644 \u0622\u062e\u0631 \u0627\u0644\u062a\u062d\u062f\u064a\u062b\u0627\u062a \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b',
+    downloadSubtitle: 'تطبيق سطح المكتب لنظام Windows و Linux — يحمّل دائماً آخر إصدار تلقائياً',
+    downloadBtn: 'تحميل لـ Windows x64',
+    downloadBtnLinux: 'تحميل لـ Linux x64',
+    downloadNote: 'التطبيق يتصل بالإنترنت لتحميل آخر التحديثات تلقائياً',
     downloadNav: '\u062a\u062d\u0645\u064a\u0644',
     classroomTitle: '\u0646\u0638\u0627\u0645 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0641\u0635\u0648\u0644',
     classroomDesc: '\u0627\u0644\u0623\u0633\u062a\u0627\u0630 \u064a\u0646\u0634\u0626 \u0641\u0635\u0644\u0627\u064b\u060c \u0648\u0627\u0644\u0637\u0644\u0627\u0628 \u064a\u0631\u0641\u0639\u0648\u0646 \u062a\u062c\u0627\u0631\u0628\u0647\u0645 \u2014 \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u062a\u0638\u0647\u0631 \u0645\u0628\u0627\u0634\u0631\u0629 \u0641\u064a \u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645',
@@ -126,8 +128,9 @@ const LANG_DATA: Record<Lang, LangData> = {
     ctaTitle: 'Ready to experience projectile physics in a new way?',
     ctaBtn: 'Start Now',
     downloadTitle: 'Download APAS Desktop App',
-    downloadSubtitle: 'Desktop application for Windows — always loads the latest version automatically',
+    downloadSubtitle: 'Desktop application for Windows & Linux — always loads the latest version automatically',
     downloadBtn: 'Download for Windows x64',
+    downloadBtnLinux: 'Download for Linux x64',
     downloadNote: 'The app connects to the internet to load the latest updates automatically',
     downloadNav: 'Download',
     classroomTitle: 'Classroom Management',
@@ -169,8 +172,9 @@ const LANG_DATA: Record<Lang, LangData> = {
     ctaTitle: 'Pr\u00eat \u00e0 d\u00e9couvrir la physique des projectiles autrement ?',
     ctaBtn: 'Commencer',
     downloadTitle: 'T\u00e9l\u00e9charger APAS Desktop',
-    downloadSubtitle: 'Application de bureau pour Windows \u2014 charge toujours la derni\u00e8re version automatiquement',
+    downloadSubtitle: 'Application de bureau pour Windows & Linux \u2014 charge toujours la derni\u00e8re version automatiquement',
     downloadBtn: 'T\u00e9l\u00e9charger pour Windows x64',
+    downloadBtnLinux: 'T\u00e9l\u00e9charger pour Linux x64',
     downloadNote: "L'application se connecte \u00e0 Internet pour charger les derni\u00e8res mises \u00e0 jour",
     downloadNav: 'T\u00e9l\u00e9charger',
     classroomTitle: 'Gestion de Classe',
@@ -526,7 +530,7 @@ const LandingPage: React.FC = () => {
               {t.downloadSubtitle}
             </p>
 
-            {/* Download Button */}
+            {/* Download Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
               <a
                 href="https://github.com/PicaBis/APAS/releases/latest"
@@ -536,6 +540,16 @@ const LandingPage: React.FC = () => {
               >
                 <Monitor className="w-5 h-5" />
                 {t.downloadBtn}
+                <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
+              </a>
+              <a
+                href="https://github.com/PicaBis/APAS/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#E95420] to-[#77216F] text-white rounded-xl font-semibold text-base shadow-lg shadow-[#E95420]/25 hover:shadow-xl hover:shadow-[#E95420]/40 hover:-translate-y-1 transition-all duration-300"
+              >
+                <Monitor className="w-5 h-5" />
+                {t.downloadBtnLinux}
                 <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
               </a>
             </div>
