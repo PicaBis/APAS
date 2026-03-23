@@ -158,7 +158,7 @@ app.whenReady().then(() => {
           "style-src 'self' 'unsafe-inline' https://a-p-a-s.vercel.app https://*.vercel.app https://fonts.googleapis.com; " +
           "font-src 'self' https://fonts.gstatic.com data:; " +
           "img-src 'self' data: blob: https:; " +
-          "connect-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app https://api.openweathermap.org https://api.open-meteo.com;"
+          "connect-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app https://*.supabase.co https://api.openweathermap.org https://api.open-meteo.com;"
         ],
       },
     });

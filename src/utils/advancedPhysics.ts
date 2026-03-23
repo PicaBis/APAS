@@ -11,7 +11,6 @@ import {
   EARTH_RADIUS,
   SPEED_OF_LIGHT,
   ATMOSPHERIC_SCALE_HEIGHT,
-  AIR_DYNAMIC_VISCOSITY,
   MAGNUS_COEFFICIENT,
   R_DRY_AIR,
   R_WATER_VAPOR,
@@ -343,7 +342,7 @@ export const calculateAdvancedDrag = (
   const area = Math.PI * (diameter / 2) ** 2;
   const dragForce = 0.5 * density * velocity * velocity * dragCoefficient * area;
   const dragAccel = dragForce / mass;
-  const kinematicViscosity = AIR_DYNAMIC_VISCOSITY;
+  const kinematicViscosity = AIR_KINEMATIC_VISCOSITY;
   const reynoldsNumber = (velocity * diameter) / kinematicViscosity;
   let correctionFactor = 1.0;
   if (reynoldsNumber < 1) {

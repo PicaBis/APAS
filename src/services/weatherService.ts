@@ -106,7 +106,9 @@ export const getWeatherData = async (
   // Rate limiting: enforce minimum interval between API calls
   const now = Date.now();
   if (now - lastRequestTimestamp < MIN_REQUEST_INTERVAL) {
-    return null;
+    // Return any cached entry (even with different precision key) rather than null
+    // to avoid callers treating throttling as an API failure
+    return cached?.data ?? null;
   }
   lastRequestTimestamp = now;
 
