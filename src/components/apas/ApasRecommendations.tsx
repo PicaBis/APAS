@@ -5,7 +5,7 @@ import { Lightbulb, X, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { playClick } from '@/utils/sound';
 import { cleanLatex } from '@/utils/cleanLatex';
 
-// AI calls go through edge functions which handle Groq→Mistral fallback internally
+// AI calls go through edge functions which handle provider fallback internally
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 // cleanLatex is now imported from @/utils/cleanLatex
@@ -146,10 +146,10 @@ Format the output beautifully and clearly:
           handled = true;
         }
       } catch {
-        // fall through to Groq
+        // fall through to next provider
       }
 
-      // Edge function handles Groq→Mistral fallback internally
+      // Edge function handles provider fallback internally
       // No direct API calls needed from the client
 
       if (!handled && !accumulated) {

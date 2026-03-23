@@ -134,7 +134,7 @@ IMPORTANT RULES:
 - If gravity is not specified, use g = 9.81 m/s^2 (or 10 m/s^2 if the exercise says so)
 - LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
-    // Build provider list: Mistral first, Groq as fallback
+    // Build provider list with fallback
     const providers: Array<{ name: string; url: string; key: string; model: string; imageUrlFormat: 'object' | 'string' }> = [];
     if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_VISION_MODEL, imageUrlFormat: 'string' });
     if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_VISION_MODEL, imageUrlFormat: 'object' });
@@ -151,7 +151,7 @@ IMPORTANT RULES:
       try {
         console.log(`[subject-reading] Trying ${provider.name}...`);
 
-        // Mistral uses plain string for image_url, Groq uses { url: ... } object
+        // Provider-specific image_url format handling
         const imageUrlValue = provider.imageUrlFormat === 'string' ? imageDataUri : { url: imageDataUri };
 
         const response = await fetch(provider.url, {

@@ -228,12 +228,12 @@ function filterOutlierPositions(positions: Position[]): Position[] {
   return filtered.length >= 3 ? filtered : positions;
 }
 
-// ── Gemini File API helpers ──
+// ── AI File API helpers ──
 
 /**
- * Upload a video file to Gemini File API using resumable upload protocol.
+ * Upload a video file to AI File API using resumable upload protocol.
  */
-async function uploadToGeminiFileAPI(
+async function uploadToAIFileAPI(
   videoBytes: Uint8Array,
   contentType: string,
   displayName: string,
@@ -259,12 +259,12 @@ async function uploadToGeminiFileAPI(
 
   if (!startRes.ok) {
     const errText = await startRes.text();
-    throw new Error(`Gemini File API start upload failed (${startRes.status}): ${errText}`);
+    throw new Error(`AI File API start upload failed (${startRes.status}): ${errText}`);
   }
 
   const uploadUrl = startRes.headers.get("X-Goog-Upload-URL");
   if (!uploadUrl) {
-    throw new Error("Gemini File API did not return an upload URL");
+    throw new Error("AI File API did not return an upload URL");
   }
 
   // Step 2: Upload the file data
@@ -280,7 +280,7 @@ async function uploadToGeminiFileAPI(
 
   if (!uploadRes.ok) {
     const errText = await uploadRes.text();
-    throw new Error(`Gemini File API upload failed (${uploadRes.status}): ${errText}`);
+    throw new Error(`AI File API upload failed (${uploadRes.status}): ${errText}`);
   }
 
   const result = await uploadRes.json();
@@ -288,7 +288,7 @@ async function uploadToGeminiFileAPI(
 }
 
 /**
- * Poll Gemini File API until the file is ACTIVE (processed).
+ * Poll AI File API until the file is ACTIVE (processed).
  */
 async function waitForFileProcessing(
   fileName: string,
@@ -304,7 +304,7 @@ async function waitForFileProcessing(
 
     if (!statusRes.ok) {
       const errText = await statusRes.text();
-      throw new Error(`Gemini file status check failed (${statusRes.status}): ${errText}`);
+      throw new Error(`AI file status check failed (${statusRes.status}): ${errText}`);
     }
 
     const file = await statusRes.json();
@@ -314,20 +314,20 @@ async function waitForFileProcessing(
     }
 
     if (file.state === "FAILED") {
-      throw new Error("Gemini file processing failed");
+      throw new Error("AI file processing failed");
     }
 
     // Wait 2 seconds before polling again
     await new Promise((r) => setTimeout(r, 2000));
   }
 
-  throw new Error("Gemini file processing timed out");
+  throw new Error("AI file processing timed out");
 }
 
 /**
- * Delete a file from Gemini File API (cleanup).
+ * Delete a file from AI File API (cleanup).
  */
-async function deleteGeminiFile(fileName: string, apiKey: string): Promise<void> {
+async function deleteAIFile(fileName: string, apiKey: string): Promise<void> {
   try {
     await fetch(`${GEMINI_API_BASE}/v1beta/${fileName}?key=${apiKey}`, {
       method: "DELETE",
@@ -359,37 +359,37 @@ serve(async (req) => {
       throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    console.log(`[APAS-Gemini] Analyzing video: ${videoName || "unknown"}, trim: ${trimStart}s-${trimEnd}s`);
+    console.log(`[APAS-AI] Analyzing video: ${videoName || "unknown"}, trim: ${trimStart}s-${trimEnd}s`);
 
     const isAr = lang === "ar";
 
     // Step 1: Download video from Supabase Storage URL
-    console.log(`[APAS-Gemini] Downloading video from storage...`);
+    console.log(`[APAS-AI] Downloading video from storage...`);
     const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {
       throw new Error(`Failed to download video: HTTP ${videoResponse.status}`);
     }
     const videoBytes = new Uint8Array(await videoResponse.arrayBuffer());
     const contentType = videoResponse.headers.get("content-type") || "video/mp4";
-    console.log(`[APAS-Gemini] Downloaded ${(videoBytes.length / 1024 / 1024).toFixed(2)} MB (${contentType})`);
+    console.log(`[APAS-AI] Downloaded ${(videoBytes.length / 1024 / 1024).toFixed(2)} MB (${contentType})`);
 
-    // Step 2: Upload video to Gemini File API
-    console.log(`[APAS-Gemini] Uploading video to Gemini File API...`);
-    const uploadedFile = await uploadToGeminiFileAPI(
+    // Step 2: Upload video to AI File API
+    console.log(`[APAS-AI] Uploading video to AI File API...`);
+    const uploadedFile = await uploadToAIFileAPI(
       videoBytes,
       contentType,
       videoName || `physics-video-${Date.now()}`,
       geminiKey,
     );
-    console.log(`[APAS-Gemini] File uploaded: ${uploadedFile.name}, state: ${uploadedFile.state}`);
+    console.log(`[APAS-AI] File uploaded: ${uploadedFile.name}, state: ${uploadedFile.state}`);
 
-    // Step 3: Wait for Gemini to process the video
+    // Step 3: Wait for AI to process the video
     let activeFile = uploadedFile;
     if (uploadedFile.state !== "ACTIVE") {
-      console.log(`[APAS-Gemini] Waiting for file processing...`);
+      console.log(`[APAS-AI] Waiting for file processing...`);
       activeFile = await waitForFileProcessing(uploadedFile.name, geminiKey);
     }
-    console.log(`[APAS-Gemini] File is ACTIVE: ${activeFile.uri}`);
+    console.log(`[APAS-AI] File is ACTIVE: ${activeFile.uri}`);
 
     // Step 4: Build physics analysis prompt
     const trimInfo =
@@ -399,7 +399,7 @@ serve(async (req) => {
 
     const physicsPrompt = `\u0623\u0646\u062a \u062e\u0628\u064a\u0631 \u0641\u064a\u0632\u064a\u0627\u0626\u064a \u0623\u0643\u0627\u062f\u064a\u0645\u064a. \u0642\u0645 \u0628\u062a\u062d\u0644\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 \u0644\u062d\u0631\u0643\u0629 \u0645\u0642\u0630\u0648\u0641. \u0627\u0633\u062a\u062e\u0631\u062c \u0627\u0644\u0625\u062d\u062f\u0627\u062b\u064a\u0627\u062a (x, y) \u0644\u0643\u0644 \u0625\u0637\u0627\u0631\u060c \u0648\u0627\u062d\u0633\u0628 \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629 \u0648\u0627\u0644\u0632\u0627\u0648\u064a\u0629 \u0648\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639. \u0642\u062f\u0645 \u062a\u0642\u0631\u064a\u0631\u0627\u064b \u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0627\u064b \u0645\u0641\u0635\u0644\u0627\u064b \u0628\u0627\u0644\u0644\u063a\u062a\u064a\u0646 \u0627\u0644\u0639\u0631\u0628\u064a\u0629 \u0648\u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a\u0629\u060c \u0648\u0627\u0631\u0633\u0645 \u0627\u0644\u0645\u0633\u0627\u0631 \u0639\u0644\u0649 \u0627\u0644\u0643\u0627\u0646\u0641\u0627\u0633.
 
-You are APAS (Advanced Physics Analysis System) \u2014 a precise physics video analysis system powered by Gemini 2.5 Flash with native video understanding.
+You are APAS (Advanced Physics Analysis System) \u2014 a precise physics video analysis system powered by APAS AI with native video understanding.
 You are analyzing a video of projectile motion. Because you can see the ACTUAL MOTION (not just static frames), your tracking should be highly accurate.
 ${trimInfo}
 
@@ -442,8 +442,8 @@ RESPOND WITH ONLY THIS JSON (no other text, no markdown fences):
 If NO moving object is found at all:
 {"detected": false, "positions": []}`;
 
-    // Step 5: Call Gemini 2.5 Flash with the video and prompt
-    console.log(`[APAS-Gemini] Calling Gemini 2.5 Flash for physics analysis...`);
+    // Step 5: Call AI model with the video and prompt
+    console.log(`[APAS-AI] Calling AI model for physics analysis...`);
 
     const genRes = await fetch(
       `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
@@ -472,27 +472,27 @@ If NO moving object is found at all:
       },
     );
 
-    // Cleanup: delete the file from Gemini (best-effort)
-    deleteGeminiFile(activeFile.name, geminiKey);
+    // Cleanup: delete the file from AI provider (best-effort)
+    deleteAIFile(activeFile.name, geminiKey);
 
     if (!genRes.ok) {
       const errorText = await genRes.text();
-      console.error(`[APAS-Gemini] Gemini API error ${genRes.status}: ${errorText}`);
-      throw new Error(`Gemini API error: ${genRes.status} - ${errorText}`);
+      console.error(`[APAS-AI] API error ${genRes.status}: ${errorText}`);
+      throw new Error(`APAS AI error: ${genRes.status} - ${errorText}`);
     }
 
     const genData = await genRes.json();
-    // Gemini response format: { candidates: [{ content: { parts: [{ text: "..." }] } }] }
+    // AI response format: { candidates: [{ content: { parts: [{ text: "..." }] } }] }
     const responseText =
       genData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     if (!responseText) {
-      throw new Error("Gemini returned empty response");
+      throw new Error("AI returned empty response");
     }
 
-    console.log(`[APAS-Gemini] Gemini response length: ${responseText.length}`);
+    console.log(`[APAS-AI] AI response length: ${responseText.length}`);
 
-    // Step 6: Parse Gemini response
+    // Step 6: Parse AI response
     // Try to extract JSON from the response (handle markdown fences or raw JSON)
     let aiResult: {
       detected?: boolean;
@@ -552,14 +552,14 @@ If NO moving object is found at all:
       }));
 
       const cleanPositions = filterOutlierPositions(positions);
-      console.log(`[APAS-Gemini] Positions: ${positions.length} raw, ${cleanPositions.length} after filtering`);
+      console.log(`[APAS-AI] Positions: ${positions.length} raw, ${cleanPositions.length} after filtering`);
 
       motionType = classifyMotion(cleanPositions);
-      console.log(`[APAS-Gemini] Motion type: ${motionType}`);
+      console.log(`[APAS-AI] Motion type: ${motionType}`);
 
       // Method 1: Velocity-vector angle
       const velocityAngle = computeLaunchAngle(cleanPositions);
-      console.log(`[APAS-Gemini] Velocity-vector angle: ${velocityAngle}deg`);
+      console.log(`[APAS-AI] Velocity-vector angle: ${velocityAngle}deg`);
 
       // Method 2: Parabolic curve fitting
       const curveFit = fitParabolicTrajectory(cleanPositions, imageWidth, calibrationMeters, userGravity);
@@ -570,12 +570,12 @@ If NO moving object is found at all:
         curveAngle = curveFit.angle;
         curveVelocity = curveFit.velocity;
         curveFitInfo = `R^2 = ${curveFit.r_squared.toFixed(3)}`;
-        console.log(`[APAS-Gemini] Curve fit: angle=${curveAngle}deg, velocity=${curveVelocity}m/s, R^2=${curveFit.r_squared.toFixed(3)}`);
+        console.log(`[APAS-AI] Curve fit: angle=${curveAngle}deg, velocity=${curveVelocity}m/s, R^2=${curveFit.r_squared.toFixed(3)}`);
       }
 
       // Method 3: Linear velocity estimation
       const linearVelocity = estimateVelocity(cleanPositions, imageWidth, calibrationMeters);
-      console.log(`[APAS-Gemini] Linear velocity estimate: ${linearVelocity} m/s`);
+      console.log(`[APAS-AI] Linear velocity estimate: ${linearVelocity} m/s`);
 
       // Cross-validate and select best values
       if (motionType === "vertical") {
@@ -606,7 +606,7 @@ If NO moving object is found at all:
 
       finalAngle = Math.max(0, Math.min(90, finalAngle));
 
-      // Calculate confidence (Gemini native video is more accurate, higher base)
+      // Calculate confidence (native video analysis is more accurate, higher base)
       let baseConfidence = 60;
       baseConfidence += Math.min(20, cleanPositions.length * 3);
       if (cleanPositions.length === positions.length) baseConfidence += 8;
@@ -708,9 +708,9 @@ If NO moving object is found at all:
       lines.push("");
       lines.push(`## المنهجية`);
       lines.push("");
-      lines.push(`تحليل الفيديو مباشرة عبر Gemini 2.5 Flash مع تتبع ${aiPositions.length} موقع ومطابقة منحنى قطعي ثم تصفية القيم الشاذة.`);
+      lines.push(`تحليل الفيديو مباشرة عبر APAS AI مع تتبع ${aiPositions.length} موقع ومطابقة منحنى قطعي ثم تصفية القيم الشاذة.`);
       lines.push("");
-      lines.push(`*APAS + Gemini 2.5 Flash*`);
+      lines.push(`*APAS AI*`);
     } else {
       // ── English beautiful output ──
       lines.push(`## Projectile Motion Analysis`);
@@ -765,21 +765,21 @@ If NO moving object is found at all:
       lines.push("");
       lines.push(`## Methodology`);
       lines.push("");
-      lines.push(`Native video analysis via Gemini 2.5 Flash with ${aiPositions.length} tracked positions, parabolic curve fitting, and outlier filtering.`);
+      lines.push(`Native video analysis via APAS AI with ${aiPositions.length} tracked positions, parabolic curve fitting, and outlier filtering.`);
       lines.push("");
-      lines.push(`*APAS + Gemini 2.5 Flash*`);
+      lines.push(`*APAS AI*`);
     }
 
     const finalText = lines.join("\n");
 
-    console.log(`[APAS-Gemini] Analysis completed: angle=${finalAngle}, velocity=${finalVelocity}, type=${motionType}, confidence=${confidence}`);
+    console.log(`[APAS-AI] Analysis completed: angle=${finalAngle}, velocity=${finalVelocity}, type=${motionType}, confidence=${confidence}`);
 
     return new Response(JSON.stringify({ text: finalText }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    console.error("[APAS-Gemini] Error analyzing video:", error);
+    console.error("[APAS-AI] Error analyzing video:", error);
     return new Response(
       JSON.stringify({ error: (error as Error).message }),
       {

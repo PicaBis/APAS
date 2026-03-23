@@ -27,7 +27,7 @@ interface Props {
   hasModel?: boolean;
 }
 
-// AI calls go through edge functions which handle Groq→Mistral fallback internally
+// AI calls go through edge functions which handle provider fallback internally
 
 // cleanLatex is now imported from @/utils/cleanLatex
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
@@ -57,7 +57,7 @@ You can also ask about: **range, launch angle, initial velocity, and gravity eff
 💡 You can also ask me about **how to use the app** and its features!`;
 }
 
-async function consumeGroqStream(
+async function consumeAIStream(
   body: ReadableStream<Uint8Array>,
   onChunk: (content: string) => void,
 ) {
@@ -369,13 +369,13 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
         });
 
         if (resp.ok && resp.body) {
-          await consumeGroqStream(resp.body, (chunk) => {
+          await consumeAIStream(resp.body, (chunk) => {
             analysisResult += chunk;
             setVoiceAnalysisText(analysisResult);
           });
         }
       } catch {
-        // Edge function handles Groq→Mistral fallback internally
+        // Edge function handles provider fallback internally
         // No direct API calls needed from the client
       }
 
@@ -534,7 +534,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
     try {
       let handled = false;
 
-      // 1) PRIMARY: Groq API via edge function
+      // 1) PRIMARY: AI via edge function
       try {
         const backupResp = await fetch(EDGE_TUTOR_URL, {
           method: 'POST',
@@ -551,14 +551,14 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
         });
 
         if (backupResp.ok && backupResp.body) {
-          await consumeGroqStream(backupResp.body, upsertAssistant);
+          await consumeAIStream(backupResp.body, upsertAssistant);
           handled = true;
         }
       } catch (edgeErr) {
-        console.warn('Edge function failed, trying direct Groq:', edgeErr);
+        console.warn('Edge function failed:', edgeErr);
       }
 
-      // 2) Final graceful fallback (edge function handles Groq→Mistral internally)
+      // 2) Final graceful fallback (edge function handles provider fallback internally)
       if (!handled) {
         const graceful = getGracefulFallback(text, lang);
         setMessages(prev => [...prev, { role: 'assistant', content: graceful }]);

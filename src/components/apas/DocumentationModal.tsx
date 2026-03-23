@@ -164,7 +164,7 @@ const DocsTab: React.FC<{ lang: string }> = ({ lang }) => {
             { name: 'Three.js', desc: isAr ? 'محرك رسومات ثلاثية الأبعاد في المتصفح' : '3D graphics engine' },
             { name: 'Recharts', desc: isAr ? 'مكتبة رسوم بيانية تفاعلية' : 'Interactive charting library' },
             { name: 'Supabase', desc: isAr ? 'قاعدة بيانات سحابية ومصادقة' : 'Cloud database & auth' },
-            { name: 'Gemini 2.5 Flash', desc: isAr ? 'واجهة ذكاء اصطناعي لتحليل الفيديو والصور' : 'AI API for video & image analysis' },
+            { name: 'APAS AI', desc: isAr ? 'محرك ذكاء اصطناعي لتحليل الفيديو والصور' : 'AI engine for video & image analysis' },
             { name: 'OpenWeather API', desc: isAr ? 'واجهة برمجة لبيانات الطقس الحية' : 'Live weather data API' },
           ].map((tech) => (
             <div key={tech.name} className="border border-border rounded p-2 bg-card/50">

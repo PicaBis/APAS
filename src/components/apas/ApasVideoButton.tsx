@@ -25,7 +25,7 @@ interface ProcessingStep {
 }
 
 const PROCESSING_STEPS: ProcessingStep[] = [
-  { id: 'upload', labelAr: 'جاري رفع الفيديو لـ Gemini...', labelEn: 'Uploading Video to Gemini...', color: '#22c55e', icon: '🟢' },
+  { id: 'upload', labelAr: 'جاري رفع الفيديو لـ APAS AI...', labelEn: 'Uploading Video to APAS AI...', color: '#22c55e', icon: '🟢' },
   { id: 'analyze', labelAr: 'جاري التحليل الذكي...', labelEn: 'Smart AI Analysis...', color: '#3b82f6', icon: '🔵' },
   { id: 'results', labelAr: 'عرض النتائج...', labelEn: 'Displaying Results...', color: '#a855f7', icon: '🟣' },
 ];
@@ -519,7 +519,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
 
     let progressInterval: ReturnType<typeof setInterval> | undefined;
     try {
-      // Step 1: Upload video to Supabase Storage (must complete before calling Gemini edge function)
+      // Step 1: Upload video to Supabase Storage (must complete before calling AI edge function)
       setProgress(10);
       persistentVideoUrl = await uploadPromise;
       if (persistentVideoUrl) {
@@ -548,7 +548,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         // Thumbnail extraction is best-effort
       }
 
-      // Step 2: Gemini AI Analysis — send video URL directly (native video, no base64)
+      // Step 2: APAS AI Analysis — send video URL directly (native video, no base64)
       setCurrentStep(1);
       setStatusText(isAr ? PROCESSING_STEPS[1].labelAr : PROCESSING_STEPS[1].labelEn);
       setProgress(40);

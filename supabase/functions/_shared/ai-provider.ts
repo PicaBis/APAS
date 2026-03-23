@@ -1,8 +1,5 @@
 /**
- * Shared AI Provider with automatic fallback
- * Primary: Groq API
- * Fallback: Mistral AI API
- * 
+ * Shared AI Provider with automatic fallback.
  * Both APIs are OpenAI-compatible, so the same request/response format works.
  */
 
@@ -60,7 +57,7 @@ function getProviders(): ProviderConfig[] {
 
 /**
  * Non-streaming AI completion with automatic fallback.
- * Tries Groq first, then Mistral if Groq fails for any reason.
+ * Tries each configured provider in order until one succeeds.
  */
 export async function aiComplete(
   options: AIRequestOptions & { modelType: ModelType }
@@ -115,7 +112,7 @@ export async function aiComplete(
 
 /**
  * Streaming AI completion with automatic fallback.
- * Tries Groq first, then Mistral if Groq fails for any reason.
+ * Tries each configured provider in order until one succeeds.
  * Returns the raw Response body stream (SSE format).
  */
 export async function aiStream(

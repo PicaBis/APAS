@@ -92,7 +92,7 @@ IMPORTANT:
 - Write units in plain text: m/s, m/s^2, kg, m
 - LANGUAGE REMINDER: Every word must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
-    // Build provider list: Mistral first, Groq as fallback
+    // Build provider list with fallback
     const providers: Array<{ name: string; url: string; key: string; model: string }> = [];
     if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_CHAT_MODEL });
     if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_CHAT_MODEL });
