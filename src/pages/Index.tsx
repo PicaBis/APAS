@@ -57,6 +57,7 @@ import FooterRobot from '@/components/apas/LightModeDecorations';
 import SensorLab from '@/components/apas/SensorLab';
 import VideoOverlay from '@/components/apas/VideoOverlay';
 import QuickStartTips from '@/components/apas/QuickStartTips';
+import CalculationsSection from '@/components/apas/CalculationsSection';
 const DynamicAnalyticsDashboard = lazy(() => import('@/components/apas/DynamicAnalyticsDashboard'));
 const EnergyAnalysis = lazy(() => import('@/components/apas/EnergyAnalysis'));
 const DerivationPanel = lazy(() => import('@/components/apas/DerivationPanel'));
@@ -107,6 +108,7 @@ const Index = () => {
   const [showAIMetrics, setShowAIMetrics] = useState(false);
   const [showPathInfo, setShowPathInfo] = useState(false);
   const [showChartSection, setShowChartSection] = useState(false);
+  const [showCalculations, setShowCalculations] = useState(false);
   const [chartAxisX, setChartAxisX] = useState('');
   const [chartAxisY, setChartAxisY] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -972,6 +974,21 @@ const Index = () => {
                       <p className="text-sm font-medium text-muted-foreground">{lang === 'ar' ? '\u0627\u062e\u062a\u0631 \u0627\u0644\u0645\u062d\u0627\u0648\u0631 \u0623\u0639\u0644\u0627\u0647' : 'Select axes above'}</p>
                     </div>
                   )}
+                </CollapsibleSection>
+
+                {/* How Calculations Were Made */}
+                <CollapsibleSection
+                  title={lang === 'ar' ? '🧮 كيف تم الحساب' : lang === 'fr' ? '🧮 Comment les Calculs Ont Été Faits' : '🧮 How Calculations Were Made'}
+                  icon="🧮"
+                  open={showCalculations}
+                  toggle={() => setShowCalculations(!showCalculations)}
+                  miniPreview={
+                    <span className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                      {lang === 'ar' ? 'خطوة بخطوة' : 'Step by step'}
+                    </span>
+                  }
+                >
+                  <CalculationsSection lang={lang} />
                 </CollapsibleSection>
 
                 {/* Equations & Details */}
