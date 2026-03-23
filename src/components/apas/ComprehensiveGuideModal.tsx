@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BookOpen, Layout, Sliders, Play, BarChart3, Brain, Wrench, Settings, Monitor, ChevronRight, Globe, Camera, Layers, Upload, Box, Gauge, Zap, Eye, GraduationCap, Shield } from 'lucide-react';
+import { BookOpen, Layout, Sliders, Play, BarChart3, Brain, Wrench, Settings, Monitor, ChevronRight, Globe, Camera, Layers, Upload, Box, Gauge, Zap, Eye, GraduationCap, Shield, Calculator } from 'lucide-react';
+import CalculationsSection from './CalculationsSection';
 
-type SectionKey = 'overview' | 'interface' | 'simulation' | 'parameters' | 'analysis' | 'ai' | 'tools' | 'settings' | 'classroom' | 'auth';
+type SectionKey = 'overview' | 'interface' | 'simulation' | 'parameters' | 'analysis' | 'calculations' | 'ai' | 'tools' | 'settings' | 'classroom' | 'auth';
 
 interface ComprehensiveGuideModalProps {
   open: boolean;
@@ -17,6 +18,7 @@ const SECTIONS: { key: SectionKey; iconEl: React.ReactNode; labelAr: string; lab
   { key: 'simulation', iconEl: <Play className="w-4 h-4" />, labelAr: 'المحاكاة والتشغيل', labelEn: 'Simulation & Controls', labelFr: 'Simulation & Commandes' },
   { key: 'parameters', iconEl: <Sliders className="w-4 h-4" />, labelAr: 'المعاملات والإعدادات', labelEn: 'Parameters & Settings', labelFr: 'Paramètres & Réglages' },
   { key: 'analysis', iconEl: <BarChart3 className="w-4 h-4" />, labelAr: 'التحليل والرسوم البيانية', labelEn: 'Analysis & Charts', labelFr: 'Analyse & Graphiques' },
+  { key: 'calculations', iconEl: <Calculator className="w-4 h-4" />, labelAr: 'كيف تم الحساب', labelEn: 'How Calculations Were Made', labelFr: 'Comment les Calculs Ont Été Faits' },
   { key: 'ai', iconEl: <Brain className="w-4 h-4" />, labelAr: 'الذكاء الاصطناعي', labelEn: 'AI Features', labelFr: 'Fonctionnalités IA' },
   { key: 'tools', iconEl: <Wrench className="w-4 h-4" />, labelAr: 'الأدوات المساعدة', labelEn: 'Tools & Utilities', labelFr: 'Outils & Utilitaires' },
   { key: 'settings', iconEl: <Settings className="w-4 h-4" />, labelAr: 'الإعدادات', labelEn: 'Settings', labelFr: 'Paramètres' },
@@ -77,6 +79,7 @@ const ComprehensiveGuideModal: React.FC<ComprehensiveGuideModalProps> = ({ open,
               {activeSection === 'simulation' && <SimulationSection lang={lang} />}
               {activeSection === 'parameters' && <ParametersSection lang={lang} />}
               {activeSection === 'analysis' && <AnalysisSection lang={lang} />}
+              {activeSection === 'calculations' && <CalculationsSection lang={lang} />}
               {activeSection === 'ai' && <AISection lang={lang} />}
               {activeSection === 'tools' && <ToolsSection lang={lang} />}
               {activeSection === 'settings' && <SettingsSection lang={lang} />}
