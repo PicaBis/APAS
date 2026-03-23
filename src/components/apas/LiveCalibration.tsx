@@ -1,25 +1,34 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Ruler, Check, RotateCcw } from 'lucide-react';
+import { X, Ruler, Check, RotateCcw, Upload, Image as ImageIcon } from 'lucide-react';
 
 interface LiveCalibrationProps {
   open: boolean;
   onClose: () => void;
   lang: string;
   onCalibrate: (pixelsPerMeter: number) => void;
+  mediaSrc?: string | null;
 }
 
-type CalibrationStep = 'draw' | 'measure' | 'done';
+type CalibrationStep = 'upload' | 'draw' | 'measure' | 'done';
 
-const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, onCalibrate }) => {
-  const [step, setStep] = useState<CalibrationStep>('draw');
+const DIAGRAM_UNITS = ['m', 'cm', 'mm'] as const;
+type LengthUnit = typeof DIAGRAM_UNITS[number];
+
+const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, onCalibrate, mediaSrc }) => {
+  const [step, setStep] = useState<CalibrationStep>('upload');
   const [lineStart, setLineStart] = useState<{ x: number; y: number } | null>(null);
   const [lineEnd, setLineEnd] = useState<{ x: number; y: number } | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [realLength, setRealLength] = useState('1.0');
-  const [unit, setUnit] = useState<'m' | 'cm' | 'mm'>('m');
+  const [unit, setUnit] = useState<LengthUnit>('m');
+  const [diagramLength, setDiagramLength] = useState('1.0');
+  const [diagramUnit, setDiagramUnit] = useState<LengthUnit>('cm');
   const [pixelsPerMeter, setPixelsPerMeter] = useState<number | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const drawAreaRef = useRef<HTMLDivElement>(null);
 
   const t = (ar: string, en: string, fr: string) =>
     lang === 'ar' ? ar : lang === 'fr' ? fr : en;
@@ -27,14 +36,17 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   // Reset state when opened
   useEffect(() => {
     if (open) {
-      setStep('draw');
+      setStep(mediaSrc ? 'draw' : 'upload');
       setLineStart(null);
       setLineEnd(null);
       setDrawing(false);
       setRealLength('1.0');
+      setDiagramLength('1.0');
+      setDiagramUnit('cm');
       setPixelsPerMeter(null);
+      setImageUrl(mediaSrc || null);
     }
-  }, [open]);
+  }, [open, mediaSrc]);
 
   // Draw the calibration line on canvas
   const drawLine = useCallback(() => {
@@ -43,8 +55,14 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const drawArea = drawAreaRef.current;
+    if (drawArea) {
+      canvas.width = drawArea.clientWidth;
+      canvas.height = drawArea.clientHeight;
+    } else {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const end = lineEnd || lineStart;
@@ -95,7 +113,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   // Mouse handlers for drawing the line
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (step !== 'draw') return;
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     setLineStart({ x, y });
@@ -105,7 +123,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!drawing || step !== 'draw') return;
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setLineEnd({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   }, [drawing, step]);
 
@@ -126,7 +144,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (step !== 'draw') return;
     const touch = e.touches[0];
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setLineStart({ x: touch.clientX - rect.left, y: touch.clientY - rect.top });
     setLineEnd(null);
     setDrawing(true);
@@ -135,7 +153,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!drawing || step !== 'draw') return;
     const touch = e.touches[0];
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setLineEnd({ x: touch.clientX - rect.left, y: touch.clientY - rect.top });
   }, [drawing, step]);
 
@@ -152,6 +170,13 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
     }
   }, [drawing, step, lineStart, lineEnd]);
 
+  // Convert length to meters
+  const toMeters = (val: number, u: LengthUnit): number => {
+    if (u === 'cm') return val / 100;
+    if (u === 'mm') return val / 1000;
+    return val;
+  };
+
   // Calculate and apply calibration
   const handleCalibrate = useCallback(() => {
     if (!lineStart || !lineEnd) return;
@@ -160,9 +185,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
     const pixelLen = Math.sqrt(dx * dx + dy * dy);
 
     const realVal = parseFloat(realLength) || 1;
-    let realMeters = realVal;
-    if (unit === 'cm') realMeters = realVal / 100;
-    if (unit === 'mm') realMeters = realVal / 1000;
+    const realMeters = toMeters(realVal, unit);
 
     const ppm = pixelLen / realMeters;
     setPixelsPerMeter(ppm);
@@ -171,7 +194,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   }, [lineStart, lineEnd, realLength, unit, onCalibrate]);
 
   const handleReset = () => {
-    setStep('draw');
+    setStep(imageUrl ? 'draw' : 'upload');
     setLineStart(null);
     setLineEnd(null);
     setDrawing(false);
@@ -190,15 +213,108 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
     return Math.sqrt(dx * dx + dy * dy);
   };
 
+  // Handle file upload
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setImageUrl(url);
+    setStep('draw');
+  };
+
+  // Calculate scale factor info
+  const getScaleInfo = () => {
+    const pixelLen = getPixelLength();
+    if (pixelLen <= 0) return null;
+    const realVal = parseFloat(realLength) || 1;
+    const realMeters = toMeters(realVal, unit);
+    const diagVal = parseFloat(diagramLength) || 1;
+    const diagMeters = toMeters(diagVal, diagramUnit);
+    if (realMeters <= 0 || diagMeters <= 0) return null;
+
+    const scaleFactor = diagMeters / realMeters;
+    const pxPerMeter = pixelLen / realMeters;
+    const cmPerPx = (1 / pxPerMeter) * 100;
+
+    return { scaleFactor, pxPerMeter, cmPerPx };
+  };
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[80]" ref={overlayRef}>
-      {/* Drawing canvas overlay */}
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={handleFileUpload}
+      />
+
+      {/* Upload step - prompt to attach image/video */}
+      {step === 'upload' && (
+        <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl p-6 w-[420px] max-w-[95vw]"
+            dir={lang === 'ar' ? 'rtl' : 'ltr'}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <Ruler className="w-4 h-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">
+                  {t('المعايرة', 'Calibration', 'Calibration')}
+                </span>
+              </div>
+              <button onClick={onClose} className="p-1 rounded hover:bg-primary/10 text-muted-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                <ImageIcon className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-1">
+                  {t('أرفق صورة أو فيديو', 'Attach an Image or Video', 'Joindre une Image ou Vidéo')}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    'أرفق صورة أو فيديو للجسم المراد معايرته ثم ارسم خطاً عليه',
+                    'Attach an image or video of the object to calibrate, then draw a line on it',
+                    'Joignez une image ou vidéo de l\'objet à calibrer, puis tracez une ligne dessus'
+                  )}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 text-xs font-semibold py-3 px-4 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-all flex items-center justify-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  {t('رفع ملف', 'Upload File', 'Télécharger')}
+                </button>
+                <button
+                  onClick={() => { setStep('draw'); }}
+                  className="flex-1 text-xs font-medium py-3 px-4 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/50 border border-border/40 transition-all flex items-center justify-center gap-2"
+                >
+                  <Ruler className="w-4 h-4" />
+                  {t('بدون صورة', 'Without Image', 'Sans Image')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drawing step - draw line on image or overlay */}
       {step === 'draw' && (
         <div
+          ref={drawAreaRef}
           className="absolute inset-0 cursor-crosshair"
-          style={{ background: 'rgba(0,0,0,0.3)' }}
+          style={{ background: imageUrl ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.3)' }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -206,6 +322,14 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
+          {/* Background image */}
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt="Calibration"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+            />
+          )}
           <canvas
             ref={canvasRef}
             className="absolute inset-0 w-full h-full pointer-events-none"
@@ -219,11 +343,18 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {t(
-                'ارسم خطاً على جسم معروف الطول في الصورة',
-                'Draw a line along an object of known length',
-                'Tracez une ligne le long d\'un objet de longueur connue'
-              )}
+              {imageUrl
+                ? t(
+                    'ارسم خطاً على الصورة لتحديد طول معروف',
+                    'Draw a line on the image along a known length',
+                    'Tracez une ligne sur l\'image le long d\'une longueur connue'
+                  )
+                : t(
+                    'ارسم خطاً على جسم معروف الطول في الصورة',
+                    'Draw a line along an object of known length',
+                    'Tracez une ligne le long d\'un objet de longueur connue'
+                  )
+              }
             </p>
             <button
               onClick={onClose}
@@ -237,10 +368,18 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
 
       {/* Measurement dialog */}
       {step === 'measure' && (
-        <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
+        <div className="absolute inset-0" style={{ background: imageUrl ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.3)' }}>
+          {/* Background image */}
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt="Calibration"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+            />
+          )}
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
           <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl p-5 w-[400px] max-w-[95vw]"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl p-5 w-[420px] max-w-[95vw]"
             dir={lang === 'ar' ? 'rtl' : 'ltr'}
           >
             <div className="flex items-center justify-between mb-4">
@@ -255,28 +394,28 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
               </button>
             </div>
 
-            {/* Pixel length info */}
-            <div className="bg-secondary/30 rounded-lg p-3 mb-4 text-center">
+            {/* Pixel length info - reduced size */}
+            <div className="bg-secondary/30 rounded-lg p-2 mb-3 text-center">
               <div className="text-[10px] text-muted-foreground mb-0.5">
                 {t('طول الخط بالبكسل', 'Line Length in Pixels', 'Longueur de la Ligne en Pixels')}
               </div>
-              <div className="text-lg font-bold font-mono text-primary">
+              <div className="text-sm font-semibold font-mono text-primary">
                 {Math.round(getPixelLength())} px
               </div>
             </div>
 
             {/* Real-world length input */}
-            <div className="space-y-2 mb-4">
+            <div className="space-y-2 mb-3">
               <label className="text-xs font-medium text-foreground">
-                {t('الطول الحقيقي', 'Real-World Length', 'Longueur Réelle')}
+                {t('الطول الحقيقي', 'Real Length', 'Longueur Réelle')}
               </label>
               <div className="flex gap-2">
                 <input
                   type="number"
                   value={realLength}
                   onChange={(e) => setRealLength(e.target.value)}
-                  className="min-w-0 w-full text-base px-3 py-2.5 rounded-lg border-2 border-primary/40 bg-secondary/30 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
-                  style={{ flex: '1 1 0%', minWidth: '120px', fontSize: '16px', color: 'var(--foreground, #e2e8f0)' }}
+                  className="min-w-0 w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/30 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
+                  style={{ flex: '1 1 0%', minWidth: '100px' }}
                   min={0.001}
                   step={0.1}
                   placeholder="1.0"
@@ -284,33 +423,72 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
                 />
                 <select
                   value={unit}
-                  onChange={(e) => setUnit(e.target.value as 'm' | 'cm' | 'mm')}
-                  className="text-sm px-3 py-2.5 rounded-lg border-2 border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0"
-                  style={{ minWidth: '70px' }}
+                  onChange={(e) => setUnit(e.target.value as LengthUnit)}
+                  className="text-xs px-3 py-2 rounded-lg border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0"
+                  style={{ minWidth: '60px' }}
                 >
                   <option value="m">{t('متر', 'm', 'm')}</option>
                   <option value="cm">{t('سم', 'cm', 'cm')}</option>
                   <option value="mm">{t('مم', 'mm', 'mm')}</option>
                 </select>
               </div>
-              {/* Scale preview */}
-              {realLength && parseFloat(realLength) > 0 && lineStart && lineEnd && (
-                <div className="text-[10px] text-muted-foreground mt-1 text-center">
-                  {(() => {
-                    const dx = lineEnd.x - lineStart.x;
-                    const dy = lineEnd.y - lineStart.y;
-                    const pxLen = Math.sqrt(dx * dx + dy * dy);
-                    const realVal = parseFloat(realLength) || 1;
-                    let realM = realVal;
-                    if (unit === 'cm') realM = realVal / 100;
-                    if (unit === 'mm') realM = realVal / 1000;
-                    const ppm = pxLen / realM;
-                    const cmPerPx = (1 / ppm) * 100;
-                    return `1 px = ${cmPerPx.toFixed(3)} cm | ${Math.round(ppm)} px/${t('م', 'm', 'm')}`;
-                  })()}
-                </div>
-              )}
             </div>
+
+            {/* Length on Diagram input */}
+            <div className="space-y-2 mb-3">
+              <label className="text-xs font-medium text-foreground">
+                {t('الطول على المخطط', 'Length on Diagram', 'Longueur sur le Diagramme')}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={diagramLength}
+                  onChange={(e) => setDiagramLength(e.target.value)}
+                  className="min-w-0 w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/30 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
+                  style={{ flex: '1 1 0%', minWidth: '100px' }}
+                  min={0.001}
+                  step={0.1}
+                  placeholder="1.0"
+                />
+                <select
+                  value={diagramUnit}
+                  onChange={(e) => setDiagramUnit(e.target.value as LengthUnit)}
+                  className="text-xs px-3 py-2 rounded-lg border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0"
+                  style={{ minWidth: '60px' }}
+                >
+                  <option value="m">{t('متر', 'm', 'm')}</option>
+                  <option value="cm">{t('سم', 'cm', 'cm')}</option>
+                  <option value="mm">{t('مم', 'mm', 'mm')}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Scale factor preview */}
+            {realLength && parseFloat(realLength) > 0 && diagramLength && parseFloat(diagramLength) > 0 && lineStart && lineEnd && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-2.5 mb-3 text-center space-y-1">
+                {(() => {
+                  const info = getScaleInfo();
+                  if (!info) return null;
+                  const { scaleFactor, cmPerPx } = info;
+                  const realVal = parseFloat(realLength) || 1;
+                  const diagVal = parseFloat(diagramLength) || 1;
+                  const unitLabel = (u: LengthUnit) => t(u === 'm' ? 'متر' : u === 'cm' ? 'سم' : 'مم', u, u);
+                  return (
+                    <>
+                      <div className="text-[10px] text-muted-foreground">
+                        {t('معامل المقياس', 'Scale Factor', 'Facteur d\'Échelle')}
+                      </div>
+                      <div className="text-xs font-bold font-mono text-primary">
+                        {realVal} {unitLabel(unit)} → {diagVal} {unitLabel(diagramUnit)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        1:{(1 / scaleFactor).toFixed(1)} | 1 px = {cmPerPx.toFixed(3)} {t('سم', 'cm', 'cm')}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Action buttons */}
             <div className="flex gap-2">
@@ -337,7 +515,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
       {step === 'done' && pixelsPerMeter !== null && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
           <div
-            className="bg-background border border-border rounded-xl shadow-2xl p-5 w-[340px] text-center"
+            className="bg-background border border-border rounded-xl shadow-2xl p-5 w-[360px] max-w-[95vw] text-center"
             dir={lang === 'ar' ? 'rtl' : 'ltr'}
           >
             <div className="w-12 h-12 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-3">
@@ -346,17 +524,31 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
             <h3 className="text-sm font-bold text-foreground mb-2">
               {t('تمت المعايرة بنجاح!', 'Calibration Complete!', 'Calibration Terminée!')}
             </h3>
-            <div className="bg-secondary/30 rounded-lg p-3 mb-4 space-y-1">
+            <div className="bg-secondary/30 rounded-lg p-3 mb-3 space-y-1">
               <div className="text-[10px] text-muted-foreground">
                 {t('معامل التحويل', 'Conversion Factor', 'Facteur de Conversion')}
               </div>
-              <div className="text-base font-bold font-mono text-primary">
+              <div className="text-sm font-semibold font-mono text-primary">
                 {pixelsPerMeter.toFixed(1)} px/{t('م', 'm', 'm')}
               </div>
               <div className="text-[10px] text-muted-foreground">
                 1 px = {(1 / pixelsPerMeter * 100).toFixed(3)} {t('سم', 'cm', 'cm')}
               </div>
             </div>
+            {/* Diagram scale summary */}
+            {parseFloat(diagramLength) > 0 && parseFloat(realLength) > 0 && (() => {
+              const unitLabel = (u: LengthUnit) => t(u === 'm' ? 'متر' : u === 'cm' ? 'سم' : 'مم', u, u);
+              return (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-2.5 mb-3 space-y-0.5">
+                  <div className="text-[10px] text-muted-foreground">
+                    {t('مقياس المخطط', 'Diagram Scale', 'Échelle du Diagramme')}
+                  </div>
+                  <div className="text-xs font-bold font-mono text-primary">
+                    {parseFloat(realLength)} {unitLabel(unit)} = {parseFloat(diagramLength)} {unitLabel(diagramUnit)} {t('على المخطط', 'on diagram', 'sur le diagramme')}
+                  </div>
+                </div>
+              );
+            })()}
             <div className="flex gap-2">
               <button
                 onClick={onClose}
