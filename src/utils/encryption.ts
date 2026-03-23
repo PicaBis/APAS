@@ -62,12 +62,13 @@ export async function encryptData(plaintext: string): Promise<string> {
     encoder.encode(plaintext)
   );
 
-  // Combine salt + IV + ciphertext
+  // Combine version byte + salt + IV + ciphertext
   const ctBytes = new Uint8Array(ciphertext);
-  const combined = new Uint8Array(salt.length + iv.length + ctBytes.length);
-  combined.set(salt);
-  combined.set(iv, salt.length);
-  combined.set(ctBytes, salt.length + iv.length);
+  const combined = new Uint8Array(1 + salt.length + iv.length + ctBytes.length);
+  combined[0] = 0x02; // Version byte to distinguish from legacy format
+  combined.set(salt, 1);
+  combined.set(iv, 1 + salt.length);
+  combined.set(ctBytes, 1 + salt.length + iv.length);
 
   return btoa(String.fromCharCode(...combined));
 }
@@ -80,17 +81,17 @@ export async function decryptData(encryptedBase64: string): Promise<string> {
     atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
   );
 
-  // New format: salt + IV + ciphertext
-  // Legacy format (no salt): IV + ciphertext
-  const hasRandomSalt = combined.length > SALT_LENGTH + IV_LENGTH;
+  // New format: version byte (0x02) + salt + IV + ciphertext
+  // Legacy format (no version byte): IV + ciphertext
+  const isNewFormat = combined.length > 0 && combined[0] === 0x02;
   let salt: Uint8Array;
   let iv: Uint8Array;
   let ciphertext: Uint8Array;
 
-  if (hasRandomSalt && combined.length > SALT_LENGTH + IV_LENGTH + 1) {
-    salt = combined.slice(0, SALT_LENGTH);
-    iv = combined.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
-    ciphertext = combined.slice(SALT_LENGTH + IV_LENGTH);
+  if (isNewFormat) {
+    salt = combined.slice(1, 1 + SALT_LENGTH);
+    iv = combined.slice(1 + SALT_LENGTH, 1 + SALT_LENGTH + IV_LENGTH);
+    ciphertext = combined.slice(1 + SALT_LENGTH + IV_LENGTH);
   } else {
     // Legacy fallback: hardcoded salt
     salt = new TextEncoder().encode('apas-salt-v1\0\0\0\0');

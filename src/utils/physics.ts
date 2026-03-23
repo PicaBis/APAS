@@ -439,7 +439,7 @@ export const calculateTrajectory = (
     // or started at y>=0 and comes back down
     if (y <= 0 && wasAboveGround && height >= 0) {
       // Interpolate to find exact ground crossing point
-      const prevPt = points.length > 0 ? points[points.length - 1] : null;
+      const prevPt = points.length > 1 ? points[points.length - 2] : null;
       if (prevPt && prevPt.y > 0 && y < 0) {
         const frac = prevPt.y / (prevPt.y - y);
         x = prevPt.x + (x - prevPt.x) * frac;
