@@ -557,11 +557,13 @@ const LandingPage: React.FC = () => {
                 <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
               </a>
               <a
-                href="/simulator"
+                href="https://github.com/PicaBis/APAS/releases/tag/v1.0.2"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#3DDC84] to-[#00BFA5] text-white rounded-xl font-semibold text-base shadow-lg shadow-[#3DDC84]/25 hover:shadow-xl hover:shadow-[#3DDC84]/40 hover:-translate-y-1 transition-all duration-300"
               >
                 <Smartphone className="w-5 h-5" />
-                {lang === 'ar' ? 'تطبيق Android (PWA)' : lang === 'fr' ? 'App Android (PWA)' : 'Android App (PWA)'}
+                {lang === 'ar' ? 'تطبيق Android (APK)' : lang === 'fr' ? 'App Android (APK)' : 'Android App (APK)'}
                 <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
               </a>
             </div>
