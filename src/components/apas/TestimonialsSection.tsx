@@ -189,10 +189,10 @@ const marqueeStyles = `
   margin-right: 1rem;
 }
 .apas-marquee-track--left {
-  animation: apas-marquee-left 30s linear infinite;
+  animation: apas-marquee-left 60s linear infinite;
 }
 .apas-marquee-track--right {
-  animation: apas-marquee-right 30s linear infinite;
+  animation: apas-marquee-right 60s linear infinite;
 }
 `;
 
@@ -220,7 +220,7 @@ const TestimonialsSection: React.FC<TestimonialsSectionProps> = ({ lang }) => {
   const subtitle = lang === 'ar' ? 'آراء الأساتذة والطلاب والباحثين' : lang === 'fr' ? 'Avis des enseignants, \u00e9tudiants et chercheurs' : 'Reviews from educators, students, and researchers';
 
   return (
-    <section className="relative z-10 py-16 overflow-hidden">
+    <section className="relative z-10 py-16 overflow-hidden" dir="ltr">
       <style>{marqueeStyles}</style>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mb-10 text-center">
         <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">{title}</h2>

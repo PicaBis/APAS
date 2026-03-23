@@ -240,7 +240,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
         <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
           <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl p-5 w-[340px]"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl p-5 w-[400px] max-w-[95vw]"
             dir={lang === 'ar' ? 'rtl' : 'ltr'}
           >
             <div className="flex items-center justify-between mb-4">
@@ -275,21 +275,41 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
                   type="number"
                   value={realLength}
                   onChange={(e) => setRealLength(e.target.value)}
-                  className="flex-1 text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="min-w-0 w-full text-base px-3 py-2.5 rounded-lg border-2 border-primary/40 bg-secondary/30 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
+                  style={{ flex: '1 1 0%', minWidth: '120px', fontSize: '16px', color: 'var(--foreground, #e2e8f0)' }}
                   min={0.001}
                   step={0.1}
+                  placeholder="1.0"
                   autoFocus
                 />
                 <select
                   value={unit}
                   onChange={(e) => setUnit(e.target.value as 'm' | 'cm' | 'mm')}
-                  className="text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="text-sm px-3 py-2.5 rounded-lg border-2 border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0"
+                  style={{ minWidth: '70px' }}
                 >
                   <option value="m">{t('متر', 'm', 'm')}</option>
                   <option value="cm">{t('سم', 'cm', 'cm')}</option>
                   <option value="mm">{t('مم', 'mm', 'mm')}</option>
                 </select>
               </div>
+              {/* Scale preview */}
+              {realLength && parseFloat(realLength) > 0 && lineStart && lineEnd && (
+                <div className="text-[10px] text-muted-foreground mt-1 text-center">
+                  {(() => {
+                    const dx = lineEnd.x - lineStart.x;
+                    const dy = lineEnd.y - lineStart.y;
+                    const pxLen = Math.sqrt(dx * dx + dy * dy);
+                    const realVal = parseFloat(realLength) || 1;
+                    let realM = realVal;
+                    if (unit === 'cm') realM = realVal / 100;
+                    if (unit === 'mm') realM = realVal / 1000;
+                    const ppm = pxLen / realM;
+                    const cmPerPx = (1 / ppm) * 100;
+                    return `1 px = ${cmPerPx.toFixed(3)} cm | ${Math.round(ppm)} px/${t('م', 'm', 'm')}`;
+                  })()}
+                </div>
+              )}
             </div>
 
             {/* Action buttons */}
