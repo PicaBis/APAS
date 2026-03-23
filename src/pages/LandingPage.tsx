@@ -14,6 +14,8 @@ import WindParticlesBackground from '@/components/apas/WindParticlesBackground';
 import TestimonialsSection from '@/components/apas/TestimonialsSection';
 import ProfessionalFooter from '@/components/apas/ProfessionalFooter';
 import { playPageTransition, playLandingNav, playThemeToggle, playLangSwitch } from '@/utils/sound';
+import { Smartphone } from 'lucide-react';
+import { PWAInstallPrompt } from '@/components/mobile';
 
 type Lang = 'ar' | 'en' | 'fr';
 
@@ -554,6 +556,14 @@ const LandingPage: React.FC = () => {
                 {t.downloadBtnLinux}
                 <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
               </a>
+              <a
+                href="/simulator"
+                className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#3DDC84] to-[#00BFA5] text-white rounded-xl font-semibold text-base shadow-lg shadow-[#3DDC84]/25 hover:shadow-xl hover:shadow-[#3DDC84]/40 hover:-translate-y-1 transition-all duration-300"
+              >
+                <Smartphone className="w-5 h-5" />
+                {lang === 'ar' ? 'تطبيق Android (PWA)' : lang === 'fr' ? 'App Android (PWA)' : 'Android App (PWA)'}
+                <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
+              </a>
             </div>
 
             {/* Note */}
@@ -580,6 +590,9 @@ const LandingPage: React.FC = () => {
 
       {/* Bug Report Button */}
       <BugReportButton lang={lang} />
+
+      {/* PWA Install Prompt Banner */}
+      <PWAInstallPrompt lang={lang} />
     </div>
     </PageTransition>
   );

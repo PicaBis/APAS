@@ -710,6 +710,56 @@ body, .apas-panel, .apas-item, .eq-box, .academic-table, select, input, textarea
   animation: sparkleFlash 2s ease-in-out infinite;
 }
 
+/* ═══ Mobile PWA Styles ═══ */
+
+/* Slide up animation for mobile panels */
+@keyframes slideUp {
+  0% { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-slideUp {
+  animation: slideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Mobile safe areas */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mobile-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Mobile bottom nav spacing — prevent content overlap */
+@media (max-width: 767px) {
+  .mobile-content-area {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  }
+}
+
+/* Overscroll behavior for mobile sheets */
+.overscroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbar on mobile nav */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Touch manipulation for better mobile responsiveness */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ═══ Better typography rendering ═══ */
 body {
   text-rendering: optimizeLegibility;

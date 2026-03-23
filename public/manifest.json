@@ -4,12 +4,14 @@
   "description": "AI Projectile Analysis System - نظام تحليل المقذوفات بالذكاء الاصطناعي",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#0d1117",
   "theme_color": "#14b8a6",
   "orientation": "any",
   "categories": ["education", "science", "utilities"],
   "lang": "ar",
   "dir": "auto",
+  "scope": "/",
+  "id": "/",
   "icons": [
     {
       "src": "/apas-logo-192.png",
@@ -30,5 +32,25 @@
     }
   ],
   "screenshots": [],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Simulator",
+      "short_name": "Simulate",
+      "url": "/simulator",
+      "icons": [{ "src": "/apas-logo-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Classroom",
+      "short_name": "Class",
+      "url": "/classroom",
+      "icons": [{ "src": "/apas-logo-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "display_override": ["standalone", "minimal-ui"],
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }

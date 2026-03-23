@@ -59,6 +59,19 @@ import SensorLab from '@/components/apas/SensorLab';
 import VideoOverlay from '@/components/apas/VideoOverlay';
 import QuickStartTips from '@/components/apas/QuickStartTips';
 import CalculationsSection from '@/components/apas/CalculationsSection';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  MobileBottomNav,
+  MobileTopBar,
+  MobileFloatingControls,
+  MobileBottomSheet,
+  MobileAIAssistant,
+  MobileAnalysisDashboard,
+  MobileSavedExperiments,
+  PWAInstallPrompt,
+} from '@/components/mobile';
+import type { SavedExperiment } from '@/components/mobile';
+import { useTouchGestures } from '@/hooks/use-touch-gestures';
 const DynamicAnalyticsDashboard = lazy(() => import('@/components/apas/DynamicAnalyticsDashboard'));
 const EnergyAnalysis = lazy(() => import('@/components/apas/EnergyAnalysis'));
 const MonteCarloPanel = lazy(() => import('@/components/apas/MonteCarloPanel'));
@@ -155,6 +168,32 @@ const Index = () => {
   });
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+
+  // ── Mobile UI State ──
+  const [mobileActiveTab, setMobileActiveTab] = useState<'home' | 'simulation' | 'analysis' | 'saved' | 'settings'>('simulation');
+  const [showMobileBottomSheet, setShowMobileBottomSheet] = useState(false);
+  const [showMobileAI, setShowMobileAI] = useState(false);
+
+  // ── Touch Gestures ──
+  useTouchGestures(canvasContainerRef, {
+    onPinchZoom: (scale) => setCanvasZoom(z => Math.max(0.5, Math.min(3, z * scale))),
+    onDoubleTap: () => setCanvasZoom(z => z === 1 ? 2 : 1),
+    enabled: isMobile,
+  });
+
+  // ── Mobile experiment load handler ──
+  const handleMobileExperimentLoad = useCallback((exp: SavedExperiment) => {
+    sim.setVelocity(exp.velocity);
+    sim.setAngle(exp.angle);
+    sim.setHeight(exp.height);
+    sim.setGravity(exp.gravity);
+    sim.setAirResistance(exp.airResistance);
+    sim.setMass(exp.mass);
+    sim.setSelectedIntegrationMethod(exp.integrationMethod as 'euler' | 'rk4' | 'ai-apas');
+    setMobileActiveTab('simulation');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Extracted Hooks ──
   const { theme3d, setTheme3d, autoDeleteVideos, setAutoDeleteVideos } = useLocalStorageSync({
@@ -364,11 +403,358 @@ const Index = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Mobile bottom sheet variables ──
+  const mobileVariables = useMemo(() => [
+    { key: 'velocity', label: lang === 'ar' ? 'السرعة' : lang === 'fr' ? 'Vitesse' : 'Velocity', value: sim.velocity, min: 0, max: 500, step: 1, unit: 'm/s', onChange: sim.setVelocity },
+    { key: 'angle', label: lang === 'ar' ? 'الزاوية' : lang === 'fr' ? 'Angle' : 'Angle', value: sim.angle, min: -360, max: 360, step: 1, unit: '°', onChange: sim.setAngle },
+    { key: 'height', label: lang === 'ar' ? 'الارتفاع' : lang === 'fr' ? 'Hauteur' : 'Height', value: sim.height, min: 0, max: 5000, step: 0.5, unit: 'm', onChange: sim.setHeight },
+    { key: 'gravity', label: lang === 'ar' ? 'الجاذبية' : lang === 'fr' ? 'Gravité' : 'Gravity', value: sim.gravity, min: 0, max: 100, step: 0.01, unit: 'm/s²', onChange: (v: number) => sim.setGravity(Math.max(0, v)) },
+    { key: 'mass', label: lang === 'ar' ? 'الكتلة' : lang === 'fr' ? 'Masse' : 'Mass', value: sim.mass, min: 0.01, max: 50000, step: 0.01, unit: 'kg', onChange: sim.setMass },
+  ], [lang, sim.velocity, sim.angle, sim.height, sim.gravity, sim.mass, sim.setVelocity, sim.setAngle, sim.setHeight, sim.setGravity, sim.setMass]);
+
   // ── Splash Screen ──
   if (showSplash) {
     return <SplashScreen lang={lang} onComplete={() => { setShowSplash(false); setShowOnboarding(true); }} />;
   }
 
+  // ═══════════════════════════════════════════════
+  // ═══ MOBILE LAYOUT ═══
+  // ═══════════════════════════════════════════════
+  if (isMobile) {
+    return (
+      <PageTransition>
+        <div className={`min-h-screen bg-background relative overflow-hidden ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
+          {/* Ambient background */}
+          <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse-slow" />
+            <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+          </div>
+
+          {/* Mobile Top Bar */}
+          <MobileTopBar
+            lang={lang}
+            onOpenSettings={() => setShowSettingsPanel(true)}
+            onOpenAI={() => setShowMobileAI(true)}
+          />
+
+          {/* Mobile Main Content */}
+          <div className="mobile-content-area relative z-10 min-h-screen">
+            {/* ── Simulation Tab ── */}
+            {mobileActiveTab === 'simulation' && (
+              <div className="px-3 py-3 space-y-3">
+                {/* Canvas */}
+                <div ref={canvasContainerRef} className="relative rounded-xl overflow-hidden border border-border/30 bg-card/30">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <h2 className="text-xs font-semibold text-foreground flex items-center gap-2">
+                      <span className={pathDotClass} />
+                      {lang === 'ar' ? 'مسار المقذوف' : 'Projectile Path'}
+                    </h2>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setCanvasZoom(z => Math.max(0.5, z - 0.25))}
+                        className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground">
+                        <ZoomOut className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[9px] font-mono text-muted-foreground w-7 text-center">{Math.round(canvasZoom * 100)}%</span>
+                      <button onClick={() => setCanvasZoom(z => Math.min(3, z + 0.25))}
+                        className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground">
+                        <ZoomIn className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => { if (!webglError) setIs3DMode(!is3DMode); }}
+                        className={is3DMode ? 'p-1.5 rounded-lg bg-primary text-primary-foreground' : 'p-1.5 rounded-lg text-muted-foreground hover:bg-primary/10'}>
+                        <Box className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setShowGrid(g => !g)}
+                        className={showGrid ? 'p-1.5 rounded-lg bg-primary text-primary-foreground' : 'p-1.5 rounded-lg text-muted-foreground hover:bg-primary/10'}>
+                        <Grid3x3 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {is3DMode ? (
+                    <ErrorBoundary sectionName="3D Simulation">
+                      <Suspense fallback={<div className="w-full h-[50vh] flex items-center justify-center"><AnimatedLoadingSpinner /></div>}>
+                        <SimulationCanvas3D
+                          trajectoryData={sim.trajectoryData} prediction={sim.prediction} currentTime={sim.currentTime}
+                          height={sim.height} showCriticalPoints={sim.showCriticalPoints} showExternalForces={sim.showExternalForces}
+                          vectorVisibility={vectorVisibility} mass={sim.mass} gravity={sim.gravity} airResistance={sim.airResistance}
+                          lang={lang} nightMode={sim.nightMode} isAnimating={sim.isAnimating} playbackSpeed={sim.playbackSpeed}
+                          bounceCoefficient={sim.bounceCoefficient} phi={sim.phi} showLiveData={showLiveData}
+                          stroboscopicMarks={stroboscopicSettings.enabled ? stroboscopicMarks : []}
+                          showStroboscopicProjections={stroboscopicSettings.showProjections}
+                          environmentId={currentEnvId} activePresetEmoji={activePresetEmoji} showGrid={showGrid}
+                          enableMagnusSpin={advancedPhysics.enableMagnus && advancedPhysics.spinRate !== 0}
+                          spinRate={advancedPhysics.spinRate} theme3d={theme3d}
+                          onWebglError={(msg) => { setWebglError(msg); setIs3DMode(false); }}
+                        />
+                      </Suspense>
+                    </ErrorBoundary>
+                  ) : (
+                    <ErrorBoundary sectionName="2D Simulation">
+                      <SimulationCanvas
+                        trajectoryData={sim.trajectoryData} theoreticalData={sim.theoreticalData} prediction={sim.prediction}
+                        currentTime={sim.currentTime} height={sim.height} showCriticalPoints={sim.showCriticalPoints}
+                        showExternalForces={sim.showExternalForces} vectorVisibility={vectorVisibility}
+                        showAIComparison={sim.showAIComparison} aiModels={sim.aiModels} customColors={sim.customColors}
+                        comparisonMode={sim.comparisonMode} savedTrajectory={sim.savedTrajectory}
+                        multiTrajectoryMode={sim.multiTrajectoryMode} multiTrajectories={sim.multiTrajectories}
+                        mass={sim.mass} gravity={sim.gravity} airResistance={sim.airResistance} windSpeed={sim.windSpeed}
+                        T={T} lang={lang} countdown={sim.countdown} nightMode={sim.nightMode} zoom={canvasZoom}
+                        isAnimating={sim.isAnimating} isFullscreen={false} showLiveData={showLiveData}
+                        stroboscopicMarks={stroboscopicSettings.enabled ? stroboscopicMarks : []}
+                        showStroboscopicProjections={stroboscopicSettings.showProjections}
+                        environmentId={currentEnvId} activePresetEmoji={activePresetEmoji}
+                        equationTrajectory={equationTrajectory} showGrid={showGrid}
+                        secondBody={null} collisionPoint={null}
+                        fluidFrictionRay={advancedPhysics.enableHydrodynamicDrag || advancedPhysics.isUnderwater}
+                        isUnderwater={advancedPhysics.isUnderwater}
+                        fluidDensity={advancedPhysics.isUnderwater ? advancedPhysics.fluidDensity : 1.225}
+                        calibrationScale={calibrationScale}
+                        relativityTrajectory={relativitySPrimeTrajectory} relativityEnabled={relativity.enabled}
+                        relativityMode={relativity.mode} relativityActiveObserver={relativity.activeObserver}
+                        relativityShowDual={relativity.showDualTrajectories} relativityFrameVelocity={relativity.frameVelocity}
+                      />
+                    </ErrorBoundary>
+                  )}
+
+                  {/* Floating Controls */}
+                  <MobileFloatingControls
+                    isAnimating={sim.isAnimating}
+                    isPaused={!!isPaused}
+                    playbackSpeed={sim.playbackSpeed}
+                    onTogglePlay={sim.isAnimating ? sim.pauseAnimation : sim.startAnimation}
+                    onReset={sim.resetAnimation}
+                    onSetPlaybackSpeed={sim.setPlaybackSpeed}
+                    lang={lang}
+                  />
+                </div>
+
+                {/* Quick Results */}
+                {sim.prediction && (
+                  <ResultsSection
+                    lang={lang} T={T} prediction={sim.prediction}
+                    velocity={sim.velocity} angle={sim.angle} height={sim.height}
+                    gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
+                    showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* ── Home Tab ── */}
+            {mobileActiveTab === 'home' && (
+              <div className="px-4 py-4 space-y-4">
+                <div className="text-center py-6">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent mb-2">APAS</h1>
+                  <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'نظام تحليل المقذوفات بالذكاء الاصطناعي' : 'AI Projectile Analysis System'}</p>
+                </div>
+                {/* Quick action cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => setMobileActiveTab('simulation')} className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-center active:scale-95 transition-all">
+                    <Activity className="w-6 h-6 text-primary mx-auto mb-2" />
+                    <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'بدء المحاكاة' : 'Start Simulation'}</span>
+                  </button>
+                  <button onClick={() => { setMobileActiveTab('simulation'); setShowMobileBottomSheet(true); }} className="p-4 rounded-xl bg-secondary/50 border border-border/30 text-center active:scale-95 transition-all">
+                    <Gauge className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                    <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'تعديل المتغيرات' : 'Edit Variables'}</span>
+                  </button>
+                  <button onClick={() => setShowMobileAI(true)} className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center active:scale-95 transition-all">
+                    <Eye className="w-6 h-6 text-purple-500 mx-auto mb-2" />
+                    <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'مساعد AI' : 'AI Assistant'}</span>
+                  </button>
+                  <button onClick={() => setMobileActiveTab('saved')} className="p-4 rounded-xl bg-secondary/50 border border-border/30 text-center active:scale-95 transition-all">
+                    <Save className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                    <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'التجارب المحفوظة' : 'Saved Experiments'}</span>
+                  </button>
+                </div>
+                {/* Current params summary */}
+                <div className="p-3 rounded-xl bg-card/60 border border-border/30">
+                  <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{lang === 'ar' ? 'المعاملات الحالية' : 'Current Parameters'}</p>
+                  <div className="grid grid-cols-3 gap-2 text-[10px]">
+                    <div><span className="text-muted-foreground">V</span><p className="font-mono font-semibold text-foreground">{sim.velocity} m/s</p></div>
+                    <div><span className="text-muted-foreground">&theta;</span><p className="font-mono font-semibold text-foreground">{sim.angle}&deg;</p></div>
+                    <div><span className="text-muted-foreground">h</span><p className="font-mono font-semibold text-foreground">{sim.height} m</p></div>
+                    <div><span className="text-muted-foreground">g</span><p className="font-mono font-semibold text-foreground">{sim.gravity} m/s&sup2;</p></div>
+                    <div><span className="text-muted-foreground">m</span><p className="font-mono font-semibold text-foreground">{sim.mass} kg</p></div>
+                    <div><span className="text-muted-foreground">k</span><p className="font-mono font-semibold text-foreground">{sim.airResistance.toFixed(3)}</p></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Analysis Tab ── */}
+            {mobileActiveTab === 'analysis' && (
+              <div className="px-4 py-4">
+                <MobileAnalysisDashboard
+                  prediction={sim.prediction}
+                  velocity={sim.velocity}
+                  angle={sim.angle}
+                  lang={lang}
+                />
+                {!sim.prediction && (
+                  <div className="py-12 text-center">
+                    <Activity className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">{lang === 'ar' ? 'ابدأ المحاكاة لرؤية التحليل' : 'Run simulation to see analysis'}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Saved Tab ── */}
+            {mobileActiveTab === 'saved' && (
+              <div className="px-4 py-4">
+                <MobileSavedExperiments
+                  lang={lang}
+                  currentParams={{
+                    velocity: sim.velocity,
+                    angle: sim.angle,
+                    height: sim.height,
+                    gravity: sim.gravity,
+                    airResistance: sim.airResistance,
+                    mass: sim.mass,
+                  }}
+                  prediction={sim.prediction ? {
+                    range: sim.prediction.range,
+                    maxHeight: sim.prediction.maxHeight,
+                    timeOfFlight: sim.prediction.timeOfFlight,
+                  } : null}
+                  integrationMethod={sim.selectedIntegrationMethod}
+                  onLoadExperiment={handleMobileExperimentLoad}
+                />
+              </div>
+            )}
+
+            {/* ── Settings Tab ── */}
+            {mobileActiveTab === 'settings' && (
+              <div className="px-4 py-4 space-y-3">
+                <h3 className="text-sm font-bold text-foreground">{lang === 'ar' ? 'الإعدادات' : 'Settings'}</h3>
+                {/* Night mode */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
+                  <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'الوضع الليلي' : 'Dark Mode'}</span>
+                  <Switch checked={sim.nightMode} onCheckedChange={(checked) => { sim.setNightMode(checked); playToggle(sim.isMuted, checked); }} />
+                </div>
+                {/* Sound */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
+                  <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'الصوت' : 'Sound'}</span>
+                  <Switch checked={!sim.isMuted} onCheckedChange={(checked) => { sim.setIsMuted(!checked); }} />
+                </div>
+                {/* Language */}
+                <div className="p-3 rounded-xl bg-card/60 border border-border/30">
+                  <span className="text-xs font-medium text-foreground block mb-2">{lang === 'ar' ? 'اللغة' : 'Language'}</span>
+                  <div className="flex gap-2">
+                    {(['ar', 'en', 'fr'] as const).map((l) => (
+                      <button key={l} onClick={() => switchLanguage(l)}
+                        className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-all ${lang === l ? 'bg-primary text-primary-foreground' : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'}`}>
+                        {l === 'ar' ? 'عربي' : l === 'en' ? 'EN' : 'FR'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Integration method */}
+                <div className="p-3 rounded-xl bg-card/60 border border-border/30">
+                  <span className="text-xs font-medium text-foreground block mb-2">{lang === 'ar' ? 'طريقة التكامل' : 'Integration Method'}</span>
+                  <div className="flex gap-2">
+                    {(['euler', 'rk4', 'ai-apas'] as const).map((m) => (
+                      <button key={m} onClick={() => sim.setSelectedIntegrationMethod(m)}
+                        className={`flex-1 px-2 py-2 text-[10px] font-semibold rounded-lg transition-all ${sim.selectedIntegrationMethod === m ? 'bg-primary text-primary-foreground' : 'bg-secondary/50 text-muted-foreground'}`}>
+                        {m.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Air Resistance */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
+                  <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'مقاومة الهواء' : 'Air Resistance'}</span>
+                  <Switch checked={sim.airResistance > 0} onCheckedChange={(checked) => { sim.setAirResistance(checked ? 0.02 : 0); playToggle(sim.isMuted, checked); }} />
+                </div>
+                {/* Bouncing */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
+                  <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'ارتداد المقذوف' : 'Bouncing'}</span>
+                  <Switch checked={sim.enableBounce} onCheckedChange={(checked) => { sim.setEnableBounce(checked); playToggle(sim.isMuted, checked); }} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Bottom Sheet — variables */}
+          {mobileActiveTab === 'simulation' && (
+            <MobileBottomSheet
+              variables={mobileVariables}
+              lang={lang}
+              isOpen={showMobileBottomSheet}
+              onToggle={() => setShowMobileBottomSheet(!showMobileBottomSheet)}
+            />
+          )}
+
+          {/* Mobile AI Assistant */}
+          <MobileAIAssistant
+            isOpen={showMobileAI}
+            onClose={() => setShowMobileAI(false)}
+            lang={lang}
+            velocity={sim.velocity}
+            angle={sim.angle}
+            height={sim.height}
+            gravity={sim.gravity}
+            airResistance={sim.airResistance}
+            mass={sim.mass}
+            prediction={sim.prediction}
+            isAnimating={sim.isAnimating}
+            trajectoryLength={sim.trajectoryData.length}
+          />
+
+          {/* Mobile Bottom Nav */}
+          <MobileBottomNav
+            activeTab={mobileActiveTab}
+            onTabChange={setMobileActiveTab}
+            lang={lang}
+          />
+
+          {/* PWA Install Prompt */}
+          <PWAInstallPrompt lang={lang} />
+
+          {/* Modals — reuse desktop modals */}
+          <ModalsOverlays
+            lang={lang} isMuted={sim.isMuted}
+            showOnboarding={showOnboarding} setShowOnboarding={setShowOnboarding}
+            showEnvSelector={showEnvSelector} setShowEnvSelector={setShowEnvSelector}
+            currentEnvId={currentEnvId} onEnvironmentSelect={handleEnvironmentSelect}
+            showDocumentation={showDocumentation} setShowDocumentation={setShowDocumentation}
+            showStroboscopicModal={showStroboscopicModal} setShowStroboscopicModal={setShowStroboscopicModal}
+            stroboscopicSettings={stroboscopicSettings} setStroboscopicSettings={setStroboscopicSettings}
+            stroboscopicMarks={stroboscopicMarks} gravity={sim.gravity}
+            isSimulationDone={!!isFinished || sim.isAnimating}
+            showMultiSimModal={showMultiSimModal} setShowMultiSimModal={setShowMultiSimModal}
+            velocity={sim.velocity} angle={sim.angle} height={sim.height}
+            airResistance={sim.airResistance} mass={sim.mass} windSpeed={sim.windSpeed}
+            enableBounce={sim.enableBounce} bounceCoefficient={sim.bounceCoefficient}
+            selectedIntegrationMethod={sim.selectedIntegrationMethod}
+            hasExperimentalData={hasExperimentalData} trajectoryData={sim.trajectoryData}
+            showSettingsPanel={showSettingsPanel} setShowSettingsPanel={setShowSettingsPanel}
+            nightMode={sim.nightMode}
+            onToggleNightMode={() => { sim.setNightMode(!sim.nightMode); playToggle(sim.isMuted, !sim.nightMode); }}
+            onToggleMute={() => { sim.setIsMuted(!sim.isMuted); playToggle(sim.isMuted, sim.isMuted); }}
+            onSwitchLanguage={switchLanguage}
+            accentColor={accentColor} accentColors={ACCENT_COLORS} onAccentChange={setAccentColor}
+            is3DMode={is3DMode} theme3d={theme3d} onTheme3dChange={setTheme3d}
+            showCalculator={showCalculator} setShowCalculator={setShowCalculator}
+            showRuler={showRuler} setShowRuler={setShowRuler}
+            showProtractor={showProtractor} setShowProtractor={setShowProtractor}
+            showNoiseFilter={showNoiseFilter} setShowNoiseFilter={setShowNoiseFilter}
+            setTrajectoryData={sim.setTrajectoryData}
+            showLiveCalibration={showLiveCalibration} setShowLiveCalibration={setShowLiveCalibration}
+            setCalibrationScale={setCalibrationScale} calibrationMediaSrc={lastAnalyzedMediaSrc}
+            showSecurityPrivacy={showSecurityPrivacy} setShowSecurityPrivacy={setShowSecurityPrivacy}
+            autoDeleteVideos={autoDeleteVideos} onToggleAutoDelete={setAutoDeleteVideos}
+            showComprehensiveGuide={showComprehensiveGuide} setShowComprehensiveGuide={setShowComprehensiveGuide}
+            showRestrictionOverlay={showRestrictionOverlay} setShowRestrictionOverlay={setShowRestrictionOverlay}
+          />
+        </div>
+      </PageTransition>
+    );
+  }
+
+  // ═══════════════════════════════════════════════
+  // ═══ DESKTOP LAYOUT (unchanged) ═══
+  // ═══════════════════════════════════════════════
   return (
     <PageTransition>
       <div className={`min-h-screen bg-background relative overflow-hidden ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
