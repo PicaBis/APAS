@@ -415,6 +415,9 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     setVideoUrl(blobUrl);
     setStatusText(isAr ? PROCESSING_STEPS[0].labelAr : PROCESSING_STEPS[0].labelEn);
 
+    // Local variable to track thumbnail URL (avoids stale closure over React state)
+    let localThumbnailUrl: string | undefined;
+
     // Upload video to Supabase Storage in parallel for persistent playback in history
     let persistentVideoUrl: string | undefined;
     const uploadPromise = (async () => {
@@ -463,7 +466,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         const confidence = result.confidence ?? 0;
 
         // Get thumbnail for history storage
-        const historyThumb = thumbnailUrl || undefined;
+        const historyThumb = localThumbnailUrl || undefined;
 
         // Notify parent that media was analyzed (for calibration tool awareness)
         if (historyThumb && onMediaAnalyzed) onMediaAnalyzed(historyThumb);
@@ -502,7 +505,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           toast.info(isAr ? '\u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0645\u0642\u0630\u0648\u0641' : 'No projectile detected');
         }
       } else {
-        const historyThumbFallback = thumbnailUrl || undefined;
+        const historyThumbFallback = localThumbnailUrl || undefined;
         setAnalysisText(cleanText || (isAr ? '\u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0645\u0642\u0630\u0648\u0641' : 'No projectile detected'));
         setHistory(prev => [{
           id: Date.now(),
@@ -542,7 +545,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           endTime,
         );
         if (thumbExtract.frames.length > 0) {
-          setThumbnailUrl(thumbExtract.frames[0].data);
+          localThumbnailUrl = thumbExtract.frames[0].data;
+          setThumbnailUrl(localThumbnailUrl);
         }
       } catch {
         // Thumbnail extraction is best-effort
