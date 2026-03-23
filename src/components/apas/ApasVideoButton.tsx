@@ -192,6 +192,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const videoUrlRef = useRef<string | null>(null);
   const [currentFileHash, setCurrentFileHash] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
@@ -218,9 +219,17 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
     }
   }, []);
 
+  // Keep videoUrl ref in sync
+  useEffect(() => {
+    videoUrlRef.current = videoUrl;
+  }, [videoUrl]);
+
   // Cleanup on unmount
   useEffect(() => {
-    return () => { stopCameraStream(); };
+    return () => {
+      stopCameraStream();
+      if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
+    };
   }, [stopCameraStream]);
 
   // Open camera for video recording
@@ -320,7 +329,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
     setAnalysisText('');
     setProgress(0);
     setThumbnailUrl(null);
-    // Create a blob URL for video playback
+    // Revoke previous blob URL to prevent memory leak, then create new one
+    if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
     const blobUrl = URL.createObjectURL(file);
     setVideoUrl(blobUrl);
     setStatusText(isAr ? '\u062c\u0627\u0631\u064a \u0627\u0633\u062a\u062e\u0631\u0627\u062c \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0645\u0646 \u0627\u0644\u0641\u064a\u062f\u064a\u0648...' : 'Extracting frames from video...');
@@ -355,8 +365,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
         // Notify parent that media was analyzed (for calibration tool awareness)
         if (historyThumb && onMediaAnalyzed) onMediaAnalyzed(historyThumb);
 
-        // Store video blob URL for playback in history
-        const currentVideoUrl = videoUrl;
+        // Use blobUrl directly (not videoUrl state which has stale closure)
+        const currentVideoUrl = blobUrl;
 
         setHistory(prev => [{
           id: Date.now(),
@@ -394,7 +404,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
           thumbnailName: sourceName,
           fileHash: fileHash,
           thumbnailData: historyThumb,
-          videoUrl: videoUrl || undefined,
+          videoUrl: blobUrl || undefined,
         }, ...prev].slice(0, 20));
       }
     };
