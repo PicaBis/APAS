@@ -630,7 +630,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
         <div className="fixed inset-0 z-[59]" onClick={() => { if (!isLoading) { setOpen(false); playClick(false); } }} />
         <div
           className="fixed z-[60] w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl border border-primary/20 flex flex-col overflow-hidden animate-slideDown bg-background/95 backdrop-blur-xl"
-          style={{ top: '3.75rem', left: '50%', transform: 'translateX(-50%)', height: '480px' }}
+          style={{ top: '3.75rem', right: '1rem', left: 'auto', transform: 'none', height: '480px' }}
           dir={isRTL ? 'rtl' : 'ltr'}
         >
           {/* Header */}

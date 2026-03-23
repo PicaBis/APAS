@@ -55,6 +55,11 @@ import { AnimatedLoadingSpinner } from '@/components/ui/AnimatedSVG';
 import AcademicAmbient from '@/components/apas/AcademicAmbient';
 import FooterRobot from '@/components/apas/LightModeDecorations';
 import SensorLab from '@/components/apas/SensorLab';
+import VideoOverlay from '@/components/apas/VideoOverlay';
+import ObserverRelativityDashboard from '@/components/apas/ObserverRelativityDashboard';
+import TheoreticalVsRealComparison from '@/components/apas/TheoreticalVsRealComparison';
+import QuickStartTips from '@/components/apas/QuickStartTips';
+const DynamicAnalyticsDashboard = lazy(() => import('@/components/apas/DynamicAnalyticsDashboard'));
 const EnergyAnalysis = lazy(() => import('@/components/apas/EnergyAnalysis'));
 const DerivationPanel = lazy(() => import('@/components/apas/DerivationPanel'));
 const MonteCarloPanel = lazy(() => import('@/components/apas/MonteCarloPanel'));
@@ -131,6 +136,11 @@ const Index = () => {
   const [showSecurityPrivacy, setShowSecurityPrivacy] = useState(false);
   const [calibrationScale, setCalibrationScale] = useState<number | null>(null);
   const [lastAnalyzedMediaSrc, setLastAnalyzedMediaSrc] = useState<string | null>(null);
+  const [lastAnalyzedMediaType, setLastAnalyzedMediaType] = useState<'video' | 'image'>('video');
+  const [showVideoOverlay, setShowVideoOverlay] = useState(false);
+  const [showDynamicDashboard, setShowDynamicDashboard] = useState(true);
+  const [showTheoreticalComparison, setShowTheoreticalComparison] = useState(false);
+  const [showQuickTips, setShowQuickTips] = useState(true);
   const [showComparisonSection, setShowComparisonSection] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
@@ -866,8 +876,58 @@ const Index = () => {
                 />
               </div>
 
+              {/* ── Video/Image Overlay ── */}
+              {showVideoOverlay && lastAnalyzedMediaSrc && (
+                <VideoOverlay
+                  lang={lang}
+                  mediaSrc={lastAnalyzedMediaSrc}
+                  mediaType={lastAnalyzedMediaType}
+                  trajectoryData={sim.trajectoryData}
+                  currentTime={sim.currentTime}
+                  isAnimating={sim.isAnimating}
+                  onClose={() => setShowVideoOverlay(false)}
+                  muted={sim.isMuted}
+                />
+              )}
+
               {/* ── Below-canvas sections (hidden in focus mode) ── */}
               {!isFocusMode && <>
+                {/* Quick Start Tips */}
+                {showQuickTips && (
+                  <QuickStartTips
+                    lang={lang}
+                    hasTrajectory={sim.trajectoryData.length > 0}
+                    hasMediaAnalysis={!!lastAnalyzedMediaSrc}
+                    onDismiss={() => setShowQuickTips(false)}
+                  />
+                )}
+
+                {/* Dynamic Analytics Dashboard */}
+                {showDynamicDashboard && sim.trajectoryData.length > 0 && (
+                  <Suspense fallback={null}>
+                    <ObserverRelativityDashboard
+                      lang={lang}
+                      trajectoryData={sim.trajectoryData}
+                      currentTime={sim.currentTime}
+                      mass={sim.mass}
+                      gravity={sim.gravity}
+                      frameVelocity={relativity.frameVelocity}
+                      relativityEnabled={relativity.enabled}
+                      muted={sim.isMuted}
+                    />
+                  </Suspense>
+                )}
+
+                {/* Theoretical vs Real-world Comparison */}
+                {showTheoreticalComparison && (
+                  <TheoreticalVsRealComparison
+                    lang={lang}
+                    theoreticalData={sim.theoreticalData?.map(p => ({ x: p.x, y: p.y, time: p.time })) ?? sim.trajectoryData.map(p => ({ x: p.x, y: p.y, time: p.time }))}
+                    realWorldData={sim.trajectoryData}
+                    currentTime={sim.currentTime}
+                    muted={sim.isMuted}
+                  />
+                )}
                 {/* ── Results ── */}
                 {sim.prediction && (
                   <ResultsSection
@@ -1196,7 +1256,17 @@ const Index = () => {
               setMass={sim.setMass} setGravity={sim.setGravity}
               setActivePresetEmoji={setActivePresetEmoji}
               onSessionLoad={handleSessionLoad} onShowRestrictionOverlay={setShowRestrictionOverlay}
-              onMediaAnalyzed={(src: string) => setLastAnalyzedMediaSrc(src || null)}
+              onMediaAnalyzed={(src: string) => {
+                setLastAnalyzedMediaSrc(src || null);
+                if (src) {
+                  const ext = src.split('.').pop()?.toLowerCase() ?? '';
+                  const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(ext) || src.includes('video');
+                  setLastAnalyzedMediaType(isVideo ? 'video' : 'image');
+                  setShowVideoOverlay(true);
+                  setShowTheoreticalComparison(true);
+                  setShowDynamicDashboard(true);
+                }
+              }}
             />
           </div>
         </div>
