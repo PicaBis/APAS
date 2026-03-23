@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 **/tempobook/**
+APAS.apk
+android/app/build/
+android/.gradle/

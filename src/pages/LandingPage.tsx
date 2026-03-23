@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut } from 'lucide-react';
+import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Smartphone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 
@@ -27,6 +27,7 @@ interface LangData {
   heroDesc: string;
   enterSim: string;
   enterClassroom: string;
+  downloadAndroid: string;
   whyTitle: string;
   whySubtitle: string;
   features: FeatureItem[];
@@ -49,6 +50,7 @@ const LANG_DATA: Record<Lang, LangData> = {
     heroDesc: '\u0645\u0646 \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0621 \u0627\u0644\u0643\u0644\u0627\u0633\u064a\u0643\u064a\u0629 \u0625\u0644\u0649 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a \u2014 \u0623\u062f\u0627\u0629 \u0623\u0643\u0627\u062f\u064a\u0645\u064a\u0629 \u0645\u062a\u0643\u0627\u0645\u0644\u0629 \u0644\u062a\u062d\u0644\u064a\u0644 \u0648\u0641\u0647\u0645 \u062d\u0631\u0643\u0629 \u0627\u0644\u0645\u0642\u0630\u0648\u0641\u0627\u062a',
     enterSim: '\u0627\u0628\u062f\u0623 \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629',
     enterClassroom: '\u0627\u0644\u0641\u0635\u0644 \u0627\u0644\u062f\u0631\u0627\u0633\u064a',
+    downloadAndroid: '\u062a\u062d\u0645\u064a\u0644 \u0644\u0644\u0623\u0646\u062f\u0631\u0648\u064a\u062f',
     whyTitle: '\u0644\u0645\u0627\u0630\u0627 APAS \u0623\u0641\u0636\u0644\u061f',
     whySubtitle: '\u0645\u0642\u0627\u0631\u0646\u0629 \u0645\u0639 \u0627\u0644\u0623\u062f\u0648\u0627\u062a \u0627\u0644\u062a\u0642\u0644\u064a\u062f\u064a\u0629',
     features: [
@@ -87,6 +89,7 @@ const LANG_DATA: Record<Lang, LangData> = {
     heroDesc: 'From classical physics to artificial intelligence \u2014 a comprehensive academic tool for analyzing projectile motion',
     enterSim: 'Start Simulation',
     enterClassroom: 'Classroom',
+    downloadAndroid: 'Download Android',
     whyTitle: 'Why APAS?',
     whySubtitle: 'Compared to traditional tools',
     features: [
@@ -125,6 +128,7 @@ const LANG_DATA: Record<Lang, LangData> = {
     heroDesc: "De la physique classique \u00e0 l'intelligence artificielle \u2014 un outil acad\u00e9mique complet pour l'analyse du mouvement des projectiles",
     enterSim: 'D\u00e9marrer la Simulation',
     enterClassroom: 'Salle de Classe',
+    downloadAndroid: 'T\u00e9l\u00e9charger Android',
     whyTitle: 'Pourquoi APAS ?',
     whySubtitle: 'Compar\u00e9 aux outils traditionnels',
     features: [
@@ -379,6 +383,15 @@ const LandingPage: React.FC = () => {
             <GraduationCap className="w-5 h-5" />
             {t.enterClassroom}
           </button>
+          <a
+            href="https://github.com/PicaBis/APAS/releases/latest/download/APAS.apk"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium text-base shadow-lg shadow-green-600/20 hover:shadow-xl hover:shadow-green-600/30 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 nav-btn-animate"
+          >
+            <Smartphone className="w-5 h-5" />
+            {t.downloadAndroid}
+          </a>
         </div>
         <ChevronDown className="w-6 h-6 text-muted-foreground mx-auto mt-12 animate-bounce" />
       </section>
