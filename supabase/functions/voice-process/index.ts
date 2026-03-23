@@ -8,6 +8,8 @@ const corsHeaders = {
 
 const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
 const MISTRAL_CHAT_MODEL = "mistral-large-latest";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_CHAT_MODEL = "llama-3.3-70b-versatile";
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -17,8 +19,9 @@ serve(async (req) => {
     const { transcript, lang, simulationContext } = await req.json();
 
     const mistralKey = Deno.env.get("MISTRAL_API_KEY");
-    if (!mistralKey) {
-      throw new Error("MISTRAL_API_KEY not configured");
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    if (!mistralKey && !groqKey) {
+      throw new Error("No AI provider configured (set MISTRAL_API_KEY and/or GROQ_API_KEY)");
     }
 
     if (!transcript || typeof transcript !== "string" || !transcript.trim()) {
@@ -89,34 +92,60 @@ IMPORTANT:
 - Write units in plain text: m/s, m/s^2, kg, m
 - LANGUAGE REMINDER: Every word must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
-    const response = await fetch(MISTRAL_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${mistralKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MISTRAL_CHAT_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: transcript },
-        ],
-        temperature: 0.3,
-        max_tokens: 1000,
-        stream: false,
-      }),
-    });
+    // Build provider list: Mistral first, Groq as fallback
+    const providers: Array<{ name: string; url: string; key: string; model: string }> = [];
+    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_CHAT_MODEL });
+    if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_CHAT_MODEL });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Mistral API error ${response.status}: ${errorText}`);
-      throw new Error(`Mistral API error: ${response.status}`);
+    const requestBody = {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: transcript },
+      ],
+      temperature: 0.3,
+      max_tokens: 1000,
+      stream: false,
+    };
+
+    let text = "";
+    let usedProvider = "";
+    for (const provider of providers) {
+      try {
+        console.log(`[voice-process] Trying ${provider.name}...`);
+        const response = await fetch(provider.url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ...requestBody, model: provider.model }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[voice-process] ${provider.name} error ${response.status}: ${errorText}`);
+          continue;
+        }
+
+        const data = await response.json();
+        text = data?.choices?.[0]?.message?.content || "";
+        if (!text) {
+          console.warn(`[voice-process] ${provider.name} returned empty response`);
+          continue;
+        }
+        usedProvider = provider.name;
+        break;
+      } catch (err) {
+        console.error(`[voice-process] ${provider.name} request failed:`, err);
+        continue;
+      }
     }
 
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content || "";
+    if (!usedProvider) {
+      throw new Error("All AI providers failed for voice-process");
+    }
 
-    console.log(`voice-process completed via Mistral AI`);
+    console.log(`voice-process completed via ${usedProvider}`);
 
     return new Response(
       JSON.stringify({ text }),

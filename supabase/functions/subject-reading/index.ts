@@ -8,6 +8,8 @@ const corsHeaders = {
 
 const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
 const MISTRAL_VISION_MODEL = "pixtral-large-latest";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -17,8 +19,9 @@ serve(async (req) => {
     const { imageBase64, mimeType, lang } = await req.json();
 
     const mistralKey = Deno.env.get("MISTRAL_API_KEY");
-    if (!mistralKey) {
-      throw new Error("MISTRAL_API_KEY not configured");
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    if (!mistralKey && !groqKey) {
+      throw new Error("No AI provider configured (set MISTRAL_API_KEY and/or GROQ_API_KEY)");
     }
 
     const isAr = lang === "ar";
@@ -131,48 +134,75 @@ IMPORTANT RULES:
 - If gravity is not specified, use g = 9.81 m/s^2 (or 10 m/s^2 if the exercise says so)
 - LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
-    const response = await fetch(MISTRAL_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${mistralKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MISTRAL_VISION_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
+    // Build provider list: Mistral first, Groq as fallback
+    const providers: Array<{ name: string; url: string; key: string; model: string; imageUrlFormat: 'object' | 'string' }> = [];
+    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_VISION_MODEL, imageUrlFormat: 'string' });
+    if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_VISION_MODEL, imageUrlFormat: 'object' });
+
+    const userText = isAr
+      ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي الخاص بالمقذوفات وحله خطوة بخطوة. استخرج جميع المعطيات وطبقها.`
+      : `[Exercise Reading #${analysisId.slice(0, 8)}] Read this projectile motion physics exercise and solve it step by step. Extract all given data and apply it.`;
+
+    const imageDataUri = `data:${mimeType};base64,${imageBase64}`;
+
+    let text = "";
+    let usedProvider = "";
+    for (const provider of providers) {
+      try {
+        console.log(`[subject-reading] Trying ${provider.name}...`);
+
+        // Mistral uses plain string for image_url, Groq uses { url: ... } object
+        const imageUrlValue = provider.imageUrlFormat === 'string' ? imageDataUri : { url: imageDataUri };
+
+        const response = await fetch(provider.url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: provider.model,
+            messages: [
+              { role: "system", content: systemPrompt },
               {
-                type: "text",
-                text: isAr
-                  ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي الخاص بالمقذوفات وحله خطوة بخطوة. استخرج جميع المعطيات وطبقها.`
-                  : `[Exercise Reading #${analysisId.slice(0, 8)}] Read this projectile motion physics exercise and solve it step by step. Extract all given data and apply it.`,
-              },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+                role: "user",
+                content: [
+                  { type: "text", text: userText },
+                  { type: "image_url", image_url: imageUrlValue },
+                ],
               },
             ],
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 4000,
-        stream: false,
-      }),
-    });
+            temperature: 0.3,
+            max_tokens: 4000,
+            stream: false,
+          }),
+        });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Mistral API error ${response.status}: ${errorText}`);
-      throw new Error(`Mistral API error: ${response.status}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[subject-reading] ${provider.name} error ${response.status}: ${errorText}`);
+          continue;
+        }
+
+        const data = await response.json();
+        text = data?.choices?.[0]?.message?.content || "";
+        if (!text) {
+          console.warn(`[subject-reading] ${provider.name} returned empty response`);
+          continue;
+        }
+        usedProvider = provider.name;
+        break;
+      } catch (err) {
+        console.error(`[subject-reading] ${provider.name} request failed:`, err);
+        continue;
+      }
     }
 
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content || "";
+    if (!usedProvider) {
+      throw new Error("All AI providers failed for subject-reading");
+    }
 
-    console.log(`subject-reading completed via Mistral AI`);
+    console.log(`subject-reading completed via ${usedProvider}`);
 
     return new Response(
       JSON.stringify({ text }),

@@ -3,6 +3,8 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
 const MISTRAL_VISION_MODEL = "pixtral-large-latest";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 // ── Geometric computation helpers ──
 
@@ -246,8 +248,9 @@ serve(async (req) => {
     }
 
     const mistralKey = Deno.env.get("MISTRAL_API_KEY");
-    if (!mistralKey) {
-      throw new Error("MISTRAL_API_KEY not configured");
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    if (!mistralKey && !groqKey) {
+      throw new Error("No AI provider configured (set MISTRAL_API_KEY and/or GROQ_API_KEY)");
     }
 
     console.log(`Received ${frames.length} frames for video analysis, fps: ${fps}, totalFrames: ${totalFrames}`);
@@ -305,54 +308,83 @@ If NO moving object is found at all:
 \`\`\``;
 
     // Build multi-frame content for position detection
-    const posContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-    posContent.push({
-      type: "text",
-      text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
-    });
-
-    for (let i = 0; i < frames.length; i++) {
-      const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(3) : String(i * 0.1);
-      posContent.push({
+    // Mistral uses plain string for image_url, Groq uses { url: ... } object
+    function buildPosContent(imageUrlFormat: 'string' | 'object') {
+      const content: Array<{ type: string; text?: string; image_url?: string | { url: string } }> = [];
+      content.push({
         type: "text",
-        text: `--- Frame ${i + 1}/${frames.length} (Time: ${ts}s) ---`,
+        text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
       });
-      posContent.push({
-        type: "image_url",
-        image_url: { url: frames[i].data },
-      });
+
+      for (let i = 0; i < frames.length; i++) {
+        const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(3) : String(i * 0.1);
+        content.push({
+          type: "text",
+          text: `--- Frame ${i + 1}/${frames.length} (Time: ${ts}s) ---`,
+        });
+        content.push({
+          type: "image_url",
+          image_url: imageUrlFormat === 'string' ? frames[i].data : { url: frames[i].data },
+        });
+      }
+      return content;
     }
 
-    console.log(`Pass 1: Requesting object positions from Mistral AI...`);
+    // Build provider list: Mistral first, Groq as fallback
+    const providers: Array<{ name: string; url: string; key: string; model: string; imageUrlFormat: 'string' | 'object' }> = [];
+    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_VISION_MODEL, imageUrlFormat: 'string' });
+    if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_VISION_MODEL, imageUrlFormat: 'object' });
 
-    const posResponse = await fetch(MISTRAL_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${mistralKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MISTRAL_VISION_MODEL,
-        messages: [
-          { role: "system", content: positionPrompt },
-          { role: "user", content: posContent },
-        ],
-        temperature: 0.05,
-        max_tokens: 2000,
-        stream: false,
-      }),
-    });
+    let posText = "";
+    let usedProvider = "";
+    for (const provider of providers) {
+      try {
+        console.log(`[video-analyze] Pass 1: Trying ${provider.name}...`);
+        const posContent = buildPosContent(provider.imageUrlFormat);
 
-    if (!posResponse.ok) {
-      const errorText = await posResponse.text();
-      console.error(`Mistral API error (Pass 1) ${posResponse.status}: ${errorText}`);
-      throw new Error(`Mistral API error: ${posResponse.status}`);
+        const posResponse = await fetch(provider.url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: provider.model,
+            messages: [
+              { role: "system", content: positionPrompt },
+              { role: "user", content: posContent },
+            ],
+            temperature: 0.05,
+            max_tokens: 2000,
+            stream: false,
+          }),
+        });
+
+        if (!posResponse.ok) {
+          const errorText = await posResponse.text();
+          console.error(`[video-analyze] ${provider.name} error (Pass 1) ${posResponse.status}: ${errorText}`);
+          continue;
+        }
+
+        const posData = await posResponse.json();
+        posText = posData?.choices?.[0]?.message?.content || "";
+        if (!posText) {
+          console.warn(`[video-analyze] ${provider.name} returned empty response`);
+          continue;
+        }
+        usedProvider = provider.name;
+        break;
+      } catch (err) {
+        console.error(`[video-analyze] ${provider.name} request failed:`, err);
+        continue;
+      }
     }
 
-    const posData = await posResponse.json();
-    const posText = posData?.choices?.[0]?.message?.content || "";
+    if (!usedProvider) {
+      throw new Error("All AI providers failed for video-analyze");
+    }
 
-    console.log(`Pass 1 complete. Raw AI response length: ${posText.length}`);
+    console.log(`Pass 1 complete via ${usedProvider}. Raw AI response length: ${posText.length}`);
 
     // Parse the positions from AI response
     const jsonMatch = posText.match(/```json\s*([\s\S]*?)```/);
