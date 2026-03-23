@@ -152,7 +152,7 @@ IMPORTANT RULES:
               },
               {
                 type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+                image_url: `data:${mimeType};base64,${imageBase64}`,
               },
             ],
           },
