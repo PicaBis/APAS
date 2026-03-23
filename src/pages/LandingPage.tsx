@@ -69,16 +69,16 @@ const LANG_DATA: Record<Lang, LangData> = {
       { icon: 'calculator', title: '\u0645\u062d\u0631\u0643 \u0645\u0639\u0627\u062f\u0644\u0627\u062a \u062a\u0641\u0627\u0639\u0644\u064a', desc: '\u0623\u062f\u062e\u0644 \u0645\u0639\u0627\u062f\u0644\u0627\u062a\u0643 \u0627\u0644\u062e\u0627\u0635\u0629 \u0648\u0634\u0627\u0647\u062f \u0627\u0644\u0645\u0633\u0627\u0631 \u064a\u064f\u0631\u0633\u0645 \u0645\u0628\u0627\u0634\u0631\u0629 \u0639\u0644\u0649 \u0627\u0644\u0634\u0627\u0634\u0629' },
     ],
     compTitle: 'APAS \u0645\u0642\u0627\u0628\u0644 \u0627\u0644\u0623\u062f\u0648\u0627\u062a \u0627\u0644\u062a\u0642\u0644\u064a\u062f\u064a\u0629',
-    compHeaders: ['\u0627\u0644\u0645\u064a\u0632\u0629', 'APAS', 'PhET', 'GeoGebra', 'Excel'],
+    compHeaders: ['\u0627\u0644\u0645\u064a\u0632\u0629', 'APAS (\u0645\u0633\u062c\u0644)', 'APAS (\u0632\u0627\u0626\u0631)', 'PhET', 'GeoGebra', 'Excel'],
     compRows: [
-      ['\u0630\u0643\u0627\u0621 \u0627\u0635\u0637\u0646\u0627\u0639\u064a \u0644\u0644\u062a\u0646\u0628\u0624', true, false, false, false],
-      ['\u0631\u0624\u064a\u0629 \u062d\u0627\u0633\u0648\u0628\u064a\u0629 (\u0635\u0648\u0631/\u0641\u064a\u062f\u064a\u0648)', true, false, false, false],
-      ['\u0645\u062d\u0627\u0643\u0627\u0629 3D \u062a\u0641\u0627\u0639\u0644\u064a\u0629', true, false, true, false],
-      ['\u062a\u062d\u0644\u064a\u0644 \u0623\u062e\u0637\u0627\u0621 R\u00b2/MAE/RMSE', true, false, false, true],
-      ['\u0628\u064a\u0626\u0627\u062a \u0643\u0648\u0643\u0628\u064a\u0629 (\u0627\u0644\u0642\u0645\u0631/\u0627\u0644\u0645\u0631\u064a\u062e)', true, true, false, false],
-      ['\u062a\u0635\u0648\u064a\u0631 \u0633\u062a\u0631\u0648\u0628\u0648\u0633\u0643\u0648\u0628\u064a', true, false, false, false],
-      ['\u0646\u0638\u0627\u0645 \u0625\u062f\u0627\u0631\u0629 \u0641\u0635\u0648\u0644', true, false, false, false],
-      ['\u062f\u0639\u0645 \u0627\u0644\u0639\u0631\u0628\u064a\u0629/\u0627\u0644\u0641\u0631\u0646\u0633\u064a\u0629', true, false, false, false],
+      ['\u0630\u0643\u0627\u0621 \u0627\u0635\u0637\u0646\u0627\u0639\u064a \u0644\u0644\u062a\u0646\u0628\u0624', true, false, false, false, false],
+      ['\u0631\u0624\u064a\u0629 \u062d\u0627\u0633\u0648\u0628\u064a\u0629 (\u0635\u0648\u0631/\u0641\u064a\u062f\u064a\u0648)', true, false, false, false, false],
+      ['\u0645\u062d\u0627\u0643\u0627\u0629 3D \u062a\u0641\u0627\u0639\u0644\u064a\u0629', true, true, false, true, false],
+      ['\u062a\u062d\u0644\u064a\u0644 \u0623\u062e\u0637\u0627\u0621 R\u00b2/MAE/RMSE', true, true, false, false, true],
+      ['\u0628\u064a\u0626\u0627\u062a \u0643\u0648\u0643\u0628\u064a\u0629 (\u0627\u0644\u0642\u0645\u0631/\u0627\u0644\u0645\u0631\u064a\u062e)', true, true, true, false, false],
+      ['\u062a\u0635\u0648\u064a\u0631 \u0633\u062a\u0631\u0648\u0628\u0648\u0633\u0643\u0648\u0628\u064a', true, true, false, false, false],
+      ['\u0646\u0638\u0627\u0645 \u0625\u062f\u0627\u0631\u0629 \u0641\u0635\u0648\u0644', true, false, false, false, false],
+      ['\u062f\u0639\u0645 \u0627\u0644\u0639\u0631\u0628\u064a\u0629/\u0627\u0644\u0641\u0631\u0646\u0633\u064a\u0629', true, true, false, false, false],
     ],
     ctaTitle: '\u062c\u0627\u0647\u0632 \u0644\u062a\u062c\u0631\u0628\u0629 \u0641\u064a\u0632\u064a\u0627\u0621 \u0627\u0644\u0645\u0642\u0630\u0648\u0641\u0627\u062a \u0628\u0637\u0631\u064a\u0642\u0629 \u062c\u062f\u064a\u062f\u0629\u061f',
     ctaBtn: '\u0627\u0628\u062f\u0623 \u0627\u0644\u0622\u0646',
@@ -112,16 +112,16 @@ const LANG_DATA: Record<Lang, LangData> = {
       { icon: 'calculator', title: 'Equation Engine', desc: 'Enter your own equations and watch the trajectory render live on canvas' },
     ],
     compTitle: 'APAS vs Traditional Tools',
-    compHeaders: ['Feature', 'APAS', 'PhET', 'GeoGebra', 'Excel'],
+    compHeaders: ['Feature', 'APAS (Registered)', 'APAS (Guest)', 'PhET', 'GeoGebra', 'Excel'],
     compRows: [
-      ['AI-powered Prediction', true, false, false, false],
-      ['Computer Vision (Photo/Video)', true, false, false, false],
-      ['Interactive 3D Simulation', true, false, true, false],
-      ['Error Analysis R\u00b2/MAE/RMSE', true, false, false, true],
-      ['Planetary Environments', true, true, false, false],
-      ['Stroboscopic Photography', true, false, false, false],
-      ['Classroom Management', true, false, false, false],
-      ['Arabic/French Support', true, false, false, false],
+      ['AI-powered Prediction', true, false, false, false, false],
+      ['Computer Vision (Photo/Video)', true, false, false, false, false],
+      ['Interactive 3D Simulation', true, true, false, true, false],
+      ['Error Analysis R\u00b2/MAE/RMSE', true, true, false, false, true],
+      ['Planetary Environments', true, true, true, false, false],
+      ['Stroboscopic Photography', true, true, false, false, false],
+      ['Classroom Management', true, false, false, false, false],
+      ['Arabic/French Support', true, true, false, false, false],
     ],
     ctaTitle: 'Ready to experience projectile physics in a new way?',
     ctaBtn: 'Start Now',
@@ -155,16 +155,16 @@ const LANG_DATA: Record<Lang, LangData> = {
       { icon: 'calculator', title: "Moteur d'\u00c9quations", desc: "Entrez vos \u00e9quations et regardez la trajectoire se dessiner en direct" },
     ],
     compTitle: 'APAS vs Outils Traditionnels',
-    compHeaders: ['Fonctionnalit\u00e9', 'APAS', 'PhET', 'GeoGebra', 'Excel'],
+    compHeaders: ['Fonctionnalit\u00e9', 'APAS (Inscrit)', 'APAS (Visiteur)', 'PhET', 'GeoGebra', 'Excel'],
     compRows: [
-      ['Pr\u00e9diction par IA', true, false, false, false],
-      ['Vision par Ordinateur', true, false, false, false],
-      ['Simulation 3D Interactive', true, false, true, false],
-      ["Analyse d'Erreurs R\u00b2/MAE", true, false, false, true],
-      ['Environnements Plan\u00e9taires', true, true, false, false],
-      ['Photo Stroboscopique', true, false, false, false],
-      ['Gestion de Classe', true, false, false, false],
-      ['Support Arabe/Fran\u00e7ais', true, false, false, false],
+      ['Pr\u00e9diction par IA', true, false, false, false, false],
+      ['Vision par Ordinateur', true, false, false, false, false],
+      ['Simulation 3D Interactive', true, true, false, true, false],
+      ["Analyse d'Erreurs R\u00b2/MAE", true, true, false, false, true],
+      ['Environnements Plan\u00e9taires', true, true, true, false, false],
+      ['Photo Stroboscopique', true, true, false, false, false],
+      ['Gestion de Classe', true, false, false, false, false],
+      ['Support Arabe/Fran\u00e7ais', true, true, false, false, false],
     ],
     ctaTitle: 'Pr\u00eat \u00e0 d\u00e9couvrir la physique des projectiles autrement ?',
     ctaBtn: 'Commencer',
@@ -447,7 +447,7 @@ const LandingPage: React.FC = () => {
             <thead>
               <tr className="border-b border-border bg-secondary/30">
                 {t.compHeaders.map((h, i) => (
-                  <th key={i} className={`py-3 px-4 font-semibold text-foreground ${i === 0 ? (isRTL ? 'text-right' : 'text-left') : 'text-center'} ${i === 1 ? 'bg-primary/10' : ''}`}>
+                  <th key={i} className={`py-3 px-4 font-semibold text-foreground ${i === 0 ? (isRTL ? 'text-right' : 'text-left') : 'text-center'} ${i === 1 ? 'bg-primary/10' : i === 2 ? 'bg-primary/5' : ''}`}>
                     {h}
                   </th>
                 ))}
@@ -457,7 +457,7 @@ const LandingPage: React.FC = () => {
               {t.compRows.map((row, ri) => (
                 <tr key={ri} className="border-b border-border/30 hover:bg-primary/5 transition-colors">
                   {row.map((cell, ci) => (
-                    <td key={ci} className={`py-2.5 px-4 ${ci === 0 ? (isRTL ? 'text-right' : 'text-left') + ' text-xs font-medium text-foreground' : 'text-center'} ${ci === 1 ? 'bg-primary/5' : ''}`}>
+                    <td key={ci} className={`py-2.5 px-4 ${ci === 0 ? (isRTL ? 'text-right' : 'text-left') + ' text-xs font-medium text-foreground' : 'text-center'} ${ci === 1 ? 'bg-primary/5' : ci === 2 ? 'bg-primary/[0.02]' : ''}`}>
                       {typeof cell === 'boolean' ? (
                         cell ? <span className="text-green-500 font-bold">&#10003;</span> : <span className="text-muted-foreground/40">&#8212;</span>
                       ) : cell}
