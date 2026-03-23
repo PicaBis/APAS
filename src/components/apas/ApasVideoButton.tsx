@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
-import { Video, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, VideoIcon, Square } from 'lucide-react';
+import { Video, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, VideoIcon, Square, Scissors, Play, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeVideoFrame, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
@@ -12,9 +12,26 @@ import { supabase } from '@/integrations/supabase/client';
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-analyze`;
 
 const CONFIDENCE_THRESHOLD = 60;
-const MAX_FRAMES_TO_SEND = 7; // 7 consecutive frames for Claude 4.6 Opus video analysis
-const FRAME_QUALITY = 0.35; // JPEG quality for extracted frames (lower = smaller payload, still sufficient for AI analysis)
+const MAX_FRAMES_TO_SEND = 10; // 10 frames for detailed trajectory tracking with Claude 4.6 Opus
+const FRAME_QUALITY = 0.8; // JPEG quality 80% for clear physics analysis
 const SUPABASE_VIDEO_BUCKET = 'video-uploads';
+const MAX_VIDEO_DURATION_WARNING = 60; // Warn if video > 60 seconds
+
+/** Processing step definition for the live progress bar */
+interface ProcessingStep {
+  id: string;
+  labelAr: string;
+  labelEn: string;
+  color: string;
+  icon: string;
+}
+
+const PROCESSING_STEPS: ProcessingStep[] = [
+  { id: 'trim', labelAr: 'جاري معالجة الجزء المختار...', labelEn: 'Trimming Video...', color: '#22c55e', icon: '🟢' },
+  { id: 'extract', labelAr: 'استخراج الصور الفيزيائية (10 إطارات)...', labelEn: 'Extracting Frames via Canvas...', color: '#3b82f6', icon: '🔵' },
+  { id: 'encode', labelAr: 'تشفير البيانات للذكاء الاصطناعي...', labelEn: 'Base64 Encoding...', color: '#eab308', icon: '🟡' },
+  { id: 'analyze', labelAr: 'Claude 4.6 Opus يحلل المسار الآن...', labelEn: 'AI Physics Reasoning...', color: '#a855f7', icon: '🟣' },
+];
 
 interface Props {
   lang: string;
@@ -87,6 +104,8 @@ const extractFramesFromVideo = (
   videoFile: File,
   maxFrames: number,
   onProgress: (pct: number) => void,
+  startTime?: number,
+  endTime?: number,
 ): Promise<{ frames: ExtractedFrame[]; fps: number; totalFrames: number }> => {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -105,21 +124,26 @@ const extractFramesFromVideo = (
 
     video.addEventListener('loadedmetadata', async () => {
       try {
-        const duration = await resolveVideoDuration(video);
+        const fullDuration = await resolveVideoDuration(video);
+
+        // Use trimmed range if provided, otherwise full video
+        const rangeStart = startTime != null && startTime >= 0 ? startTime : 0;
+        const rangeEnd = endTime != null && endTime > 0 ? Math.min(endTime, fullDuration) : fullDuration;
+        const duration = rangeEnd - rangeStart;
 
         // Set canvas size to a smaller resolution (max 384px wide) for reliable API payload size
         const scale = Math.min(1, 384 / video.videoWidth);
         canvas.width = Math.round(video.videoWidth * scale);
         canvas.height = Math.round(video.videoHeight * scale);
 
-        // Calculate frame timestamps to extract (evenly distributed)
+        // Calculate frame timestamps to extract (evenly distributed within trimmed range)
         const fps = 30; // Assume 30fps
         const totalFrames = Math.round(duration * fps);
         const numFrames = Math.min(maxFrames, totalFrames);
         const timestamps: number[] = [];
 
         for (let i = 0; i < numFrames; i++) {
-          timestamps.push((i / (numFrames - 1 || 1)) * duration);
+          timestamps.push(rangeStart + (i / (numFrames - 1 || 1)) * duration);
         }
 
         const frames: ExtractedFrame[] = [];
@@ -153,7 +177,7 @@ const extractFramesFromVideo = (
           });
 
           currentIdx++;
-          onProgress(Math.round((currentIdx / timestamps.length) * 40)); // 0-40% for extraction
+          onProgress(Math.round((currentIdx / timestamps.length) * 100));
 
           if (currentIdx >= timestamps.length) {
             URL.revokeObjectURL(url);
@@ -198,6 +222,16 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const videoUrlRef = useRef<string | null>(null);
   const [currentFileHash, setCurrentFileHash] = useState<string | null>(null);
+  // Trimming state
+  const [showTrimmer, setShowTrimmer] = useState(false);
+  const [trimFile, setTrimFile] = useState<File | null>(null);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [trimDuration, setTrimDuration] = useState(0);
+  const [trimPreviewUrl, setTrimPreviewUrl] = useState<string | null>(null);
+  const trimVideoRef = useRef<HTMLVideoElement>(null);
+  // Processing steps state
+  const [currentStep, setCurrentStep] = useState(-1);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -310,8 +344,52 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     return `${m}:${s}`;
   };
 
+  // Cleanup trimmer preview URL
+  useEffect(() => {
+    return () => {
+      if (trimPreviewUrl && trimPreviewUrl.startsWith('blob:')) URL.revokeObjectURL(trimPreviewUrl);
+    };
+  }, [trimPreviewUrl]);
+
+  // Open trimmer UI when a file is selected
+  const openTrimmer = (file: File) => {
+    // Revoke previous preview URL
+    if (trimPreviewUrl && trimPreviewUrl.startsWith('blob:')) URL.revokeObjectURL(trimPreviewUrl);
+    const url = URL.createObjectURL(file);
+    setTrimFile(file);
+    setTrimPreviewUrl(url);
+    setTrimStart(0);
+    setTrimEnd(0);
+    setTrimDuration(0);
+    setShowTrimmer(true);
+  };
+
+  // Handle trim video metadata loaded
+  const handleTrimVideoLoaded = async () => {
+    if (!trimVideoRef.current) return;
+    const video = trimVideoRef.current;
+    const dur = await resolveVideoDuration(video);
+    setTrimDuration(dur);
+    setTrimEnd(dur);
+    // Warn if video is too long
+    if (dur > MAX_VIDEO_DURATION_WARNING) {
+      toast.warning(
+        isAr
+          ? `⚠️ الفيديو طويل (${Math.round(dur)} ثانية). يُنصح بقص الجزء الذي يحتوي على حركة المقذوف فقط لتقليل استهلاك API.`
+          : `⚠️ Video is long (${Math.round(dur)}s). Please trim to the projectile motion section to reduce API usage.`
+      );
+    }
+  };
+
+  // Confirm trim and start analysis
+  const confirmTrimAndAnalyze = () => {
+    if (!trimFile) return;
+    setShowTrimmer(false);
+    analyzeVideoFile(trimFile, false, trimStart, trimEnd);
+  };
+
   // Shared analysis function for a video File
-  const analyzeVideoFile = async (file: File, skipDuplicateCheck?: boolean) => {
+  const analyzeVideoFile = async (file: File, skipDuplicateCheck?: boolean, startTime?: number, endTime?: number) => {
     // Compute file hash for duplicate detection (skip for recordings)
     let fileHash: string | undefined;
     if (!skipDuplicateCheck) {
@@ -332,12 +410,13 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     setAnalysisData(null);
     setAnalysisText('');
     setProgress(0);
+    setCurrentStep(0);
     setThumbnailUrl(null);
     // Revoke previous blob URL to prevent memory leak, then create new one
     if (videoUrlRef.current && videoUrlRef.current.startsWith('blob:')) URL.revokeObjectURL(videoUrlRef.current);
     const blobUrl = URL.createObjectURL(file);
     setVideoUrl(blobUrl);
-    setStatusText(isAr ? '\u062c\u0627\u0631\u064a \u0627\u0633\u062a\u062e\u0631\u0627\u062c \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0645\u0646 \u0627\u0644\u0641\u064a\u062f\u064a\u0648...' : 'Extracting frames from video...');
+    setStatusText(isAr ? PROCESSING_STEPS[0].labelAr : PROCESSING_STEPS[0].labelEn);
 
     // Upload video to Supabase Storage in parallel for persistent playback in history
     let persistentVideoUrl: string | undefined;
@@ -451,10 +530,18 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         setVideoUrl(persistentVideoUrl);
       }
 
+      // Step 1: Trimming — mark complete
+      setCurrentStep(1);
+      setStatusText(isAr ? PROCESSING_STEPS[1].labelAr : PROCESSING_STEPS[1].labelEn);
+      setProgress(10);
+
+      // Step 2: Extract frames from the trimmed range
       const extracted = await extractFramesFromVideo(
         file,
         MAX_FRAMES_TO_SEND,
-        (pct) => setProgress(pct),
+        (pct) => setProgress(10 + pct * 0.4), // 10-50% for extraction
+        startTime,
+        endTime,
       );
       frames = extracted.frames;
       const { fps, totalFrames } = extracted;
@@ -505,12 +592,21 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         // Worker analysis is best-effort; continue with API analysis
       }
 
-      setStatusText(isAr ? `تم استخراج ${frames.length} إطارات. جاري التحليل بواسطة Claude 4.6 Opus...` : `Extracted ${frames.length} frames. Analyzing with Claude 4.6 Opus...`);
-      setProgress(45);
+      // Step 3: Base64 encoding
+      setCurrentStep(2);
+      setStatusText(isAr ? PROCESSING_STEPS[2].labelAr : PROCESSING_STEPS[2].labelEn);
+      setProgress(55);
+      // Frames are already base64 from canvas.toDataURL — brief pause for UX
+      await new Promise(r => setTimeout(r, 300));
+
+      // Step 4: Claude 4.6 Opus analysis
+      setCurrentStep(3);
+      setStatusText(isAr ? PROCESSING_STEPS[3].labelAr : PROCESSING_STEPS[3].labelEn);
+      setProgress(60);
 
       progressInterval = setInterval(() => {
-        setProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 5);
-      }, 500);
+        setProgress(prev => prev >= 95 ? 95 : prev + Math.random() * 3);
+      }, 600);
 
       // Check payload size before sending (Supabase Edge Functions have ~6MB body limit)
       const buildPayload = () => JSON.stringify({
@@ -585,7 +681,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     const file = e.target.files?.[0];
     if (!file) return;
     if (fileRef.current) fileRef.current.value = '';
-    analyzeVideoFile(file, false);
+    // Open trimmer UI instead of directly analyzing
+    openTrimmer(file);
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
@@ -759,6 +856,151 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         document.body
       )}
 
+      {/* Video Trimmer Modal */}
+      {showTrimmer && trimPreviewUrl && createPortal(
+        <div className="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowTrimmer(false)}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-slideDown"
+            dir={isAr ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <Scissors className="w-4 h-4 text-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">
+                  {isAr ? 'قص الفيديو — حدد منطقة المقذوف' : 'Trim Video — Select Projectile Region'}
+                </h3>
+              </div>
+              <button onClick={() => setShowTrimmer(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Video Preview */}
+              <div className="w-full rounded-lg overflow-hidden border border-border/30 bg-black">
+                <video
+                  ref={trimVideoRef}
+                  src={trimPreviewUrl}
+                  controls
+                  playsInline
+                  muted
+                  className="w-full max-h-[250px] object-contain"
+                  onLoadedMetadata={handleTrimVideoLoaded}
+                />
+              </div>
+
+              {/* Trim Controls */}
+              {trimDuration > 0 && (
+                <div className="space-y-3">
+                  {/* Duration info */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{isAr ? `المدة الكاملة: ${trimDuration.toFixed(1)} ثانية` : `Full duration: ${trimDuration.toFixed(1)}s`}</span>
+                    <span className="font-mono text-foreground">
+                      {isAr ? `الجزء المختار: ${(trimEnd - trimStart).toFixed(1)} ث` : `Selected: ${(trimEnd - trimStart).toFixed(1)}s`}
+                    </span>
+                  </div>
+
+                  {/* Timeline bar with markers */}
+                  <div className="relative h-10 bg-secondary/50 rounded-lg border border-border overflow-hidden">
+                    {/* Selected range highlight */}
+                    <div
+                      className="absolute top-0 bottom-0 bg-primary/20 border-x-2 border-primary"
+                      style={{
+                        left: `${(trimStart / trimDuration) * 100}%`,
+                        width: `${((trimEnd - trimStart) / trimDuration) * 100}%`,
+                      }}
+                    />
+                    {/* Start marker */}
+                    <div
+                      className="absolute top-0 bottom-0 w-1 bg-green-500 cursor-ew-resize z-10"
+                      style={{ left: `${(trimStart / trimDuration) * 100}%` }}
+                    />
+                    {/* End marker */}
+                    <div
+                      className="absolute top-0 bottom-0 w-1 bg-red-500 cursor-ew-resize z-10"
+                      style={{ left: `${(trimEnd / trimDuration) * 100}%` }}
+                    />
+                  </div>
+
+                  {/* Start / End inputs */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                        <Play className="w-3 h-3 text-green-500" />
+                        {isAr ? 'نقطة البداية (ث)' : 'Start Point (s)'}
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={trimDuration}
+                        step={0.1}
+                        value={trimStart}
+                        onChange={e => {
+                          const v = parseFloat(e.target.value);
+                          setTrimStart(Math.min(v, trimEnd - 0.5));
+                          if (trimVideoRef.current) trimVideoRef.current.currentTime = v;
+                        }}
+                        className="w-full h-2 accent-green-500"
+                      />
+                      <span className="text-xs font-mono text-foreground">{trimStart.toFixed(1)}s</span>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                        <Square className="w-3 h-3 text-red-500" />
+                        {isAr ? 'نقطة النهاية (ث)' : 'End Point (s)'}
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={trimDuration}
+                        step={0.1}
+                        value={trimEnd}
+                        onChange={e => {
+                          const v = parseFloat(e.target.value);
+                          setTrimEnd(Math.max(v, trimStart + 0.5));
+                          if (trimVideoRef.current) trimVideoRef.current.currentTime = v;
+                        }}
+                        className="w-full h-2 accent-red-500"
+                      />
+                      <span className="text-xs font-mono text-foreground">{trimEnd.toFixed(1)}s</span>
+                    </div>
+                  </div>
+
+                  {/* Tip */}
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-2.5 text-[10px] text-muted-foreground">
+                    <span className="font-medium text-foreground">💡 {isAr ? 'نصيحة:' : 'Tip:'}</span>{' '}
+                    {isAr
+                      ? 'حدد فقط الجزء الذي يحتوي على حركة المقذوف (لحظة الانطلاق والمسار). هذا يوفر استهلاك API ويحسن دقة التحليل.'
+                      : 'Select only the segment containing projectile motion (launch moment and trajectory). This saves API tokens and improves analysis accuracy.'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-border flex gap-2">
+              <button
+                onClick={() => setShowTrimmer(false)}
+                className="flex-1 text-xs py-2.5 rounded-md border border-border hover:border-foreground/30 hover:bg-secondary transition-all duration-200 text-foreground"
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                onClick={confirmTrimAndAnalyze}
+                disabled={trimDuration <= 0}
+                className="flex-1 flex items-center justify-center gap-2 text-xs py-2.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 disabled:opacity-50 font-medium"
+              >
+                <Check className="w-4 h-4" />
+                {isAr ? 'تأكيد وحلّل' : 'Confirm & Analyze'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Camera Recording Modal */}
       {showCamera && createPortal(
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black">
@@ -856,15 +1098,57 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
               )}
 
               {isAnalyzing && (
-                <div className="space-y-3">
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    <span className="text-sm text-foreground font-medium">
-                      {statusText || (isAr ? 'جاري تحليل الفيديو...' : 'Analyzing video...')}
-                    </span>
-                    <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
+                <div className="space-y-4">
+                  {/* Step-by-step progress */}
+                  <div className="space-y-2">
+                    {PROCESSING_STEPS.map((step, idx) => {
+                      const isActive = idx === currentStep;
+                      const isDone = idx < currentStep;
+                      const isPending = idx > currentStep;
+                      return (
+                        <div
+                          key={step.id}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-300 ${
+                            isActive ? 'border-primary/50 bg-primary/5 shadow-sm' :
+                            isDone ? 'border-green-500/30 bg-green-500/5' :
+                            'border-border/30 bg-secondary/20 opacity-50'
+                          }`}
+                        >
+                          <div className="shrink-0 w-6 h-6 flex items-center justify-center">
+                            {isDone ? (
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                            ) : isActive ? (
+                              <Loader2 className="w-4 h-4 animate-spin" style={{ color: step.color }} />
+                            ) : (
+                              <span className="text-sm">{step.icon}</span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-medium ${isActive ? 'text-foreground' : isDone ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                              {isAr ? step.labelAr : step.labelEn}
+                            </p>
+                          </div>
+                          {isDone && (
+                            <span className="text-[9px] text-green-500 font-medium shrink-0">{isAr ? 'تم' : 'Done'}</span>
+                          )}
+                          {isActive && (
+                            <span className="text-[9px] font-mono shrink-0" style={{ color: step.color }}>
+                              {isPending ? '' : `${Math.round(progress)}%`}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <Progress value={progress} className="h-2" />
+
+                  {/* Overall progress bar */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>{statusText}</span>
+                      <span className="font-mono">{Math.round(progress)}%</span>
+                    </div>
+                    <Progress value={progress} className="h-2" />
+                  </div>
                 </div>
               )}
 
