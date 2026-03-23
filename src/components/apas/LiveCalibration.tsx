@@ -25,6 +25,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   const [diagramUnit, setDiagramUnit] = useState<LengthUnit>('cm');
   const [pixelsPerMeter, setPixelsPerMeter] = useState<number | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const imageUrlRef = useRef<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,9 +34,27 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   const t = (ar: string, en: string, fr: string) =>
     lang === 'ar' ? ar : lang === 'fr' ? fr : en;
 
+  // Keep ref in sync with state for cleanup
+  useEffect(() => {
+    imageUrlRef.current = imageUrl;
+  }, [imageUrl]);
+
+  // Revoke blob URL on unmount or when imageUrl changes
+  useEffect(() => {
+    return () => {
+      if (imageUrlRef.current && imageUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(imageUrlRef.current);
+      }
+    };
+  }, []);
+
   // Reset state when opened
   useEffect(() => {
     if (open) {
+      // Revoke old blob URL before resetting
+      if (imageUrl && imageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imageUrl);
+      }
       setStep(mediaSrc ? 'draw' : 'upload');
       setLineStart(null);
       setLineEnd(null);
@@ -46,6 +65,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
       setPixelsPerMeter(null);
       setImageUrl(mediaSrc || null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mediaSrc]);
 
   // Draw the calibration line on canvas
@@ -217,6 +237,10 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Revoke old blob URL before creating a new one
+    if (imageUrl && imageUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imageUrl);
+    }
     const url = URL.createObjectURL(file);
     setImageUrl(url);
     setStep('draw');
