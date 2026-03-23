@@ -7,12 +7,14 @@ import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeVideoFrame, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
 import { cleanLatex } from '@/utils/cleanLatex';
 import { analyzeBatchInWorker, getVideoQualityMessage, terminateVideoWorker } from '@/utils/videoWorkerManager';
+import { supabase } from '@/integrations/supabase/client';
 
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-analyze`;
 
 const CONFIDENCE_THRESHOLD = 60;
-const MAX_FRAMES_TO_SEND = 6; // Max frames to send to API (6 is reliable for Mistral API payload limits)
+const MAX_FRAMES_TO_SEND = 10; // More frames for better trajectory tracking (payload managed dynamically)
 const FRAME_QUALITY = 0.35; // JPEG quality for extracted frames (lower = smaller payload, still sufficient for AI analysis)
+const SUPABASE_VIDEO_BUCKET = 'video-uploads';
 
 interface Props {
   lang: string;
@@ -224,11 +226,11 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
     videoUrlRef.current = videoUrl;
   }, [videoUrl]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount — only revoke blob URLs, not Supabase URLs
   useEffect(() => {
     return () => {
       stopCameraStream();
-      if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
+      if (videoUrlRef.current && videoUrlRef.current.startsWith('blob:')) URL.revokeObjectURL(videoUrlRef.current);
     };
   }, [stopCameraStream]);
 
@@ -330,10 +332,33 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
     setProgress(0);
     setThumbnailUrl(null);
     // Revoke previous blob URL to prevent memory leak, then create new one
-    if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
+    if (videoUrlRef.current && videoUrlRef.current.startsWith('blob:')) URL.revokeObjectURL(videoUrlRef.current);
     const blobUrl = URL.createObjectURL(file);
     setVideoUrl(blobUrl);
     setStatusText(isAr ? '\u062c\u0627\u0631\u064a \u0627\u0633\u062a\u062e\u0631\u0627\u062c \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0645\u0646 \u0627\u0644\u0641\u064a\u062f\u064a\u0648...' : 'Extracting frames from video...');
+
+    // Upload video to Supabase Storage in parallel for persistent playback in history
+    let persistentVideoUrl: string | undefined;
+    const uploadPromise = (async () => {
+      try {
+        const ext = file.name.split('.').pop() || 'webm';
+        const storagePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from(SUPABASE_VIDEO_BUCKET)
+          .upload(storagePath, file, { contentType: file.type, upsert: false });
+        if (uploadError) {
+          console.warn('Video upload to storage failed:', uploadError.message);
+          return undefined;
+        }
+        const { data: urlData } = supabase.storage
+          .from(SUPABASE_VIDEO_BUCKET)
+          .getPublicUrl(storagePath);
+        return urlData?.publicUrl || undefined;
+      } catch (err) {
+        console.warn('Video upload error:', err);
+        return undefined;
+      }
+    })();
 
     // Smart quality check on file size
     const fileSizeIssue = checkFileSize(file);
@@ -365,8 +390,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
         // Notify parent that media was analyzed (for calibration tool awareness)
         if (historyThumb && onMediaAnalyzed) onMediaAnalyzed(historyThumb);
 
-        // Use blobUrl directly (not videoUrl state which has stale closure)
-        const currentVideoUrl = blobUrl;
+        // Use persistent Supabase URL for history (falls back to blob URL)
+        const currentVideoUrl = persistentVideoUrl || blobUrl;
 
         setHistory(prev => [{
           id: Date.now(),
@@ -378,6 +403,11 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
           thumbnailData: historyThumb,
           videoUrl: currentVideoUrl || undefined,
         }, ...prev].slice(0, 20));
+
+        // Update the displayed video URL to persistent one if available
+        if (persistentVideoUrl) {
+          setVideoUrl(persistentVideoUrl);
+        }
 
         if (result.detected && confidence >= CONFIDENCE_THRESHOLD) {
           onUpdateParams({
@@ -404,7 +434,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
           thumbnailName: sourceName,
           fileHash: fileHash,
           thumbnailData: historyThumb,
-          videoUrl: blobUrl || undefined,
+          videoUrl: persistentVideoUrl || blobUrl || undefined,
         }, ...prev].slice(0, 20));
       }
     };
@@ -412,6 +442,13 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
     let progressInterval: ReturnType<typeof setInterval> | undefined;
     let frames: { data: string; timestamp: number }[] = [];
     try {
+      // Wait for upload to complete in parallel with frame extraction
+      persistentVideoUrl = await uploadPromise;
+      if (persistentVideoUrl) {
+        // Switch to persistent URL for current display too
+        setVideoUrl(persistentVideoUrl);
+      }
+
       const extracted = await extractFramesFromVideo(
         file,
         MAX_FRAMES_TO_SEND,
@@ -796,14 +833,16 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* Video player - full display when results shown */}
-              {!isAnalyzing && (videoUrl || thumbnailUrl) && (
+              {/* Video player - always visible for playback (during and after analysis) */}
+              {(videoUrl || thumbnailUrl) && (
                 <div className="w-full">
                   {videoUrl ? (
                     <video
                       src={videoUrl}
                       controls
                       playsInline
+                      autoPlay
+                      muted
                       className="w-full rounded-lg border border-border/30"
                     />
                   ) : thumbnailUrl ? (

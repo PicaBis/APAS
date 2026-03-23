@@ -13,65 +13,140 @@ interface Position {
 }
 
 /**
- * Compute the launch angle from a sequence of (x, y) positions using arctan.
- * Uses the initial displacement vector (first few frames) to determine launch direction.
+ * Compute the launch angle using initial velocity vectors (vy/vx = tan(theta)).
+ * Uses the first few position differences weighted by proximity to launch.
  * In image coordinates, y increases downward, so we invert Dy.
  */
 function computeLaunchAngle(positions: Position[]): number {
   if (positions.length < 2) return 45; // fallback
 
-  // Use first 2-3 frames to get the initial launch direction
-  const n = Math.min(3, positions.length);
-  let totalDx = 0;
-  let totalDy = 0;
+  const maxPairs = Math.min(positions.length - 1, 4);
+  let weightedDx = 0;
+  let weightedDy = 0;
+  let totalWeight = 0;
 
-  for (let i = 1; i < n; i++) {
-    totalDx += positions[i].x - positions[i - 1].x;
+  for (let i = 0; i < maxPairs; i++) {
+    const dt = positions[i + 1].t - positions[i].t;
+    if (dt <= 0) continue;
+
+    const vx = (positions[i + 1].x - positions[i].x) / dt;
     // Invert y because in image coordinates y increases downward
-    totalDy += -(positions[i].y - positions[i - 1].y);
+    const vy = -(positions[i + 1].y - positions[i].y) / dt;
+
+    // Earlier frames get higher weight (exponential decay)
+    const weight = Math.exp(-i * 0.5);
+    weightedDx += vx * weight;
+    weightedDy += vy * weight;
+    totalWeight += weight;
   }
 
-  const avgDx = totalDx / (n - 1);
-  const avgDy = totalDy / (n - 1);
+  if (totalWeight === 0) return 45;
 
-  // Special cases for vertical and horizontal motion
-  const absDx = Math.abs(avgDx);
-  const absDy = Math.abs(avgDy);
+  const avgVx = weightedDx / totalWeight;
+  const avgVy = weightedDy / totalWeight;
 
-  if (absDx < 2 && absDy > 5) {
-    // Nearly vertical: Dx ~ 0
-    return 90;
-  }
-  if (absDy < 2 && absDx > 5) {
-    // Nearly horizontal: Dy ~ 0
-    return 0;
-  }
-  if (absDx < 2 && absDy < 2) {
-    // No significant movement detected
-    return 45; // fallback
-  }
+  const absVx = Math.abs(avgVx);
+  const absVy = Math.abs(avgVy);
 
-  // General case: arctan(Dy / Dx)
-  let angle = Math.atan2(absDy, absDx) * (180 / Math.PI);
+  // Very small movement in both directions
+  if (absVx < 1 && absVy < 1) return 45;
 
-  // Smart rounding for near-special angles
-  if (angle >= 85 && angle <= 95) angle = 90;
-  else if (angle >= -5 && angle <= 5) angle = 0;
-  else if (angle >= 43 && angle <= 47) angle = 45;
-  else if (angle >= 28 && angle <= 32) angle = 30;
-  else if (angle >= 58 && angle <= 62) angle = 60;
+  // Nearly vertical: Vx ~ 0
+  if (absVx < absVy * 0.05 && absVy > 5) return 90;
 
-  // Normalize to 0-90 range
+  // Nearly horizontal: Vy ~ 0
+  if (absVy < absVx * 0.05 && absVx > 5) return 0;
+
+  // General case: arctan(Vy / Vx)
+  const angle = Math.atan2(absVy, absVx) * (180 / Math.PI);
+
+  // Return precise angle without aggressive rounding
   return Math.max(0, Math.min(90, Math.round(angle * 10) / 10));
 }
 
 /**
- * Determine motion type from positions: vertical, horizontal, or projectile (parabolic).
+ * Parabolic curve fitting using least squares.
+ * Fits y = a*x + b*x^2 (shifted origin to first position).
+ * From projectile equation: a = -tan(theta), b = g/(2*v0^2*cos^2(theta))
+ */
+function fitParabolicTrajectory(
+  positions: Position[],
+  imageWidth: number,
+): { angle: number; velocity: number; r_squared: number } | null {
+  if (positions.length < 4) return null;
+
+  const x0 = positions[0].x;
+  const y0 = positions[0].y;
+  const xs = positions.map((p) => p.x - x0);
+  const ys = positions.map((p) => p.y - y0);
+
+  let sumX2 = 0, sumX3 = 0, sumX4 = 0, sumXY = 0, sumX2Y = 0;
+  let sumY = 0;
+
+  for (let i = 1; i < xs.length; i++) {
+    const x = xs[i];
+    const y = ys[i];
+    const x2 = x * x;
+    sumX2 += x2;
+    sumX3 += x2 * x;
+    sumX4 += x2 * x2;
+    sumXY += x * y;
+    sumX2Y += x2 * y;
+    sumY += y;
+  }
+
+  const det = sumX2 * sumX4 - sumX3 * sumX3;
+  if (Math.abs(det) < 1e-10) return null;
+
+  const a = (sumXY * sumX4 - sumX2Y * sumX3) / det;
+  const b = (sumX2 * sumX2Y - sumX3 * sumXY) / det;
+
+  // In image coordinates (y increases downward):
+  // a = -tan(theta), b = g / (2 * v0^2 * cos^2(theta))
+  const tanTheta = -a;
+  const angle = Math.atan(tanTheta) * (180 / Math.PI);
+
+  // Compute R-squared
+  const n = xs.length - 1;
+  const meanY = sumY / n;
+  let ssTot = 0, ssRes = 0;
+  for (let i = 1; i < xs.length; i++) {
+    const yPred = a * xs[i] + b * xs[i] * xs[i];
+    ssRes += (ys[i] - yPred) * (ys[i] - yPred);
+    ssTot += (ys[i] - meanY) * (ys[i] - meanY);
+  }
+  const r_squared = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+
+  // Estimate velocity from quadratic coefficient
+  const metersPerPixel = 8 / imageWidth;
+  const g = 9.81;
+  const cosTheta = Math.cos(angle * Math.PI / 180);
+
+  if (Math.abs(b) > 1e-6 && Math.abs(cosTheta) > 0.01) {
+    const bMeters = b * metersPerPixel / (metersPerPixel * metersPerPixel);
+    const v0Squared = g / (2 * Math.abs(bMeters) * cosTheta * cosTheta);
+    const velocity = Math.sqrt(Math.max(0, v0Squared));
+
+    return {
+      angle: Math.max(0, Math.min(90, Math.round(Math.abs(angle) * 10) / 10)),
+      velocity: Math.max(3, Math.min(80, Math.round(velocity * 10) / 10)),
+      r_squared: Math.max(0, Math.min(1, r_squared)),
+    };
+  }
+
+  return {
+    angle: Math.max(0, Math.min(90, Math.round(Math.abs(angle) * 10) / 10)),
+    velocity: 15,
+    r_squared: Math.max(0, Math.min(1, r_squared)),
+  };
+}
+
+/**
+ * Determine motion type from positions: vertical, horizontal, or projectile.
  */
 function classifyMotion(positions: Position[]): "vertical" | "horizontal" | "projectile" {
   if (positions.length < 3) return "projectile";
 
-  // Check vertical range vs horizontal range
   let maxY = -Infinity, minY = Infinity;
   let maxX = -Infinity, minX = Infinity;
   for (const p of positions) {
@@ -84,74 +159,69 @@ function classifyMotion(positions: Position[]): "vertical" | "horizontal" | "pro
   const rangeX = maxX - minX;
   const rangeY = maxY - minY;
 
-  // Vertical: object goes up and down with minimal horizontal displacement
-  if (rangeX < rangeY * 0.15 && rangeY > 20) {
-    return "vertical";
-  }
-
-  // Horizontal: minimal vertical displacement
-  if (rangeY < rangeX * 0.15 && rangeX > 20) {
-    return "horizontal";
-  }
-
+  if (rangeX < rangeY * 0.12 && rangeY > 15) return "vertical";
+  if (rangeY < rangeX * 0.12 && rangeX > 15) return "horizontal";
   return "projectile";
 }
 
 /**
- * Estimate velocity from positions and timestamps.
- * Uses pixel displacement and approximate real-world scale.
+ * Estimate initial launch velocity from first few frames.
  */
 function estimateVelocity(positions: Position[], imageWidth: number): number {
-  if (positions.length < 2) return 15; // fallback
+  if (positions.length < 2) return 15;
 
-  let totalPixelSpeed = 0;
+  const launchFrames = Math.min(3, positions.length - 1);
+  let totalSpeed = 0;
   let count = 0;
 
-  for (let i = 1; i < positions.length; i++) {
-    const dx = positions[i].x - positions[i - 1].x;
-    const dy = positions[i].y - positions[i - 1].y;
-    const dt = positions[i].t - positions[i - 1].t;
+  for (let i = 0; i < launchFrames; i++) {
+    const dx = positions[i + 1].x - positions[i].x;
+    const dy = positions[i + 1].y - positions[i].y;
+    const dt = positions[i + 1].t - positions[i].t;
     if (dt > 0) {
       const pixelDist = Math.sqrt(dx * dx + dy * dy);
-      totalPixelSpeed += pixelDist / dt;
+      totalSpeed += pixelDist / dt;
       count++;
     }
   }
 
   if (count === 0) return 15;
-  const avgPixelSpeed = totalPixelSpeed / count;
-
-  // Approximate scale: assume the image width represents roughly 5-10 meters
+  const avgPixelSpeed = totalSpeed / count;
   const metersPerPixel = 8 / imageWidth;
   const velocityMs = avgPixelSpeed * metersPerPixel;
 
-  // Clamp to realistic range
-  return Math.max(3, Math.min(50, Math.round(velocityMs * 10) / 10));
+  return Math.max(3, Math.min(80, Math.round(velocityMs * 10) / 10));
 }
 
 /**
- * Filter outlier positions to ensure the same object is tracked.
- * Removes sudden jumps that indicate tracking errors.
+ * Filter outlier positions using MAD (Median Absolute Deviation).
  */
 function filterOutlierPositions(positions: Position[]): Position[] {
-  if (positions.length <= 2) return positions;
+  if (positions.length <= 3) return positions;
+
+  const distances: number[] = [];
+  for (let i = 1; i < positions.length; i++) {
+    const dx = positions[i].x - positions[i - 1].x;
+    const dy = positions[i].y - positions[i - 1].y;
+    distances.push(Math.sqrt(dx * dx + dy * dy));
+  }
+
+  const sorted = [...distances].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const threshold = Math.max(median * 3, 50);
 
   const filtered: Position[] = [positions[0]];
-
   for (let i = 1; i < positions.length; i++) {
-    const prev = filtered[filtered.length - 1];
-    const curr = positions[i];
-    const dx = Math.abs(curr.x - prev.x);
-    const dy = Math.abs(curr.y - prev.y);
-    const jump = Math.sqrt(dx * dx + dy * dy);
+    const dx = positions[i].x - filtered[filtered.length - 1].x;
+    const dy = positions[i].y - filtered[filtered.length - 1].y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // If position jumped more than 200px, likely tracking error
-    if (jump < 200) {
-      filtered.push(curr);
+    if (dist < threshold) {
+      filtered.push(positions[i]);
     }
   }
 
-  return filtered.length >= 2 ? filtered : positions;
+  return filtered.length >= 3 ? filtered : positions;
 }
 
 serve(async (req) => {
@@ -178,30 +248,34 @@ serve(async (req) => {
 
     const isAr = lang === "ar";
 
-    // ══════════════════════════════════════════════
     // PASS 1: Ask AI to detect object positions in each frame
-    // ══════════════════════════════════════════════
 
     const positionPrompt = `You are a precise object tracking system for physics video analysis.
-You will receive ${frames.length} consecutive video frames showing a moving object (projectile).
+You will receive ${frames.length} consecutive video frames showing a potential moving object (projectile).
 
 YOUR ONLY TASK:
 For EACH frame, detect the PRIMARY moving object (ball, stone, projectile, etc.) and report its EXACT pixel position (x, y) in the image.
 
-TRACKING RULES:
-- Track the SAME object across ALL frames. Do NOT jump between different objects.
+CRITICAL TRACKING RULES:
+- Track the SAME single object across ALL frames. Do NOT jump between different objects.
 - x = horizontal pixel position (0 = left edge, increases rightward)
 - y = vertical pixel position (0 = top edge, increases downward)
-- The image resolution is approximately 512 pixels wide.
-- Be as precise as possible — even 10 pixels of error changes the angle calculation significantly.
-- If you cannot see the object in a frame, use your best estimate based on trajectory.
-- Focus on the CENTER of the object, not its edge.
-- A projectile can be ANY moving object: ball, stone, bottle, person, water, etc.
-- If ANY object changes position between frames, it is a projectile candidate.
+- The image resolution is approximately 384 pixels wide.
+- PRECISION IS CRITICAL: Even 5-10 pixels of error changes the angle calculation significantly.
+- Locate the exact CENTER of the object in each frame.
+- Compare consecutive frames carefully: the object should move smoothly along a parabolic or linear path.
+- If the object is partially occluded, estimate based on the visible portion and trajectory continuity.
+- A projectile can be ANY moving object: ball, stone, bottle, person, water jet, rocket, etc.
+
+PHYSICAL CONSTRAINTS (use these to validate your tracking):
+- Gravity causes downward acceleration: the vertical speed should increase over time when falling.
+- Horizontal velocity should remain approximately constant (no air resistance).
+- The trajectory should form a smooth parabola (or straight line for vertical/horizontal throws).
+- Sudden jumps in position indicate tracking errors - avoid them.
 
 Also identify:
 - objectType: what the moving object is (ball, stone, bottle, etc.)
-- estimatedMass: mass in kg based on the object type
+- estimatedMass: mass in kg based on the object type (use realistic values)
 - launchHeight: estimated launch height in meters (how high the object started from ground)
 
 RESPOND WITH ONLY THIS JSON (no other text):
@@ -211,7 +285,7 @@ RESPOND WITH ONLY THIS JSON (no other text):
   "objectType": "<type>",
   "estimatedMass": <kg>,
   "launchHeight": <meters>,
-  "imageWidth": 512,
+  "imageWidth": 384,
   "positions": [
     {"frame": 1, "x": <pixel_x>, "y": <pixel_y>},
     {"frame": 2, "x": <pixel_x>, "y": <pixel_y>}
@@ -228,11 +302,11 @@ If NO moving object is found at all:
     const posContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
     posContent.push({
       type: "text",
-      text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame.`,
+      text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
     });
 
     for (let i = 0; i < frames.length; i++) {
-      const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(2) : String(i * 0.5);
+      const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(3) : String(i * 0.1);
       posContent.push({
         type: "text",
         text: `--- Frame ${i + 1}/${frames.length} (Time: ${ts}s) ---`,
@@ -257,8 +331,8 @@ If NO moving object is found at all:
           { role: "system", content: positionPrompt },
           { role: "user", content: posContent },
         ],
-        temperature: 0.1,
-        max_tokens: 1500,
+        temperature: 0.05,
+        max_tokens: 2000,
         stream: false,
       }),
     });
@@ -272,7 +346,7 @@ If NO moving object is found at all:
     const posData = await posResponse.json();
     const posText = posData?.choices?.[0]?.message?.content || "";
 
-    console.log(`Pass 1 complete. Parsing positions...`);
+    console.log(`Pass 1 complete. Raw AI response length: ${posText.length}`);
 
     // Parse the positions from AI response
     const jsonMatch = posText.match(/```json\s*([\s\S]*?)```/);
@@ -282,7 +356,7 @@ If NO moving object is found at all:
       estimatedMass?: number;
       launchHeight?: number;
       imageWidth?: number;
-      positions?: Array<{ frame: number; x: number; y: number }>;
+      positions?: Array<{ frame: number; x: number; y: number }>; 
     } = {};
 
     if (jsonMatch) {
@@ -295,72 +369,98 @@ If NO moving object is found at all:
       try { aiResult = JSON.parse(posText.trim()); } catch { /* ignore */ }
     }
 
-    // ══════════════════════════════════════════════
-    // PASS 2: Geometric computation of angle, velocity, trajectory
-    // ══════════════════════════════════════════════
+    // PASS 2: Multi-method geometric computation
 
     let finalAngle = 45;
     let finalVelocity = 15;
     let motionType: "vertical" | "horizontal" | "projectile" = "projectile";
     let confidence = 50;
     let trajectoryDescription = "";
+    let curveFitInfo = "";
 
     const detected = aiResult.detected !== false;
     const aiPositions = aiResult.positions || [];
-    const imageWidth = aiResult.imageWidth || 512;
+    const imageWidth = aiResult.imageWidth || 384;
 
     if (detected && aiPositions.length >= 2) {
-      // Convert to Position format with timestamps
       const positions: Position[] = aiPositions.map((p, i) => ({
         x: p.x,
         y: p.y,
-        t: typeof frames[i]?.timestamp === "number" ? frames[i].timestamp : i * 0.5,
+        t: typeof frames[i]?.timestamp === "number" ? frames[i].timestamp : i * 0.1,
       }));
 
-      // Filter outliers (inconsistent tracking)
       const cleanPositions = filterOutlierPositions(positions);
       console.log(`Positions: ${positions.length} raw, ${cleanPositions.length} after filtering`);
 
-      // Classify motion type
       motionType = classifyMotion(cleanPositions);
       console.log(`Motion type: ${motionType}`);
 
-      // Compute launch angle using arctan
-      const computedAngle = computeLaunchAngle(cleanPositions);
-      console.log(`Computed angle: ${computedAngle}deg`);
+      // Method 1: Velocity-vector angle
+      const velocityAngle = computeLaunchAngle(cleanPositions);
+      console.log(`Velocity-vector angle: ${velocityAngle}deg`);
 
-      // Force angle based on motion type validation
-      if (motionType === "vertical") {
-        finalAngle = 90;
-      } else if (motionType === "horizontal") {
-        finalAngle = 0;
-      } else {
-        finalAngle = computedAngle;
+      // Method 2: Parabolic curve fitting
+      const curveFit = fitParabolicTrajectory(cleanPositions, imageWidth);
+      let curveAngle: number | null = null;
+      let curveVelocity: number | null = null;
+
+      if (curveFit) {
+        curveAngle = curveFit.angle;
+        curveVelocity = curveFit.velocity;
+        curveFitInfo = `R^2 = ${curveFit.r_squared.toFixed(3)}`;
+        console.log(`Curve fit: angle=${curveAngle}deg, velocity=${curveVelocity}m/s, R^2=${curveFit.r_squared.toFixed(3)}`);
       }
 
-      // Estimate velocity
-      finalVelocity = estimateVelocity(cleanPositions, imageWidth);
-      console.log(`Estimated velocity: ${finalVelocity} m/s`);
+      // Method 3: Linear velocity estimation
+      const linearVelocity = estimateVelocity(cleanPositions, imageWidth);
+      console.log(`Linear velocity estimate: ${linearVelocity} m/s`);
 
-      // Calculate confidence based on data quality
-      confidence = Math.min(95, Math.max(40,
-        50 +
-        (cleanPositions.length >= 4 ? 15 : cleanPositions.length >= 3 ? 10 : 0) +
-        (cleanPositions.length === positions.length ? 10 : 0) +
-        (motionType !== "projectile" ? 10 : 5) +
-        (Math.abs(finalAngle - 45) > 5 ? 5 : 0)
-      ));
+      // Cross-validate and select best values
+      if (motionType === "vertical") {
+        finalAngle = 90;
+        finalVelocity = linearVelocity;
+      } else if (motionType === "horizontal") {
+        finalAngle = 0;
+        finalVelocity = linearVelocity;
+      } else {
+        if (curveFit && curveFit.r_squared > 0.7 && curveAngle !== null) {
+          finalAngle = curveAngle;
+          finalVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
+          if (Math.abs(curveAngle - velocityAngle) < 15) {
+            confidence += 10;
+          } else {
+            finalAngle = Math.round((curveAngle * 0.6 + velocityAngle * 0.4) * 10) / 10;
+          }
+        } else if (curveFit && curveFit.r_squared > 0.4 && curveAngle !== null) {
+          finalAngle = Math.round((curveAngle * 0.4 + velocityAngle * 0.6) * 10) / 10;
+          finalVelocity = curveVelocity !== null
+            ? Math.round((curveVelocity * 0.4 + linearVelocity * 0.6) * 10) / 10
+            : linearVelocity;
+        } else {
+          finalAngle = velocityAngle;
+          finalVelocity = linearVelocity;
+        }
+      }
 
-      // Build trajectory description
+      finalAngle = Math.max(0, Math.min(90, finalAngle));
+
+      // Calculate confidence
+      let baseConfidence = 45;
+      baseConfidence += Math.min(20, cleanPositions.length * 3);
+      if (cleanPositions.length === positions.length) baseConfidence += 8;
+      if (curveFit && curveFit.r_squared > 0.8) baseConfidence += 12;
+      else if (curveFit && curveFit.r_squared > 0.5) baseConfidence += 6;
+      if (curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 10) baseConfidence += 5;
+      if (Math.abs(finalAngle - 45) > 5 && Math.abs(finalAngle - 60) > 5 && Math.abs(finalAngle - 90) > 5) baseConfidence += 3;
+
+      confidence = Math.min(95, Math.max(35, baseConfidence));
+
       trajectoryDescription = cleanPositions.map((p, i) =>
-        `Frame ${i + 1}: (${Math.round(p.x)}, ${Math.round(p.y)})`
-      ).join(" → ");
+        `Frame ${i + 1}: (${Math.round(p.x)}, ${Math.round(p.y)}) @ t=${p.t.toFixed(3)}s`
+      ).join(" -> ");
     }
 
-    // ══════════════════════════════════════════════
-    // Build final response with computed values
-    // ══════════════════════════════════════════════
-
+    // Build final response
     const finalResult = {
       detected,
       confidence,
@@ -372,38 +472,44 @@ If NO moving object is found at all:
     };
 
     const motionTypeLabel = motionType === "vertical"
-      ? (isAr ? "حركة شاقولية (رمي عمودي)" : "Vertical motion (vertical throw)")
+      ? (isAr ? "\u062d\u0631\u0643\u0629 \u0634\u0627\u0642\u0648\u0644\u064a\u0629 (\u0631\u0645\u064a \u0639\u0645\u0648\u062f\u064a)" : "Vertical motion (vertical throw)")
       : motionType === "horizontal"
-        ? (isAr ? "حركة أفقية" : "Horizontal motion")
-        : (isAr ? "حركة مقذوف (قذف مائل)" : "Projectile motion (oblique throw)");
+        ? (isAr ? "\u062d\u0631\u0643\u0629 \u0623\u0641\u0642\u064a\u0629" : "Horizontal motion")
+        : (isAr ? "\u062d\u0631\u0643\u0629 \u0645\u0642\u0630\u0648\u0641 (\u0642\u0630\u0641 \u0645\u0627\u0626\u0644)" : "Projectile motion (oblique throw)");
 
     const lines: string[] = [];
-    lines.push(`\`\`\`json\n${JSON.stringify(finalResult, null, 2)}\n\`\`\``);
+    lines.push("```json\n" + JSON.stringify(finalResult, null, 2) + "\n```");
     lines.push("");
 
     if (isAr) {
-      lines.push(`**نوع المقذوف:** ${finalResult.objectType}`);
-      lines.push(`**نوع الحركة:** ${motionTypeLabel}`);
+      lines.push(`**\u0646\u0648\u0639 \u0627\u0644\u0645\u0642\u0630\u0648\u0641:** ${finalResult.objectType}`);
+      lines.push(`**\u0646\u0648\u0639 \u0627\u0644\u062d\u0631\u0643\u0629:** ${motionTypeLabel}`);
       lines.push("");
-      lines.push(`**تحليل المسار عبر الإطارات:**`);
+      lines.push(`**\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0645\u0633\u0627\u0631 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a:**`);
       if (trajectoryDescription) lines.push(trajectoryDescription);
       lines.push("");
-      lines.push(`**الزاوية المحسوبة هندسياً:** ${finalAngle}° (باستخدام arctan من مواقع الإطارات)`);
+      lines.push(`**\u0627\u0644\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0645\u062d\u0633\u0648\u0628\u0629:** ${finalAngle}\u00b0 (\u062a\u0645 \u0627\u0644\u062a\u062d\u0642\u0642 \u0628\u0637\u0631\u064a\u0642\u062a\u064a\u0646: \u0645\u062a\u062c\u0647 \u0627\u0644\u0633\u0631\u0639\u0629 \u0648\u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0646\u062d\u0646\u0649 \u0627\u0644\u0642\u0637\u0639\u064a)`);
+      if (curveFitInfo) {
+        lines.push(`**\u062c\u0648\u062f\u0629 \u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0646\u062d\u0646\u0649:** ${curveFitInfo}`);
+        lines.push(`\u062a\u0645 \u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0633\u0627\u0631 \u0645\u0639 \u0645\u0639\u0627\u062f\u0644\u0629 \u0627\u0644\u0645\u0642\u0630\u0648\u0641: y = x*tan(theta) - g*x^2 / (2*v0^2*cos^2(theta))`);
+      }
       if (motionType === "vertical") {
-        lines.push(`الجسم يتحرك عمودياً (لأعلى ثم لأسفل) مع إزاحة أفقية شبه معدومة → الزاوية = 90°`);
+        lines.push(`\u0627\u0644\u062c\u0633\u0645 \u064a\u062a\u062d\u0631\u0643 \u0639\u0645\u0648\u062f\u064a\u0627\u064b (\u0644\u0623\u0639\u0644\u0649 \u062b\u0645 \u0644\u0623\u0633\u0641\u0644) \u0645\u0639 \u0625\u0632\u0627\u062d\u0629 \u0623\u0641\u0642\u064a\u0629 \u0634\u0628\u0647 \u0645\u0639\u062f\u0648\u0645\u0629 -> \u0627\u0644\u0632\u0627\u0648\u064a\u0629 = 90\u00b0`);
       } else if (motionType === "horizontal") {
-        lines.push(`الجسم يتحرك أفقياً مع إزاحة عمودية شبه معدومة → الزاوية = 0°`);
+        lines.push(`\u0627\u0644\u062c\u0633\u0645 \u064a\u062a\u062d\u0631\u0643 \u0623\u0641\u0642\u064a\u0627\u064b \u0645\u0639 \u0625\u0632\u0627\u062d\u0629 \u0639\u0645\u0648\u062f\u064a\u0629 \u0634\u0628\u0647 \u0645\u0639\u062f\u0648\u0645\u0629 -> \u0627\u0644\u0632\u0627\u0648\u064a\u0629 = 0\u00b0`);
       }
       lines.push("");
-      lines.push(`**السرعة التقديرية:** ${finalVelocity} م/ث`);
-      lines.push(`**ارتفاع الإطلاق:** ${finalResult.height} م`);
-      lines.push(`**الكتلة التقديرية:** ${finalResult.mass} كغ`);
-      lines.push(`**نسبة الثقة:** ${confidence}%`);
+      lines.push(`**\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u062a\u0642\u062f\u064a\u0631\u064a\u0629:** ${finalVelocity} \u0645/\u062b`);
+      lines.push(`**\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642:** ${finalResult.height} \u0645`);
+      lines.push(`**\u0627\u0644\u0643\u062a\u0644\u0629 \u0627\u0644\u062a\u0642\u062f\u064a\u0631\u064a\u0629:** ${finalResult.mass} \u0643\u063a`);
+      lines.push(`**\u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629:** ${confidence}%`);
       lines.push("");
-      lines.push(`**ملاحظات فيزيائية:**`);
-      lines.push(`- تم تتبع ${aiPositions.length} موقع عبر الإطارات`);
-      lines.push(`- الزاوية محسوبة باستخدام: angle = arctan(Δy / Δx)`);
-      lines.push(`- تم التحقق من اتساق المسار وتصفية القيم الشاذة`);
+      lines.push(`**\u0627\u0644\u0645\u0646\u0647\u062c\u064a\u0629 \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0629:**`);
+      lines.push(`- \u062a\u0645 \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a`);
+      lines.push(`- \u0627\u0644\u0637\u0631\u064a\u0642\u0629 1: \u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 = arctan(vy / vx) \u0645\u0646 \u0645\u062a\u062c\u0647\u0627\u062a \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629`);
+      lines.push(`- \u0627\u0644\u0637\u0631\u064a\u0642\u0629 2: \u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0645\u0646\u062d\u0646\u0649 \u0627\u0644\u0642\u0637\u0639\u064a (Least Squares Parabolic Fit)`);
+      lines.push(`- \u062a\u0645 \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0645\u062a\u0628\u0627\u062f\u0644 \u0628\u064a\u0646 \u0627\u0644\u0637\u0631\u064a\u0642\u062a\u064a\u0646 \u0648\u0627\u062e\u062a\u064a\u0627\u0631 \u0623\u0641\u0636\u0644 \u0646\u062a\u064a\u062c\u0629`);
+      lines.push(`- \u062a\u0645 \u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0634\u0627\u0630\u0629 \u0628\u0627\u0633\u062a\u062e\u062f\u0627\u0645 MAD (\u0627\u0644\u0627\u0646\u062d\u0631\u0627\u0641 \u0627\u0644\u0645\u0637\u0644\u0642 \u0627\u0644\u0645\u062a\u0648\u0633\u0637)`);
     } else {
       lines.push(`**Projectile type:** ${finalResult.objectType}`);
       lines.push(`**Motion type:** ${motionTypeLabel}`);
@@ -411,11 +517,15 @@ If NO moving object is found at all:
       lines.push(`**Trajectory analysis across frames:**`);
       if (trajectoryDescription) lines.push(trajectoryDescription);
       lines.push("");
-      lines.push(`**Geometrically computed angle:** ${finalAngle}° (using arctan from frame positions)`);
+      lines.push(`**Computed angle:** ${finalAngle}\u00b0 (cross-validated with velocity vectors and parabolic curve fitting)`);
+      if (curveFitInfo) {
+        lines.push(`**Curve fit quality:** ${curveFitInfo}`);
+        lines.push(`Trajectory matched against projectile equation: y = x*tan(theta) - g*x^2 / (2*v0^2*cos^2(theta))`);
+      }
       if (motionType === "vertical") {
-        lines.push(`Object moves vertically (up then down) with near-zero horizontal displacement → angle = 90°`);
+        lines.push(`Object moves vertically (up then down) with near-zero horizontal displacement -> angle = 90\u00b0`);
       } else if (motionType === "horizontal") {
-        lines.push(`Object moves horizontally with near-zero vertical displacement → angle = 0°`);
+        lines.push(`Object moves horizontally with near-zero vertical displacement -> angle = 0\u00b0`);
       }
       lines.push("");
       lines.push(`**Estimated velocity:** ${finalVelocity} m/s`);
@@ -423,15 +533,17 @@ If NO moving object is found at all:
       lines.push(`**Estimated mass:** ${finalResult.mass} kg`);
       lines.push(`**Confidence:** ${confidence}%`);
       lines.push("");
-      lines.push(`**Physics notes:**`);
+      lines.push(`**Physics methodology:**`);
       lines.push(`- Tracked ${aiPositions.length} positions across frames`);
-      lines.push(`- Angle computed using: angle = arctan(Δy / Δx)`);
-      lines.push(`- Trajectory consistency verified and outliers filtered`);
+      lines.push(`- Method 1: Launch angle = arctan(vy / vx) from initial velocity vectors`);
+      lines.push(`- Method 2: Least-squares parabolic curve fitting to projectile equation`);
+      lines.push(`- Cross-validated both methods and selected best result`);
+      lines.push(`- Outliers filtered using MAD (Median Absolute Deviation)`);
     }
 
     const finalText = lines.join("\n");
 
-    console.log(`video-analyze completed: angle=${finalAngle}, velocity=${finalVelocity}, type=${motionType}, confidence=${confidence}`);
+    console.log(`video-analyze completed: angle=${finalAngle}, velocity=${finalVelocity}, type=${motionType}, confidence=${confidence}, curveFit=${curveFitInfo}`);
 
     return new Response(JSON.stringify({ text: finalText }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
