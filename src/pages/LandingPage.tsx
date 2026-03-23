@@ -543,7 +543,7 @@ const LandingPage: React.FC = () => {
                 <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
               </a>
               <a
-                href="https://github.com/PicaBis/APAS/releases/latest"
+                href="https://github.com/PicaBis/APAS/releases/tag/v1.0.1"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#E95420] to-[#77216F] text-white rounded-xl font-semibold text-base shadow-lg shadow-[#E95420]/25 hover:shadow-xl hover:shadow-[#E95420]/40 hover:-translate-y-1 transition-all duration-300"
