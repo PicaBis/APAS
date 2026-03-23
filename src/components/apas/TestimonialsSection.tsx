@@ -25,6 +25,14 @@ const FacebookIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const TESTIMONIALS_ROW1: Testimonial[] = [
   {
+    name: 'EV1L',
+    handle: 'ev1l0251',
+    avatar: '/avatars/ev1l.png',
+    text: 'تطبيق أسطوري! المحاكاة ثلاثية الأبعاد والذكاء الاصطناعي خلّوني أفهم الفيزياء بطريقة ما كنت أتخيلها. الواجهة سلسة والأدوات متقدمة جداً.',
+    lang: 'ar',
+    platform: 'x',
+  },
+  {
     name: 'Ahmed Khelifi',
     handle: '@ahmed_khelifi',
     avatar: '/avatars/ahmed_k.jpg',
@@ -38,6 +46,14 @@ const TESTIMONIALS_ROW1: Testimonial[] = [
     avatar: '/avatars/emily_c.jpg',
     text: "I've tried PhET and GeoGebra, but APAS is on another level. The AI predictions and 3D simulations make it feel like a real lab experience. Highly recommended for physics educators.",
     lang: 'en',
+    platform: 'facebook',
+  },
+  {
+    name: 'Medjahed Asmaa',
+    handle: 'medjahed8asmaa',
+    avatar: '/avatars/medjahed_a.png',
+    text: 'كطالبة فيزياء، APAS ساعدني كثيراً في فهم حركة المقذوفات. المحاكاة التفاعلية وتحليل الأخطاء أدوات ممتازة للتعلم الأكاديمي.',
+    lang: 'ar',
     platform: 'facebook',
   },
   {
@@ -76,6 +92,14 @@ const TESTIMONIALS_ROW1: Testimonial[] = [
 
 const TESTIMONIALS_ROW2: Testimonial[] = [
   {
+    name: 'warrior.exe',
+    handle: 'warrior6153',
+    avatar: '/avatars/warrior.png',
+    text: 'APAS تطبيق خرافي والله! البيئات الكوكبية وإطلاق المقذوفات على المريخ شيء خيالي. التصميم عصري والأداء سريع جداً. منتج جزائري نفتخر به!',
+    lang: 'ar',
+    platform: 'x',
+  },
+  {
     name: 'سارة محمدي',
     handle: 'سارة محمدي',
     avatar: '/avatars/sarah_m.jpg',
@@ -90,6 +114,14 @@ const TESTIMONIALS_ROW2: Testimonial[] = [
     text: "What impressed me most is the planetary environments feature. Launching a projectile on Mars with real gravity values makes physics tangible for students. The Arabic support is a nice touch too.",
     lang: 'en',
     platform: 'x',
+  },
+  {
+    name: 'Ramdane',
+    handle: 'ramdane021968',
+    avatar: '/avatars/ramdane_d.png',
+    text: 'تطبيق ممتاز للتعليم. التصوير الستروبوسكوبي ومقارنة طرق التكامل العددي ميزات رائعة. أنصح به لكل طالب فيزياء.',
+    lang: 'ar',
+    platform: 'facebook',
   },
   {
     name: 'يوسف حداد',
