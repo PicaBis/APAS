@@ -4,16 +4,14 @@ import ReactMarkdown from 'react-markdown';
 import { Video, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, VideoIcon, Square, Scissors, Play, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
-import { checkFileSize, analyzeVideoFrame, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
+import { checkFileSize, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
 import { cleanLatex } from '@/utils/cleanLatex';
-import { analyzeBatchInWorker, getVideoQualityMessage, terminateVideoWorker } from '@/utils/videoWorkerManager';
 import { supabase } from '@/integrations/supabase/client';
 
-const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-analyze`;
+const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-video-gemini`;
 
 const CONFIDENCE_THRESHOLD = 60;
-const MAX_FRAMES_TO_SEND = 10; // 10 frames for detailed trajectory tracking with Claude 4.6 Opus
-const FRAME_QUALITY = 0.8; // JPEG quality 80% for clear physics analysis
+const FRAME_QUALITY = 0.8; // JPEG quality 80% for thumbnail
 const SUPABASE_VIDEO_BUCKET = 'video-uploads';
 const MAX_VIDEO_DURATION_WARNING = 60; // Warn if video > 60 seconds
 
@@ -27,10 +25,9 @@ interface ProcessingStep {
 }
 
 const PROCESSING_STEPS: ProcessingStep[] = [
-  { id: 'trim', labelAr: 'جاري معالجة الجزء المختار...', labelEn: 'Trimming Video...', color: '#22c55e', icon: '🟢' },
-  { id: 'extract', labelAr: 'استخراج الصور الفيزيائية (10 إطارات)...', labelEn: 'Extracting Frames via Canvas...', color: '#3b82f6', icon: '🔵' },
-  { id: 'encode', labelAr: 'تشفير البيانات للذكاء الاصطناعي...', labelEn: 'Base64 Encoding...', color: '#eab308', icon: '🟡' },
-  { id: 'analyze', labelAr: 'Claude 4.6 Opus يحلل المسار الآن...', labelEn: 'AI Physics Reasoning...', color: '#a855f7', icon: '🟣' },
+  { id: 'upload', labelAr: 'جاري رفع الفيديو لـ Gemini...', labelEn: 'Uploading Video to Gemini...', color: '#22c55e', icon: '🟢' },
+  { id: 'analyze', labelAr: 'جاري التحليل الذكي...', labelEn: 'Smart AI Analysis...', color: '#3b82f6', icon: '🔵' },
+  { id: 'results', labelAr: 'عرض النتائج...', labelEn: 'Displaying Results...', color: '#a855f7', icon: '🟣' },
 ];
 
 interface Props {
@@ -466,7 +463,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         const confidence = result.confidence ?? 0;
 
         // Get thumbnail for history storage
-        const historyThumb = thumbnailUrl || (frames.length > 0 ? frames[0].data : undefined);
+        const historyThumb = thumbnailUrl || undefined;
 
         // Notify parent that media was analyzed (for calibration tool awareness)
         if (historyThumb && onMediaAnalyzed) onMediaAnalyzed(historyThumb);
@@ -505,7 +502,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           toast.info(isAr ? '\u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0645\u0642\u0630\u0648\u0641' : 'No projectile detected');
         }
       } else {
-        const historyThumb = thumbnailUrl || (frames.length > 0 ? frames[0].data : undefined);
+        const historyThumbFallback = thumbnailUrl || undefined;
         setAnalysisText(cleanText || (isAr ? '\u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0645\u0642\u0630\u0648\u0641' : 'No projectile detected'));
         setHistory(prev => [{
           id: Date.now(),
@@ -514,121 +511,61 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           text: cleanText,
           thumbnailName: sourceName,
           fileHash: fileHash,
-          thumbnailData: historyThumb,
+          thumbnailData: historyThumbFallback,
           videoUrl: persistentVideoUrl || blobUrl || undefined,
         }, ...prev].slice(0, 20));
       }
     };
 
     let progressInterval: ReturnType<typeof setInterval> | undefined;
-    let frames: { data: string; timestamp: number }[] = [];
     try {
-      // Wait for upload to complete in parallel with frame extraction
+      // Step 1: Upload video to Supabase Storage (must complete before calling Gemini edge function)
+      setProgress(10);
       persistentVideoUrl = await uploadPromise;
       if (persistentVideoUrl) {
-        // Switch to persistent URL for current display too
         setVideoUrl(persistentVideoUrl);
       }
 
-      // Step 1: Trimming — mark complete
-      setCurrentStep(1);
-      setStatusText(isAr ? PROCESSING_STEPS[1].labelAr : PROCESSING_STEPS[1].labelEn);
-      setProgress(10);
-
-      // Step 2: Extract frames from the trimmed range
-      const extracted = await extractFramesFromVideo(
-        file,
-        MAX_FRAMES_TO_SEND,
-        (pct) => setProgress(10 + pct * 0.4), // 10-50% for extraction
-        startTime,
-        endTime,
-      );
-      frames = extracted.frames;
-      const { fps, totalFrames } = extracted;
-
-      // Store first frame as thumbnail for display in results
-      if (frames.length > 0) {
-        setThumbnailUrl(frames[0].data);
+      if (!persistentVideoUrl) {
+        throw new Error(isAr ? 'فشل رفع الفيديو. تأكد من إعدادات التخزين.' : 'Video upload failed. Check storage settings.');
       }
 
-      if (frames.length === 0) {
-        throw new Error('No frames extracted');
-      }
+      setProgress(30);
 
-      // Use Web Worker to analyze frame quality in background (prevents main thread blocking for 4K)
+      // Extract a single frame for thumbnail display only
       try {
-        const sampleFrames = frames.filter((_, i) => i % Math.max(1, Math.floor(frames.length / 4)) === 0);
-        const workerFrames = await Promise.all(
-          sampleFrames.map(async (frame, idx) => {
-            const img = new Image();
-            img.src = frame.data;
-            await new Promise<void>((res) => { img.onload = () => res(); img.onerror = () => res(); });
-            const c = document.createElement('canvas');
-            const scale = Math.min(1, 256 / Math.max(img.width, 1));
-            c.width = Math.round(img.width * scale) || 1;
-            c.height = Math.round(img.height * scale) || 1;
-            const cx = c.getContext('2d');
-            if (cx) {
-              cx.drawImage(img, 0, 0, c.width, c.height);
-              const imgData = cx.getImageData(0, 0, c.width, c.height);
-              return { data: imgData.data, width: c.width, height: c.height, index: idx };
-            }
-            return null;
-          }),
+        const thumbExtract = await extractFramesFromVideo(
+          file,
+          1,
+          () => {},
+          startTime,
+          endTime,
         );
-        const validFrames = workerFrames.filter((f): f is NonNullable<typeof f> => f !== null);
-        if (validFrames.length > 0) {
-          const batchResult = await analyzeBatchInWorker(validFrames);
-          const allIssues = new Set<string>();
-          for (const r of batchResult.results) {
-            for (const issue of r.issues) allIssues.add(issue);
-          }
-          const qualityMessages = getVideoQualityMessage(Array.from(allIssues), lang);
-          for (const msg of qualityMessages) {
-            toast.warning(msg);
-          }
+        if (thumbExtract.frames.length > 0) {
+          setThumbnailUrl(thumbExtract.frames[0].data);
         }
       } catch {
-        // Worker analysis is best-effort; continue with API analysis
+        // Thumbnail extraction is best-effort
       }
 
-      // Step 3: Base64 encoding
-      setCurrentStep(2);
-      setStatusText(isAr ? PROCESSING_STEPS[2].labelAr : PROCESSING_STEPS[2].labelEn);
-      setProgress(55);
-      // Frames are already base64 from canvas.toDataURL — brief pause for UX
-      await new Promise(r => setTimeout(r, 300));
-
-      // Step 4: Claude 4.6 Opus analysis
-      setCurrentStep(3);
-      setStatusText(isAr ? PROCESSING_STEPS[3].labelAr : PROCESSING_STEPS[3].labelEn);
-      setProgress(60);
+      // Step 2: Gemini AI Analysis — send video URL directly (native video, no base64)
+      setCurrentStep(1);
+      setStatusText(isAr ? PROCESSING_STEPS[1].labelAr : PROCESSING_STEPS[1].labelEn);
+      setProgress(40);
 
       progressInterval = setInterval(() => {
-        setProgress(prev => prev >= 95 ? 95 : prev + Math.random() * 3);
-      }, 600);
+        setProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 3);
+      }, 800);
 
-      // Check payload size before sending (Supabase Edge Functions have ~6MB body limit)
-      const buildPayload = () => JSON.stringify({
-        frames,
+      const payloadBody = JSON.stringify({
+        videoUrl: persistentVideoUrl,
+        trimStart: startTime ?? 0,
+        trimEnd: endTime ?? 0,
         lang,
         videoName: sourceName,
-        totalFrames,
-        fps,
         calibrationMeters: calibrationMeters && calibrationMeters > 0 ? calibrationMeters : undefined,
         gravity: gravity && gravity > 0 ? gravity : undefined,
-        hint: 'Look carefully for any moving object (ball, projectile, stone, etc.) across frames. Even small or partially visible objects count as projectiles. Analyze position changes between frames to estimate velocity and angle.',
       });
-      let payloadBody = buildPayload();
-      const payloadSizeMB = new Blob([payloadBody]).size / (1024 * 1024);
-      if (payloadSizeMB > 5) {
-        // Payload too large — reduce frames to fit within limits
-        const keepCount = Math.max(3, Math.floor(frames.length * (4 / payloadSizeMB)));
-        const step = Math.max(1, Math.floor(frames.length / keepCount));
-        frames = frames.filter((_, i) => i % step === 0).slice(0, keepCount);
-        payloadBody = buildPayload(); // Rebuild with reduced frames
-        toast.warning(isAr ? `\u062a\u0645 \u062a\u0642\u0644\u064a\u0644 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0625\u0644\u0649 ${frames.length} \u0628\u0633\u0628\u0628 \u062d\u062c\u0645 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a` : `Reduced to ${frames.length} frames due to payload size`);
-      }
 
       const edgeResp = await fetch(EDGE_VIDEO_ANALYZE_URL, {
         method: 'POST',
@@ -645,8 +582,11 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       if (edgeResp.ok) {
         const data = await edgeResp.json();
         if (data.text) {
+          // Step 3: Display results
+          setCurrentStep(2);
+          setStatusText(isAr ? PROCESSING_STEPS[2].labelAr : PROCESSING_STEPS[2].labelEn);
           setProgress(100);
-          setStatusText(isAr ? '\u0627\u0643\u062a\u0645\u0644 \u0627\u0644\u062a\u062d\u0644\u064a\u0644!' : 'Analysis complete!');
+          setStatusText(isAr ? 'اكتمل التحليل!' : 'Analysis complete!');
           await new Promise(r => setTimeout(r, 400));
           handleParsedResult(data.text);
         } else {
@@ -668,8 +608,6 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     // Auto-delete: clear video data from memory after processing
     const autoDelete = (() => { try { return localStorage.getItem('apas_autoDeleteVideos') === 'true'; } catch { return false; } })();
     if (autoDelete) {
-      // Clear extracted frames from memory
-      frames.length = 0;
       toast.info(isAr ? 'تم حذف بيانات الفيديو تلقائياً للخصوصية' : 'Video data auto-deleted for privacy');
     }
 
