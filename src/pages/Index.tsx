@@ -1190,7 +1190,7 @@ const Index = () => {
               setMass={sim.setMass} setGravity={sim.setGravity}
               setActivePresetEmoji={setActivePresetEmoji}
               onSessionLoad={handleSessionLoad} onShowRestrictionOverlay={setShowRestrictionOverlay}
-              onMediaAnalyzed={setLastAnalyzedMediaSrc}
+              onMediaAnalyzed={(src: string) => setLastAnalyzedMediaSrc(src || null)}
             />
           </div>
         </div>

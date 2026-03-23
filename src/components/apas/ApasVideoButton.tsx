@@ -10,8 +10,8 @@ import { analyzeBatchInWorker, getVideoQualityMessage, terminateVideoWorker } fr
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-analyze`;
 
 const CONFIDENCE_THRESHOLD = 60;
-const MAX_FRAMES_TO_SEND = 10; // Max frames to send to API (more frames = better motion tracking accuracy)
-const FRAME_QUALITY = 0.5; // JPEG quality for extracted frames (lower = smaller payload, still sufficient for AI analysis)
+const MAX_FRAMES_TO_SEND = 6; // Max frames to send to API (6 is reliable for Mistral API payload limits)
+const FRAME_QUALITY = 0.35; // JPEG quality for extracted frames (lower = smaller payload, still sufficient for AI analysis)
 
 interface Props {
   lang: string;
@@ -101,8 +101,8 @@ const extractFramesFromVideo = (
       try {
         const duration = await resolveVideoDuration(video);
 
-        // Set canvas size to a reasonable resolution (max 512px wide for API efficiency)
-        const scale = Math.min(1, 512 / video.videoWidth);
+        // Set canvas size to a smaller resolution (max 384px wide) for reliable API payload size
+        const scale = Math.min(1, 384 / video.videoWidth);
         canvas.width = Math.round(video.videoWidth * scale);
         canvas.height = Math.round(video.videoHeight * scale);
 
@@ -529,6 +529,10 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
   const loadFromHistory = (entry: HistoryEntry) => {
     setAnalysisData(entry.data);
     setAnalysisText(entry.text);
+    // Restore the thumbnail from stored data so history records show the image
+    if (entry.thumbnailData) {
+      setThumbnailUrl(entry.thumbnailData);
+    }
     setShowHistory(false);
     setShowModal(true);
     if (entry.data?.detected && (entry.data.confidence ?? 0) >= CONFIDENCE_THRESHOLD) {
@@ -612,7 +616,15 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
                   className="w-full text-start p-3 rounded-lg border border-border hover:bg-secondary/50 hover:shadow-sm transition-all duration-200 relative group"
                 >
                   <button
-                    onClick={(e) => { e.stopPropagation(); setHistory(prev => prev.filter(h => h.id !== entry.id)); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setHistory(prev => {
+                        const updated = prev.filter(h => h.id !== entry.id);
+                        // When all records are deleted, notify calibration tool
+                        if (updated.length === 0 && onMediaAnalyzed) onMediaAnalyzed('');
+                        return updated;
+                      });
+                    }}
                     className="absolute top-2 end-2 p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
                     title={isAr ? 'حذف' : 'Delete'}
                   >

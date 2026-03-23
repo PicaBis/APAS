@@ -347,6 +347,10 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
   const loadFromHistory = (entry: HistoryEntry) => {
     setAnalysisData(entry.data);
     setAnalysisText(entry.text);
+    // Restore the preview image from stored thumbnail data
+    if (entry.thumbnailData) {
+      setPreviewUrl(entry.thumbnailData);
+    }
     setShowHistory(false);
     setShowModal(true);
     if (entry.data?.detected && (entry.data.confidence ?? 0) >= CONFIDENCE_THRESHOLD) {
@@ -430,7 +434,15 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                   className="w-full text-start p-3 rounded-lg border border-border hover:bg-secondary/50 hover:shadow-sm transition-all duration-200 relative group"
                 >
                   <button
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setHistory(prev => prev.filter(h => h.id !== entry.id)); }}
+                    onClick={(e) => {
+                      e.stopPropagation(); e.preventDefault();
+                      setHistory(prev => {
+                        const updated = prev.filter(h => h.id !== entry.id);
+                        // When all records are deleted, notify calibration tool
+                        if (updated.length === 0 && onMediaAnalyzed) onMediaAnalyzed('');
+                        return updated;
+                      });
+                    }}
                     className="absolute top-2 end-2 z-10 p-2 -m-1 rounded-md hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
                     title={isAr ? 'حذف' : 'Delete'}
                   >
