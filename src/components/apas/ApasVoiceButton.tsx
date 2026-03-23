@@ -228,14 +228,12 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
       <button
         onClick={startListening}
         disabled={isProcessing}
-        className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-purple-500/30 bg-secondary/50 hover:bg-purple-500/10 transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
+        className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
         title={isAr ? 'الأوامر الصوتية' : 'Voice Commands'}
       >
-        <Mic className="w-4 h-4 text-purple-500 transition-transform duration-200 group-hover:scale-110" />
-        <span className="text-[10px] sm:text-xs font-semibold text-foreground">
-          {isAr ? 'الأوامر الصوتية' : 'Voice Commands'}
-        </span>
-        <span className="text-[9px] text-purple-500 ms-auto font-medium">APAS Voice</span>
+        <Mic className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
+        <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Voice</span>
+        <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'الأوامر الصوتية' : 'Voice Commands'}</span>
       </button>
 
       {/* Voice Modal */}

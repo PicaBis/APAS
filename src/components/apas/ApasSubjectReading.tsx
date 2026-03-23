@@ -256,10 +256,8 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
             <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
           )}
         </div>
-        <span className="text-[10px] sm:text-xs font-semibold text-foreground">
-          {isAr ? 'قراءة تمرين' : 'Read Exercise'}
-        </span>
-        <span className="text-[9px] text-muted-foreground ms-auto">APAS Subject</span>
+        <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Subject</span>
+        <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'قراءة تمرين' : 'Read Exercise'}</span>
       </button>
 
       {/* Analysis Modal */}

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense, lazy, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock } from 'lucide-react';
+import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock, Activity } from 'lucide-react';
 import { useSimulation } from '@/hooks/useSimulation';
 import { useAdvancedPhysics } from '@/hooks/useAdvancedPhysics';
 import { playClick, playUIClick, playToggle, playSectionToggle, playSliderChange, playSnapshotSound, playModeSwitch, playZoomSound, playNav } from '@/utils/sound';
@@ -139,7 +139,7 @@ const Index = () => {
   const [lastAnalyzedMediaSrc, setLastAnalyzedMediaSrc] = useState<string | null>(null);
   const [lastAnalyzedMediaType, setLastAnalyzedMediaType] = useState<'video' | 'image'>('video');
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
-  const [showDynamicDashboard, setShowDynamicDashboard] = useState(true);
+  const [showDynamicDashboard, setShowDynamicDashboard] = useState(false);
   const [showTheoreticalComparison, setShowTheoreticalComparison] = useState(false);
   const [showQuickTips, setShowQuickTips] = useState(true);
   const [showComparisonSection, setShowComparisonSection] = useState(false);
@@ -408,6 +408,36 @@ const Index = () => {
 
             {/* ═══ LEFT — Parameters Panel ═══ */}
             <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:scrollbar-thin md:scrollbar-thumb-border md:scrollbar-track-transparent md:pt-24">
+              {/* Dynamic Analytics Dashboard — collapsible, syncs only when open */}
+              <div className="border border-border/40 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.04] dark:shadow-black/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.06] dark:border-border/30">
+                <button
+                  onClick={() => { setShowDynamicDashboard(!showDynamicDashboard); playSectionToggle(sim.isMuted); }}
+                  className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+                >
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-emerald-500" />
+                    {lang === 'ar' ? 'لوحة التحليلات الديناميكية' : 'Dynamic Analytics'}
+                  </h3>
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${showDynamicDashboard ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showDynamicDashboard && (
+                  <div className="border-t border-border animate-slideDown">
+                    <Suspense fallback={<div className="p-4 flex items-center justify-center"><AnimatedLoadingSpinner /></div>}>
+                      <DynamicAnalyticsDashboard
+                        lang={lang}
+                        trajectoryData={sim.trajectoryData}
+                        currentTime={sim.currentTime}
+                        mass={sim.mass}
+                        gravity={sim.gravity}
+                        observerType={relativity.enabled && relativity.mode === 'galilean' ? 'moving' : 'stationary'}
+                        frameVelocity={relativity.enabled ? relativity.frameVelocity : 0}
+                      />
+                    </Suspense>
+                  </div>
+                )}
+              </div>
+
               <div className="border border-border/40 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.04] dark:shadow-black/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.06] dark:border-border/30">
                 <button
                   onClick={() => { setShowPhysicsPanel(!showPhysicsPanel); playSectionToggle(sim.isMuted); }}

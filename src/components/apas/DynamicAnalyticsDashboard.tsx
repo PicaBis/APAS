@@ -91,21 +91,17 @@ const DynamicAnalyticsDashboard: React.FC<DynamicAnalyticsDashboardProps> = ({
   const noData = !visibleData.length;
 
   return (
-    <div className="border border-border/50 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="px-4 py-2.5 border-b border-border/30 bg-gradient-to-r from-emerald-500/5 to-blue-500/5">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Activity className="w-4 h-4 text-emerald-500" />
-          {lang === 'ar' ? 'لوحة التحليلات الديناميكية' : lang === 'fr' ? 'Tableau de Bord Analytique' : 'Dynamic Analytics Dashboard'}
-          {observerType === 'moving' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-normal">
-              {lang === 'ar' ? 'مراقب متحرك' : lang === 'fr' ? 'Observateur Mobile' : 'Moving Observer'}
-              {frameVelocity !== 0 && ` (${frameVelocity.toFixed(1)} m/s)`}
-            </span>
-          )}
-        </h3>
-      </div>
+    <div dir={isRTL ? 'rtl' : 'ltr'}>
+      {observerType === 'moving' && (
+        <div className="px-3 pt-2">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-normal">
+            {lang === 'ar' ? 'مراقب متحرك' : lang === 'fr' ? 'Observateur Mobile' : 'Moving Observer'}
+            {frameVelocity !== 0 && ` (${frameVelocity.toFixed(1)} m/s)`}
+          </span>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3">
+      <div className="grid grid-cols-1 gap-3 p-3">
         {/* Velocity vs Time */}
         <div className="border border-border/30 rounded-lg p-2.5 bg-background/50">
           <div className="flex items-center gap-1.5 mb-2">
