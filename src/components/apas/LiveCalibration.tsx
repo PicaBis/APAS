@@ -429,17 +429,17 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
             </div>
 
             {/* Real-world length input */}
-            <div className="space-y-2 mb-3">
-              <label className="text-xs font-medium text-foreground">
+            <div className="space-y-1.5 mb-2">
+              <label className="text-[10px] font-medium text-foreground">
                 {t('الطول الحقيقي', 'Real Length', 'Longueur Réelle')}
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 items-center">
                 <input
                   type="number"
                   value={realLength}
                   onChange={(e) => setRealLength(e.target.value)}
-                  className="min-w-0 w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/30 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
-                  style={{ flex: '1 1 0%', minWidth: '100px' }}
+                  className="min-w-0 w-full text-xs px-2 py-1.5 rounded-md border border-border bg-secondary/30 text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
+                  style={{ flex: '1 1 0%', minWidth: '80px' }}
                   min={0.001}
                   step={0.1}
                   placeholder="1.0"
@@ -448,27 +448,27 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
                 <select
                   value={unit}
                   onChange={(e) => setUnit(e.target.value as LengthUnit)}
-                  className="text-xs px-2 py-2 rounded-lg border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0 w-16"
+                  className="text-[10px] px-1.5 py-1.5 rounded-md border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 flex-shrink-0 w-12"
                 >
-                  <option value="m">{t('متر', 'm', 'm')}</option>
-                  <option value="cm">{t('سم', 'cm', 'cm')}</option>
-                  <option value="mm">{t('مم', 'mm', 'mm')}</option>
+                  <option value="m">m</option>
+                  <option value="cm">cm</option>
+                  <option value="mm">mm</option>
                 </select>
               </div>
             </div>
 
             {/* Length on Diagram input */}
-            <div className="space-y-2 mb-3">
-              <label className="text-xs font-medium text-foreground">
+            <div className="space-y-1.5 mb-2">
+              <label className="text-[10px] font-medium text-foreground">
                 {t('الطول على المخطط', 'Length on Diagram', 'Longueur sur le Diagramme')}
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 items-center">
                 <input
                   type="number"
                   value={diagramLength}
                   onChange={(e) => setDiagramLength(e.target.value)}
-                  className="min-w-0 w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/30 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
-                  style={{ flex: '1 1 0%', minWidth: '100px' }}
+                  className="min-w-0 w-full text-xs px-2 py-1.5 rounded-md border border-border bg-secondary/30 text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
+                  style={{ flex: '1 1 0%', minWidth: '80px' }}
                   min={0.001}
                   step={0.1}
                   placeholder="1.0"
@@ -476,11 +476,11 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
                 <select
                   value={diagramUnit}
                   onChange={(e) => setDiagramUnit(e.target.value as LengthUnit)}
-                  className="text-xs px-2 py-2 rounded-lg border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0 w-16"
+                  className="text-[10px] px-1.5 py-1.5 rounded-md border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 flex-shrink-0 w-12"
                 >
-                  <option value="m">{t('متر', 'm', 'm')}</option>
-                  <option value="cm">{t('سم', 'cm', 'cm')}</option>
-                  <option value="mm">{t('مم', 'mm', 'mm')}</option>
+                  <option value="m">m</option>
+                  <option value="cm">cm</option>
+                  <option value="mm">mm</option>
                 </select>
               </div>
             </div>

@@ -38,6 +38,7 @@ interface HistoryEntry {
   thumbnailName: string;
   fileHash?: string;
   thumbnailData?: string;
+  videoUrl?: string;
 }
 
 interface ExtractedFrame {
@@ -190,6 +191,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
   const [recordingTime, setRecordingTime] = useState(0);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [currentFileHash, setCurrentFileHash] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
@@ -318,6 +320,9 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
     setAnalysisText('');
     setProgress(0);
     setThumbnailUrl(null);
+    // Create a blob URL for video playback
+    const blobUrl = URL.createObjectURL(file);
+    setVideoUrl(blobUrl);
     setStatusText(isAr ? '\u062c\u0627\u0631\u064a \u0627\u0633\u062a\u062e\u0631\u0627\u062c \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0645\u0646 \u0627\u0644\u0641\u064a\u062f\u064a\u0648...' : 'Extracting frames from video...');
 
     // Smart quality check on file size
@@ -350,6 +355,9 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
         // Notify parent that media was analyzed (for calibration tool awareness)
         if (historyThumb && onMediaAnalyzed) onMediaAnalyzed(historyThumb);
 
+        // Store video blob URL for playback in history
+        const currentVideoUrl = videoUrl;
+
         setHistory(prev => [{
           id: Date.now(),
           timestamp: new Date(),
@@ -358,6 +366,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
           thumbnailName: sourceName,
           fileHash: fileHash,
           thumbnailData: historyThumb,
+          videoUrl: currentVideoUrl || undefined,
         }, ...prev].slice(0, 20));
 
         if (result.detected && confidence >= CONFIDENCE_THRESHOLD) {
@@ -385,6 +394,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
           thumbnailName: sourceName,
           fileHash: fileHash,
           thumbnailData: historyThumb,
+          videoUrl: videoUrl || undefined,
         }, ...prev].slice(0, 20));
       }
     };
@@ -534,6 +544,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
     if (entry.thumbnailData) {
       setThumbnailUrl(entry.thumbnailData);
     }
+    // Restore video URL for playback
+    setVideoUrl(entry.videoUrl || null);
     setShowHistory(false);
     setShowModal(true);
     if (entry.data?.detected && (entry.data.confidence ?? 0) >= CONFIDENCE_THRESHOLD) {
@@ -774,10 +786,19 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed 
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* Video thumbnail - full display when results shown */}
-              {thumbnailUrl && !isAnalyzing && (
+              {/* Video player - full display when results shown */}
+              {!isAnalyzing && (videoUrl || thumbnailUrl) && (
                 <div className="w-full">
-                  <img src={thumbnailUrl} alt="" className="w-full object-contain rounded-lg border border-border/30" />
+                  {videoUrl ? (
+                    <video
+                      src={videoUrl}
+                      controls
+                      playsInline
+                      className="w-full rounded-lg border border-border/30"
+                    />
+                  ) : thumbnailUrl ? (
+                    <img src={thumbnailUrl} alt="" className="w-full object-contain rounded-lg border border-border/30" />
+                  ) : null}
                 </div>
               )}
 
