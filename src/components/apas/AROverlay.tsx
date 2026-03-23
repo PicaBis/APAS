@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Crosshair, Sparkles, X, Play, Pause } from 'lucide-react';
+import { Sparkles, X, FlipHorizontal } from 'lucide-react';
 
 interface Props {
   lang: string;
@@ -28,6 +28,8 @@ export default function AROverlay({ lang, videoRef, velocity = 20, angle = 45, g
   const [animProgress, setAnimProgress] = useState(0);
   const [arVelocity, setArVelocity] = useState(velocity);
   const [arAngle, setArAngle] = useState(angle);
+  const [pxPerMeter, setPxPerMeter] = useState(0); // 0 = auto
+  const [flipDir, setFlipDir] = useState(false);
 
   const isAr = lang === 'ar';
 
@@ -38,13 +40,15 @@ export default function AROverlay({ lang, videoRef, velocity = 20, angle = 45, g
     const vx = arVelocity * Math.cos(radians);
     const vy = arVelocity * Math.sin(radians);
     
-    // Scale factor: pixels per meter (auto-adjust based on canvas size)
-    const scale = canvasWidth / 30;
+    // Scale factor: pixels per meter (user-adjustable or auto based on canvas)
+    const scale = pxPerMeter > 0 ? pxPerMeter : Math.min(canvasWidth, canvasHeight) / 15;
     const dt = 0.02;
     const maxTime = (2 * vy) / gravity + 1;
 
+    const dir = flipDir ? -1 : 1;
+
     for (let t = 0; t <= maxTime; t += dt) {
-      const x = startX + vx * t * scale;
+      const x = startX + dir * vx * t * scale;
       const y = startY - (vy * t - 0.5 * gravity * t * t) * scale;
 
       // Stop if out of canvas
@@ -55,7 +59,7 @@ export default function AROverlay({ lang, videoRef, velocity = 20, angle = 45, g
     }
 
     return points;
-  }, [arVelocity, arAngle, gravity]);
+  }, [arVelocity, arAngle, gravity, pxPerMeter, flipDir]);
 
   // Handle canvas tap to set launch point
   const handleCanvasTap = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -218,23 +222,39 @@ export default function AROverlay({ lang, videoRef, velocity = 20, angle = 45, g
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Angle indicator arc
+      // Angle indicator arc — draw in correct direction
       const arcRadius = 30;
+      const startAngleArc = flipDir ? Math.PI : 0;
+      const endAngleArc = flipDir ? Math.PI + arAngle * Math.PI / 180 : -arAngle * Math.PI / 180;
       ctx.beginPath();
-      ctx.arc(defaultLaunch.x, defaultLaunch.y, arcRadius, -arAngle * Math.PI / 180, 0);
+      ctx.arc(defaultLaunch.x, defaultLaunch.y, arcRadius, Math.min(startAngleArc, endAngleArc), Math.max(startAngleArc, endAngleArc));
       ctx.strokeStyle = 'rgba(255, 200, 0, 0.6)';
       ctx.lineWidth = 2;
       ctx.stroke();
+      const labelAngleX = flipDir ? defaultLaunch.x - arcRadius - 25 : defaultLaunch.x + arcRadius + 5;
       ctx.fillStyle = 'rgba(255, 200, 0, 0.9)';
       ctx.font = '11px sans-serif';
-      ctx.fillText(`${arAngle}°`, defaultLaunch.x + arcRadius + 5, defaultLaunch.y - 5);
+      ctx.fillText(arAngle + '°', labelAngleX, defaultLaunch.y - 5);
+
+      // Direction indicator arrow
+      const arrowDir = flipDir ? -1 : 1;
+      const arrowX = defaultLaunch.x + arrowDir * 50;
+      ctx.beginPath();
+      ctx.moveTo(defaultLaunch.x + arrowDir * 25, defaultLaunch.y + 20);
+      ctx.lineTo(arrowX, defaultLaunch.y + 20);
+      ctx.lineTo(arrowX - arrowDir * 6, defaultLaunch.y + 15);
+      ctx.moveTo(arrowX, defaultLaunch.y + 20);
+      ctx.lineTo(arrowX - arrowDir * 6, defaultLaunch.y + 25);
+      ctx.strokeStyle = 'rgba(0, 200, 255, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
       animRef.current = requestAnimationFrame(draw);
     };
 
     draw();
     return () => cancelAnimationFrame(animRef.current);
-  }, [active, launchPoint, isAnimating, animProgress, arVelocity, arAngle, gravity, generateTrajectory, videoRef]);
+  }, [active, launchPoint, isAnimating, animProgress, arVelocity, arAngle, gravity, generateTrajectory, videoRef, flipDir]);
 
   if (!active) return null;
 
@@ -295,6 +315,33 @@ export default function AROverlay({ lang, videoRef, velocity = 20, angle = 45, g
               className="flex-1 h-1 accent-yellow-400"
             />
             <span className="text-[10px] text-yellow-300 font-mono w-14 text-right">{arAngle}°</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="text-[10px] text-white/70 w-12 shrink-0">
+              {isAr ? 'مقياس' : 'Scale'}
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={80}
+              value={pxPerMeter}
+              onChange={(e) => { setPxPerMeter(Number(e.target.value)); setIsAnimating(false); }}
+              className="flex-1 h-1 accent-green-400"
+            />
+            <span className="text-[10px] text-green-300 font-mono w-14 text-right">{pxPerMeter === 0 ? (isAr ? 'تلقائي' : 'Auto') : pxPerMeter + ' px/m'}</span>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={() => { setFlipDir(!flipDir); setIsAnimating(false); }}
+              className={`flex items-center gap-1 text-[9px] px-2 py-1 rounded-lg border transition-all ${
+                flipDir ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' : 'border-white/10 text-white/50 hover:text-white/80'
+              }`}
+            >
+              <FlipHorizontal className="w-3 h-3" />
+              {isAr ? 'عكس الاتجاه' : 'Flip Direction'}
+            </button>
           </div>
 
           <p className="text-[9px] text-white/40 text-center pt-1">
