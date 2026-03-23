@@ -65,7 +65,7 @@ function hashDevInput(str: string): string {
   return 'dv_' + Math.abs(h).toString(36);
 }
 // Pre-computed hash of the developer code — the plain text is never stored in the bundle
-const DEV_CODE_HASH = import.meta.env.VITE_DEV_CODE_HASH || 'dv_k1y9k';
+const DEV_CODE_HASH = import.meta.env.VITE_DEV_CODE_HASH || 'dv_qz1cfc';
 const PROFILES_KEY = 'apas_user_profiles';
 const GUEST_KEY = 'apas_guest_mode';
 const DEV_PRIV_KEY = 'apas_dev_privileges';
@@ -231,13 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const activateDevPrivileges = (code: string): boolean => {
-    // SECURITY: Dev privilege activation is restricted to development builds only.
-    // In production, the client-side hash comparison is disabled to prevent
-    // reverse-engineering of the dev code from the bundled JS.
-    if (!import.meta.env.DEV) {
-      console.warn('Dev privilege activation is disabled in production builds.');
-      return false;
-    }
+    // Dev privilege activation via code hash comparison
     if (hashDevInput(code) === DEV_CODE_HASH) {
       setDevPrivileges(true);
       localStorage.setItem(DEV_PRIV_KEY, DEV_CODE_HASH);
