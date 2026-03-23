@@ -185,6 +185,7 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -296,6 +297,7 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
     setAnalysisData(null);
     setAnalysisText('');
     setProgress(0);
+    setThumbnailUrl(null);
     setStatusText(isAr ? '\u062c\u0627\u0631\u064a \u0627\u0633\u062a\u062e\u0631\u0627\u062c \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a \u0645\u0646 \u0627\u0644\u0641\u064a\u062f\u064a\u0648...' : 'Extracting frames from video...');
 
     // Smart quality check on file size
@@ -366,6 +368,11 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
       );
       frames = extracted.frames;
       const { fps, totalFrames } = extracted;
+
+      // Store first frame as thumbnail for display in results
+      if (frames.length > 0) {
+        setThumbnailUrl(frames[0].data);
+      }
 
       if (frames.length === 0) {
         throw new Error('No frames extracted');
@@ -715,7 +722,14 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {/* Video thumbnail - full display when results shown */}
+              {thumbnailUrl && !isAnalyzing && (
+                <div className="w-full">
+                  <img src={thumbnailUrl} alt="" className="w-full object-contain rounded-lg border border-border/30" />
+                </div>
+              )}
+
               {isAnalyzing && (
                 <div className="space-y-3">
                   <div className="flex flex-col items-center gap-3">

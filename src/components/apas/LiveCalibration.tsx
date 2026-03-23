@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Ruler, Check, RotateCcw, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Ruler, Check, RotateCcw, Image as ImageIcon, AlertCircle } from 'lucide-react';
 
 interface LiveCalibrationProps {
   open: boolean;
@@ -7,6 +7,7 @@ interface LiveCalibrationProps {
   lang: string;
   onCalibrate: (pixelsPerMeter: number) => void;
   mediaSrc?: string | null;
+  onRequestMedia?: () => void;
 }
 
 type CalibrationStep = 'upload' | 'draw' | 'measure' | 'done';
@@ -14,7 +15,7 @@ type CalibrationStep = 'upload' | 'draw' | 'measure' | 'done';
 const DIAGRAM_UNITS = ['m', 'cm', 'mm'] as const;
 type LengthUnit = typeof DIAGRAM_UNITS[number];
 
-const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, onCalibrate, mediaSrc }) => {
+const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, onCalibrate, mediaSrc, onRequestMedia }) => {
   const [step, setStep] = useState<CalibrationStep>('upload');
   const [lineStart, setLineStart] = useState<{ x: number; y: number } | null>(null);
   const [lineEnd, setLineEnd] = useState<{ x: number; y: number } | null>(null);
@@ -28,7 +29,6 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
   const imageUrlRef = useRef<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const drawAreaRef = useRef<HTMLDivElement>(null);
 
   const t = (ar: string, en: string, fr: string) =>
@@ -60,6 +60,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
       setLineEnd(null);
       setDrawing(false);
       setRealLength('1.0');
+      setUnit('m');
       setDiagramLength('1.0');
       setDiagramUnit('cm');
       setPixelsPerMeter(null);
@@ -233,19 +234,6 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  // Handle file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Revoke old blob URL before creating a new one
-    if (imageUrl && imageUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(imageUrl);
-    }
-    const url = URL.createObjectURL(file);
-    setImageUrl(url);
-    setStep('draw');
-  };
-
   // Calculate scale factor info
   const getScaleInfo = () => {
     const pixelLen = getPixelLength();
@@ -267,16 +255,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
 
   return (
     <div className="fixed inset-0 z-[80]" ref={overlayRef}>
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*"
-        className="hidden"
-        onChange={handleFileUpload}
-      />
-
-      {/* Upload step - prompt to attach image/video */}
+      {/* Upload step - prompt to attach image/video from logs */}
       {step === 'upload' && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div
@@ -312,17 +291,38 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
                 </p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 text-xs font-semibold py-3 px-4 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-all flex items-center justify-center gap-2"
+                  onClick={() => {
+                    if (mediaSrc) {
+                      setImageUrl(mediaSrc);
+                      setStep('draw');
+                    } else if (onRequestMedia) {
+                      onRequestMedia();
+                    }
+                  }}
+                  className="w-full text-xs font-semibold py-3 px-4 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-all flex items-center justify-center gap-2"
                 >
-                  <Upload className="w-4 h-4" />
-                  {t('رفع ملف', 'Upload File', 'Télécharger')}
+                  <ImageIcon className="w-4 h-4" />
+                  {mediaSrc
+                    ? t('فتح من السجلات', 'Open from Logs', 'Ouvrir depuis les Logs')
+                    : t('فتح سجل الرؤية الذكية', 'Open Smart Vision Log', 'Ouvrir le Journal Vision')}
                 </button>
+                {!mediaSrc && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                    <AlertCircle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+                    <p className="text-[10px] text-yellow-600 dark:text-yellow-400">
+                      {t(
+                        'لا يوجد سجل — أرفق صورة أو فيديو من الرؤية الذكية أولاً',
+                        'No log available — attach an image or video from Smart Vision first',
+                        'Aucun journal — joignez d\'abord une image ou vidéo depuis Vision Intelligente'
+                      )}
+                    </p>
+                  </div>
+                )}
                 <button
                   onClick={() => { setStep('draw'); }}
-                  className="flex-1 text-xs font-medium py-3 px-4 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/50 border border-border/40 transition-all flex items-center justify-center gap-2"
+                  className="w-full text-xs font-medium py-3 px-4 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/50 border border-border/40 transition-all flex items-center justify-center gap-2"
                 >
                   <Ruler className="w-4 h-4" />
                   {t('بدون صورة', 'Without Image', 'Sans Image')}
@@ -448,8 +448,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
                 <select
                   value={unit}
                   onChange={(e) => setUnit(e.target.value as LengthUnit)}
-                  className="text-xs px-3 py-2 rounded-lg border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0"
-                  style={{ minWidth: '60px' }}
+                  className="text-xs px-2 py-2 rounded-lg border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0 w-16"
                 >
                   <option value="m">{t('متر', 'm', 'm')}</option>
                   <option value="cm">{t('سم', 'cm', 'cm')}</option>
@@ -477,8 +476,7 @@ const LiveCalibration: React.FC<LiveCalibrationProps> = ({ open, onClose, lang, 
                 <select
                   value={diagramUnit}
                   onChange={(e) => setDiagramUnit(e.target.value as LengthUnit)}
-                  className="text-xs px-3 py-2 rounded-lg border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0"
-                  style={{ minWidth: '60px' }}
+                  className="text-xs px-2 py-2 rounded-lg border border-border bg-secondary/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 flex-shrink-0 w-16"
                 >
                   <option value="m">{t('متر', 'm', 'm')}</option>
                   <option value="cm">{t('سم', 'cm', 'cm')}</option>

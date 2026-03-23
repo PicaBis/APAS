@@ -286,10 +286,15 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* Image preview */}
-              {previewUrl && (
+              {/* Image preview - full display when results shown, compact during analysis */}
+              {previewUrl && !isAnalyzing && (
                 <div className="w-full">
-                  <img src={previewUrl} alt="" className="w-full max-h-40 object-contain rounded-lg border border-border/30" />
+                  <img src={previewUrl} alt="" className="w-full object-contain rounded-lg border border-border/30" />
+                </div>
+              )}
+              {previewUrl && isAnalyzing && (
+                <div className="w-full">
+                  <img src={previewUrl} alt="" className="w-full max-h-40 object-contain rounded-lg border border-border/30 opacity-80" />
                 </div>
               )}
 

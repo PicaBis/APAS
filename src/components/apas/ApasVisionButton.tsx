@@ -579,10 +579,16 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col items-center justify-center">
-              {/* Image preview thumbnail */}
-              {previewUrl && (
-                <div className="w-full max-w-xs">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {/* Image preview - full display */}
+              {previewUrl && !isAnalyzing && (
+                <div className="w-full">
+                  <img src={previewUrl} alt="" className="w-full object-contain rounded-lg border border-border/30" />
+                </div>
+              )}
+              {/* Image preview - small during analysis */}
+              {previewUrl && isAnalyzing && (
+                <div className="w-full max-w-xs mx-auto">
                   <img src={previewUrl} alt="" className="w-full h-28 object-cover rounded-lg border border-border/30 opacity-80" />
                 </div>
               )}
