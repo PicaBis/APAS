@@ -25,3 +25,13 @@ dist-ssr
 **/tempobook/**
 desktop/node_modules/
 desktop/dist/
+
+# Android build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+android/capacitor-android/build/
+android/local.properties
+android/*.keystore
+*.apk
