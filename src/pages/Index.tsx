@@ -129,6 +129,7 @@ const Index = () => {
   const [showLiveCalibration, setShowLiveCalibration] = useState(false);
   const [showSecurityPrivacy, setShowSecurityPrivacy] = useState(false);
   const [calibrationScale, setCalibrationScale] = useState<number | null>(null);
+  const [lastAnalyzedMediaSrc, setLastAnalyzedMediaSrc] = useState<string | null>(null);
   const [showComparisonSection, setShowComparisonSection] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
@@ -1189,6 +1190,7 @@ const Index = () => {
               setMass={sim.setMass} setGravity={sim.setGravity}
               setActivePresetEmoji={setActivePresetEmoji}
               onSessionLoad={handleSessionLoad} onShowRestrictionOverlay={setShowRestrictionOverlay}
+              onMediaAnalyzed={setLastAnalyzedMediaSrc}
             />
           </div>
         </div>
@@ -1224,7 +1226,7 @@ const Index = () => {
         showNoiseFilter={showNoiseFilter} setShowNoiseFilter={setShowNoiseFilter}
         setTrajectoryData={sim.setTrajectoryData}
         showLiveCalibration={showLiveCalibration} setShowLiveCalibration={setShowLiveCalibration}
-        setCalibrationScale={setCalibrationScale}
+        setCalibrationScale={setCalibrationScale} calibrationMediaSrc={lastAnalyzedMediaSrc}
         showSecurityPrivacy={showSecurityPrivacy} setShowSecurityPrivacy={setShowSecurityPrivacy}
         autoDeleteVideos={autoDeleteVideos} onToggleAutoDelete={setAutoDeleteVideos}
         showRestrictionOverlay={showRestrictionOverlay} setShowRestrictionOverlay={setShowRestrictionOverlay}

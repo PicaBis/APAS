@@ -86,6 +86,7 @@ interface ModalsOverlaysProps {
   showLiveCalibration: boolean;
   setShowLiveCalibration: (v: boolean) => void;
   setCalibrationScale: (ppm: number | null) => void;
+  calibrationMediaSrc?: string | null;
   // Security & Privacy
   showSecurityPrivacy: boolean;
   setShowSecurityPrivacy: (v: boolean) => void;
@@ -109,7 +110,7 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
     showRuler, setShowRuler,
     showProtractor, setShowProtractor,
     showNoiseFilter, setShowNoiseFilter, setTrajectoryData,
-    showLiveCalibration, setShowLiveCalibration, setCalibrationScale,
+    showLiveCalibration, setShowLiveCalibration, setCalibrationScale, calibrationMediaSrc,
     showSecurityPrivacy, setShowSecurityPrivacy, autoDeleteVideos, onToggleAutoDelete,
     showRestrictionOverlay, setShowRestrictionOverlay,
   } = props;
@@ -246,6 +247,7 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
             setCalibrationScale(ppm);
             setShowLiveCalibration(false);
           }}
+          mediaSrc={calibrationMediaSrc}
         />
       </Suspense>
 

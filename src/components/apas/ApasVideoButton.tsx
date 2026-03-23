@@ -4,18 +4,19 @@ import ReactMarkdown from 'react-markdown';
 import { Video, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, VideoIcon, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
-import { checkFileSize, analyzeVideoFrame, getIssueMessage } from '@/utils/mediaQuality';
+import { checkFileSize, analyzeVideoFrame, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
 import { analyzeBatchInWorker, getVideoQualityMessage, terminateVideoWorker } from '@/utils/videoWorkerManager';
 
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-analyze`;
 
 const CONFIDENCE_THRESHOLD = 60;
-const MAX_FRAMES_TO_SEND = 6; // Max frames to send to API (balanced: enough for detection, avoids payload limits)
+const MAX_FRAMES_TO_SEND = 10; // Max frames to send to API (more frames = better motion tracking accuracy)
 const FRAME_QUALITY = 0.5; // JPEG quality for extracted frames (lower = smaller payload, still sufficient for AI analysis)
 
 interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
+  onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
 }
 
 interface AnalysisData {
@@ -34,6 +35,8 @@ interface HistoryEntry {
   data: AnalysisData | null;
   text: string;
   thumbnailName: string;
+  fileHash?: string;
+  thumbnailData?: string;
 }
 
 interface ExtractedFrame {
@@ -173,7 +176,7 @@ const extractFramesFromVideo = (
   });
 };
 
-export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
+export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
@@ -186,6 +189,7 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
   const [recordingTime, setRecordingTime] = useState(0);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [currentFileHash, setCurrentFileHash] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -260,8 +264,8 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
       setShowCamera(false);
       setIsRecording(false);
       setRecordingTime(0);
-      // Auto-analyze the recorded video
-      analyzeVideoFile(file);
+      // Auto-analyze the recorded video (skip duplicate check for recordings)
+      analyzeVideoFile(file, true);
     };
     mediaRecorderRef.current = recorder;
     recorder.start(100); // collect data every 100ms
@@ -291,7 +295,22 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
   };
 
   // Shared analysis function for a video File
-  const analyzeVideoFile = async (file: File) => {
+  const analyzeVideoFile = async (file: File, skipDuplicateCheck?: boolean) => {
+    // Compute file hash for duplicate detection (skip for recordings)
+    let fileHash: string | undefined;
+    if (!skipDuplicateCheck) {
+      fileHash = await computeFileHash(file);
+      setCurrentFileHash(fileHash);
+
+      // Check for duplicate — same file already in history
+      const existingEntry = history.find(h => h.fileHash === fileHash);
+      if (existingEntry) {
+        toast.info(isAr ? '\u0647\u0630\u0627 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 \u062a\u0645 \u062a\u062d\u0644\u064a\u0644\u0647 \u0633\u0627\u0628\u0642\u0627\u064b \u2014 \u064a\u062a\u0645 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0645\u0646 \u0627\u0644\u0633\u062c\u0644' : 'This video was already analyzed \u2014 loading results from history');
+        loadFromHistory(existingEntry);
+        return;
+      }
+    }
+
     setIsAnalyzing(true);
     setShowModal(true);
     setAnalysisData(null);
@@ -324,12 +343,20 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
         setAnalysisData(result);
         const confidence = result.confidence ?? 0;
 
+        // Get thumbnail for history storage
+        const historyThumb = thumbnailUrl || (frames.length > 0 ? frames[0].data : undefined);
+
+        // Notify parent that media was analyzed (for calibration tool awareness)
+        if (historyThumb && onMediaAnalyzed) onMediaAnalyzed(historyThumb);
+
         setHistory(prev => [{
           id: Date.now(),
           timestamp: new Date(),
           data: result,
           text: cleanText,
           thumbnailName: sourceName,
+          fileHash: fileHash,
+          thumbnailData: historyThumb,
         }, ...prev].slice(0, 20));
 
         if (result.detected && confidence >= CONFIDENCE_THRESHOLD) {
@@ -347,6 +374,7 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
           toast.info(isAr ? '\u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0645\u0642\u0630\u0648\u0641' : 'No projectile detected');
         }
       } else {
+        const historyThumb = thumbnailUrl || (frames.length > 0 ? frames[0].data : undefined);
         setAnalysisText(cleanText || (isAr ? '\u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0645\u0642\u0630\u0648\u0641' : 'No projectile detected'));
         setHistory(prev => [{
           id: Date.now(),
@@ -354,6 +382,8 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
           data: null,
           text: cleanText,
           thumbnailName: sourceName,
+          fileHash: fileHash,
+          thumbnailData: historyThumb,
         }, ...prev].slice(0, 20));
       }
     };
@@ -493,7 +523,7 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (fileRef.current) fileRef.current.value = '';
-    analyzeVideoFile(file);
+    analyzeVideoFile(file, false);
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
@@ -592,50 +622,58 @@ export default function ApasVideoButton({ lang, onUpdateParams }: Props) {
                     onClick={() => loadFromHistory(entry)}
                     className="w-full text-start"
                   >
-                    <div className="flex items-center justify-between mb-1 pe-5">
-                      <span className="text-xs font-medium text-foreground truncate max-w-[60%]">
-                        {entry.data?.objectType || entry.thumbnailName}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {entry.timestamp.toLocaleTimeString()}
-                      </span>
-                    </div>
-                    {entry.data?.detected && (
-                      <div className="space-y-1.5">
-                        <div className="flex gap-3 text-[10px] text-muted-foreground">
-                          <span>V={entry.data.velocity} m/s</span>
-                          <span>θ={entry.data.angle}°</span>
-                          <span>m={entry.data.mass} kg</span>
+                    <div className="flex items-start gap-2">
+                      {/* Thumbnail preview */}
+                      {entry.thumbnailData && (
+                        <img src={entry.thumbnailData} alt="" className="w-14 h-10 object-cover rounded border border-border/30 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 pe-5">
+                          <span className="text-xs font-medium text-foreground truncate max-w-[60%]">
+                            {entry.data?.objectType || entry.thumbnailName}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {entry.timestamp.toLocaleTimeString()}
+                          </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-1.5 text-[9px]">
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'السرعة' : 'Velocity'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.velocity} m/s</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الزاوية' : 'Angle'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.angle}°</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الارتفاع' : 'Height'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.height ?? '—'} m</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الكتلة' : 'Mass'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.mass ?? '—'} kg</span>
-                          </div>
-                          {entry.data.confidence != null && (
-                            <div className="bg-secondary/50 rounded p-1 text-center col-span-2">
-                              <span className="text-muted-foreground">{isAr ? 'نسبة الثقة' : 'Confidence'}: </span>
-                              <span className="font-mono font-medium text-foreground">{entry.data.confidence}%</span>
+                        {entry.data?.detected && (
+                          <div className="space-y-1.5">
+                            <div className="flex gap-3 text-[10px] text-muted-foreground">
+                              <span>V={entry.data.velocity} m/s</span>
+                              <span>θ={entry.data.angle}°</span>
+                              <span>m={entry.data.mass} kg</span>
                             </div>
-                          )}
-                        </div>
+                            <div className="grid grid-cols-2 gap-1.5 text-[9px]">
+                              <div className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{isAr ? 'السرعة' : 'Velocity'}: </span>
+                                <span className="font-mono font-medium text-foreground">{entry.data.velocity} m/s</span>
+                              </div>
+                              <div className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{isAr ? 'الزاوية' : 'Angle'}: </span>
+                                <span className="font-mono font-medium text-foreground">{entry.data.angle}°</span>
+                              </div>
+                              <div className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{isAr ? 'الارتفاع' : 'Height'}: </span>
+                                <span className="font-mono font-medium text-foreground">{entry.data.height ?? '—'} m</span>
+                              </div>
+                              <div className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{isAr ? 'الكتلة' : 'Mass'}: </span>
+                                <span className="font-mono font-medium text-foreground">{entry.data.mass ?? '—'} kg</span>
+                              </div>
+                              {entry.data.confidence != null && (
+                                <div className="bg-secondary/50 rounded p-1 text-center col-span-2">
+                                  <span className="text-muted-foreground">{isAr ? 'نسبة الثقة' : 'Confidence'}: </span>
+                                  <span className="font-mono font-medium text-foreground">{entry.data.confidence}%</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {!entry.data?.detected && (
+                          <span className="text-[10px] text-muted-foreground">{isAr ? 'لم يُكتشف مقذوف' : 'No projectile'}</span>
+                        )}
                       </div>
-                    )}
-                    {!entry.data?.detected && (
-                      <span className="text-[10px] text-muted-foreground">{isAr ? 'لم يُكتشف مقذوف' : 'No projectile'}</span>
-                    )}
+                    </div>
                   </button>
                 </div>
               ))}

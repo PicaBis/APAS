@@ -235,3 +235,15 @@ export function getIssueMessage(issue: QualityIssue, lang: string): string {
   if (lang === 'fr') return issue.messageFr;
   return issue.messageEn;
 }
+
+/**
+ * Compute a SHA-256 hash of a File's contents.
+ * Returns a hex string that uniquely identifies the file's binary content.
+ * Used for duplicate detection — same file content always produces the same hash.
+ */
+export async function computeFileHash(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}

@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { Camera, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, Aperture, Sparkles, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
-import { checkFileSize, analyzeImageQuality, getIssueMessage } from '@/utils/mediaQuality';
+import { checkFileSize, analyzeImageQuality, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
 import LiveWeatherOverlay from '@/components/apas/LiveWeatherOverlay';
 import GyroLevel from '@/components/apas/GyroLevel';
 import AROverlay from '@/components/apas/AROverlay';
@@ -17,6 +17,7 @@ const CONFIDENCE_THRESHOLD = 60;
 interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
+  onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
 }
 
 interface AnalysisData {
@@ -35,9 +36,11 @@ interface HistoryEntry {
   data: AnalysisData | null;
   text: string;
   thumbnailName: string;
+  fileHash?: string;
+  thumbnailData?: string;
 }
 
-export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
+export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
@@ -51,6 +54,7 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [currentFileHash, setCurrentFileHash] = useState<string | null>(null);
 
   // Smart features state
   const [showSmartFeatures, setShowSmartFeatures] = useState(false);
@@ -159,7 +163,7 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
   };
 
   // Shared analysis function for both file upload and camera capture
-  const analyzeBase64 = async (base64: string, mimeType: string, sourceName: string) => {
+  const analyzeBase64 = async (base64: string, mimeType: string, sourceName: string, fileHash?: string, thumbnailDataUrl?: string) => {
     setIsAnalyzing(true);
     setShowModal(true);
     setAnalysisData(null);
@@ -188,6 +192,8 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
           data: result,
           text: cleanText,
           thumbnailName: sourceName,
+          fileHash: fileHash,
+          thumbnailData: thumbnailDataUrl,
         }, ...prev].slice(0, 20));
 
         if (result.detected && confidence >= CONFIDENCE_THRESHOLD) {
@@ -212,6 +218,8 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
           data: null,
           text: cleanText,
           thumbnailName: sourceName,
+          fileHash: fileHash,
+          thumbnailData: thumbnailDataUrl,
         }, ...prev].slice(0, 20));
       }
     };
@@ -256,6 +264,18 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
     if (!file) return;
     if (fileRef.current) fileRef.current.value = '';
 
+    // Compute file hash for duplicate detection
+    const fileHash = await computeFileHash(file);
+    setCurrentFileHash(fileHash);
+
+    // Check for duplicate — same file already in history
+    const existingEntry = history.find(h => h.fileHash === fileHash);
+    if (existingEntry) {
+      toast.info(isAr ? 'هذه الصورة تم تحليلها سابقاً — يتم تحميل النتائج من السجل' : 'This image was already analyzed — loading results from history');
+      loadFromHistory(existingEntry);
+      return;
+    }
+
     // Smart quality check on file size
     const fileSizeIssue = checkFileSize(file);
     if (fileSizeIssue) {
@@ -292,13 +312,36 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
     // Set preview image
     setPreviewUrl(imgUrl);
 
+    // Generate a thumbnail data URL for history storage
+    const thumbnailDataUrl = await new Promise<string>((resolve) => {
+      const thumbImg = new Image();
+      thumbImg.onload = () => {
+        const c = document.createElement('canvas');
+        const s = Math.min(1, 256 / thumbImg.width);
+        c.width = Math.round(thumbImg.width * s);
+        c.height = Math.round(thumbImg.height * s);
+        const cx = c.getContext('2d');
+        if (cx) {
+          cx.drawImage(thumbImg, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/jpeg', 0.6));
+        } else {
+          resolve('');
+        }
+      };
+      thumbImg.onerror = () => resolve('');
+      thumbImg.src = imgUrl;
+    });
+
     const base64 = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve((reader.result as string).split(',')[1]);
       reader.readAsDataURL(file);
     });
 
-    analyzeBase64(base64, file.type, file.name);
+    // Notify parent that media was analyzed (for calibration tool awareness)
+    if (thumbnailDataUrl && onMediaAnalyzed) onMediaAnalyzed(thumbnailDataUrl);
+
+    analyzeBase64(base64, file.type, file.name, fileHash, thumbnailDataUrl);
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
@@ -397,50 +440,58 @@ export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
                     onClick={() => loadFromHistory(entry)}
                     className="w-full text-start pe-6"
                   >
-                    <div className="flex items-center justify-between mb-1 pe-5">
-                      <span className="text-xs font-medium text-foreground truncate max-w-[60%]">
-                        {entry.data?.objectType || entry.thumbnailName}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {entry.timestamp.toLocaleTimeString()}
-                      </span>
-                    </div>
-                    {entry.data?.detected && (
-                      <div className="space-y-1.5">
-                        <div className="flex gap-3 text-[10px] text-muted-foreground">
-                          <span>V={entry.data.velocity} m/s</span>
-                          <span>θ={entry.data.angle}°</span>
-                          <span>m={entry.data.mass} kg</span>
+                    <div className="flex items-start gap-2">
+                      {/* Thumbnail preview */}
+                      {entry.thumbnailData && (
+                        <img src={entry.thumbnailData} alt="" className="w-14 h-10 object-cover rounded border border-border/30 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 pe-5">
+                          <span className="text-xs font-medium text-foreground truncate max-w-[60%]">
+                            {entry.data?.objectType || entry.thumbnailName}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {entry.timestamp.toLocaleTimeString()}
+                          </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-1.5 text-[9px]">
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'السرعة' : 'Velocity'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.velocity} m/s</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الزاوية' : 'Angle'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.angle}°</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الارتفاع' : 'Height'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.height ?? '—'} m</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الكتلة' : 'Mass'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.mass ?? '—'} kg</span>
-                          </div>
-                          {entry.data.confidence != null && (
-                            <div className="bg-secondary/50 rounded p-1 text-center col-span-2">
-                              <span className="text-muted-foreground">{isAr ? 'نسبة الثقة' : 'Confidence'}: </span>
-                              <span className="font-mono font-medium text-foreground">{entry.data.confidence}%</span>
+                        {entry.data?.detected && (
+                          <div className="space-y-1.5">
+                            <div className="flex gap-3 text-[10px] text-muted-foreground">
+                              <span>V={entry.data.velocity} m/s</span>
+                              <span>θ={entry.data.angle}°</span>
+                              <span>m={entry.data.mass} kg</span>
                             </div>
-                          )}
-                        </div>
+                            <div className="grid grid-cols-2 gap-1.5 text-[9px]">
+                              <div className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{isAr ? 'السرعة' : 'Velocity'}: </span>
+                                <span className="font-mono font-medium text-foreground">{entry.data.velocity} m/s</span>
+                              </div>
+                              <div className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{isAr ? 'الزاوية' : 'Angle'}: </span>
+                                <span className="font-mono font-medium text-foreground">{entry.data.angle}°</span>
+                              </div>
+                              <div className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{isAr ? 'الارتفاع' : 'Height'}: </span>
+                                <span className="font-mono font-medium text-foreground">{entry.data.height ?? '—'} m</span>
+                              </div>
+                              <div className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{isAr ? 'الكتلة' : 'Mass'}: </span>
+                                <span className="font-mono font-medium text-foreground">{entry.data.mass ?? '—'} kg</span>
+                              </div>
+                              {entry.data.confidence != null && (
+                                <div className="bg-secondary/50 rounded p-1 text-center col-span-2">
+                                  <span className="text-muted-foreground">{isAr ? 'نسبة الثقة' : 'Confidence'}: </span>
+                                  <span className="font-mono font-medium text-foreground">{entry.data.confidence}%</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {!entry.data?.detected && (
+                          <span className="text-[10px] text-muted-foreground">{isAr ? 'لم يُكتشف مقذوف' : 'No projectile'}</span>
+                        )}
                       </div>
-                    )}
-                    {!entry.data?.detected && (
-                      <span className="text-[10px] text-muted-foreground">{isAr ? 'لم يُكتشف مقذوف' : 'No projectile'}</span>
-                    )}
+                    </div>
                   </button>
                 </div>
               ))}
