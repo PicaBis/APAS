@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Smartphone } from 'lucide-react';
+import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Download, Monitor, Smartphone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 
@@ -28,6 +28,13 @@ interface LangData {
   enterSim: string;
   enterClassroom: string;
   downloadAndroid: string;
+  downloadTitle: string;
+  downloadSubtitle: string;
+  downloadBtn: string;
+  downloadBtnLinux: string;
+  downloadBtnAndroid: string;
+  downloadNote: string;
+  downloadNav: string;
   whyTitle: string;
   whySubtitle: string;
   features: FeatureItem[];
@@ -51,6 +58,13 @@ const LANG_DATA: Record<Lang, LangData> = {
     enterSim: '\u0627\u0628\u062f\u0623 \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629',
     enterClassroom: '\u0627\u0644\u0641\u0635\u0644 \u0627\u0644\u062f\u0631\u0627\u0633\u064a',
     downloadAndroid: '\u062a\u062d\u0645\u064a\u0644 \u0644\u0644\u0623\u0646\u062f\u0631\u0648\u064a\u062f',
+    downloadTitle: '\u062d\u0645\u0651\u0644 \u062a\u0637\u0628\u064a\u0642 APAS',
+    downloadSubtitle: '\u062a\u0637\u0628\u064a\u0642 \u0633\u0637\u062d \u0627\u0644\u0645\u0643\u062a\u0628 \u0644\u0646\u0638\u0627\u0645 Windows \u0648 Linux \u0648 Android \u2014 \u064a\u062d\u0645\u0651\u0644 \u062f\u0627\u0626\u0645\u0627\u064b \u0622\u062e\u0631 \u0625\u0635\u062f\u0627\u0631 \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b',
+    downloadBtn: '\u062a\u062d\u0645\u064a\u0644 \u0644\u0640 Windows x64',
+    downloadBtnLinux: '\u062a\u062d\u0645\u064a\u0644 \u0644\u0640 Linux x64',
+    downloadBtnAndroid: '\u062a\u062d\u0645\u064a\u0644 \u0644\u0644\u0623\u0646\u062f\u0631\u0648\u064a\u062f',
+    downloadNote: '\u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u064a\u062a\u0635\u0644 \u0628\u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a \u0644\u062a\u062d\u0645\u064a\u0644 \u0622\u062e\u0631 \u0627\u0644\u062a\u062d\u062f\u064a\u062b\u0627\u062a \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b',
+    downloadNav: '\u062a\u062d\u0645\u064a\u0644',
     whyTitle: '\u0644\u0645\u0627\u0630\u0627 APAS \u0623\u0641\u0636\u0644\u061f',
     whySubtitle: '\u0645\u0642\u0627\u0631\u0646\u0629 \u0645\u0639 \u0627\u0644\u0623\u062f\u0648\u0627\u062a \u0627\u0644\u062a\u0642\u0644\u064a\u062f\u064a\u0629',
     features: [
@@ -90,6 +104,13 @@ const LANG_DATA: Record<Lang, LangData> = {
     enterSim: 'Start Simulation',
     enterClassroom: 'Classroom',
     downloadAndroid: 'Download Android',
+    downloadTitle: 'Download APAS App',
+    downloadSubtitle: 'Desktop & mobile applications for Windows, Linux & Android \u2014 always loads the latest version automatically',
+    downloadBtn: 'Download for Windows x64',
+    downloadBtnLinux: 'Download for Linux x64',
+    downloadBtnAndroid: 'Download for Android',
+    downloadNote: 'The app connects to the internet to load the latest updates automatically',
+    downloadNav: 'Download',
     whyTitle: 'Why APAS?',
     whySubtitle: 'Compared to traditional tools',
     features: [
@@ -129,6 +150,13 @@ const LANG_DATA: Record<Lang, LangData> = {
     enterSim: 'D\u00e9marrer la Simulation',
     enterClassroom: 'Salle de Classe',
     downloadAndroid: 'T\u00e9l\u00e9charger Android',
+    downloadTitle: 'T\u00e9l\u00e9charger APAS',
+    downloadSubtitle: 'Applications de bureau et mobile pour Windows, Linux & Android \u2014 charge toujours la derni\u00e8re version automatiquement',
+    downloadBtn: 'T\u00e9l\u00e9charger pour Windows x64',
+    downloadBtnLinux: 'T\u00e9l\u00e9charger pour Linux x64',
+    downloadBtnAndroid: 'T\u00e9l\u00e9charger pour Android',
+    downloadNote: "L'application se connecte \u00e0 Internet pour charger les derni\u00e8res mises \u00e0 jour",
+    downloadNav: 'T\u00e9l\u00e9charger',
     whyTitle: 'Pourquoi APAS ?',
     whySubtitle: 'Compar\u00e9 aux outils traditionnels',
     features: [
@@ -383,15 +411,6 @@ const LandingPage: React.FC = () => {
             <GraduationCap className="w-5 h-5" />
             {t.enterClassroom}
           </button>
-          <a
-            href="https://github.com/PicaBis/APAS/releases/latest/download/APAS.apk"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium text-base shadow-lg shadow-green-600/20 hover:shadow-xl hover:shadow-green-600/30 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 nav-btn-animate"
-          >
-            <Smartphone className="w-5 h-5" />
-            {t.downloadAndroid}
-          </a>
         </div>
         <ChevronDown className="w-6 h-6 text-muted-foreground mx-auto mt-12 animate-bounce" />
       </section>
@@ -481,6 +500,73 @@ const LandingPage: React.FC = () => {
           {t.ctaBtn}
           <ArrowRight className={`w-5 h-5 transition-transform duration-300 group-hover:translate-x-1 ${isRTL ? 'rotate-180 group-hover:-translate-x-1' : ''}`} />
         </button>
+      </section>
+
+      {/* Download App Section */}
+      <section id="download-section" className="relative z-10 w-full">
+        <div className="bg-gradient-to-b from-[#0a1628] to-[#0d1f3c] py-20 sm:py-28">
+          {/* Decorative top border */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+            {/* Badge */}
+            <span className="inline-block text-xs font-mono tracking-[0.3em] uppercase text-primary/80 mb-6">
+              [ {lang === 'ar' ? '\u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u062a\u0637\u0628\u064a\u0642\u0627\u062a' : lang === 'fr' ? 'APPLICATIONS' : 'DOWNLOAD APPS'} ]
+            </span>
+
+            {/* Title */}
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+              {t.downloadTitle}
+            </h2>
+
+            {/* Subtitle */}
+            <p className="text-base sm:text-lg text-gray-400 mb-10 max-w-xl mx-auto leading-relaxed">
+              {t.downloadSubtitle}
+            </p>
+
+            {/* Download Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+              <a
+                href="https://github.com/PicaBis/APAS/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-1 transition-all duration-300"
+              >
+                <Monitor className="w-5 h-5" />
+                {t.downloadBtn}
+                <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
+              </a>
+              <a
+                href="https://github.com/PicaBis/APAS/releases/tag/v1.0.1"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#E95420] to-[#77216F] text-white rounded-xl font-semibold text-base shadow-lg shadow-[#E95420]/25 hover:shadow-xl hover:shadow-[#E95420]/40 hover:-translate-y-1 transition-all duration-300"
+              >
+                <Monitor className="w-5 h-5" />
+                {t.downloadBtnLinux}
+                <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
+              </a>
+              <a
+                href="https://github.com/PicaBis/APAS/releases/latest/download/APAS.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold text-base shadow-lg shadow-green-600/25 hover:shadow-xl hover:shadow-green-600/40 hover:-translate-y-1 transition-all duration-300"
+              >
+                <Smartphone className="w-5 h-5" />
+                {t.downloadBtnAndroid}
+                <Download className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5" />
+              </a>
+            </div>
+
+            {/* Note */}
+            <p className="text-sm text-gray-500">
+              {t.downloadNote}
+            </p>
+          </div>
+
+          {/* Decorative bottom border */}
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+        </div>
       </section>
 
       {/* Footer */}
