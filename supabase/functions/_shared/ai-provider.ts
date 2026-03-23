@@ -3,7 +3,9 @@
  * Primary: Groq API
  * Fallback: Mistral AI API
  * 
- * Both APIs are OpenAI-compatible, so the same request/response format works.
+ * Note: Groq uses the OpenAI image_url format ({ url: "..." }) while
+ * Mistral expects image_url as a plain string. Messages are adapted
+ * per-provider before sending.
  */
 
 type ModelType = "chat" | "vision";
@@ -17,13 +19,36 @@ interface ProviderConfig {
 
 interface ChatMessage {
   role: string;
-  content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+  content: string | Array<{ type: string; text?: string; image_url?: { url: string } | string }>;
 }
 
 interface AIRequestOptions {
   messages: ChatMessage[];
   temperature?: number;
   max_tokens?: number;
+}
+
+/**
+ * Adapt message content format per provider.
+ * Groq (OpenAI-compatible) expects image_url as { url: "..." }.
+ * Mistral expects image_url as a plain string.
+ */
+function adaptMessagesForProvider(messages: ChatMessage[], providerName: string): ChatMessage[] {
+  if (providerName !== "Mistral") return messages;
+
+  return messages.map((msg) => {
+    if (typeof msg.content === "string" || !Array.isArray(msg.content)) return msg;
+
+    return {
+      ...msg,
+      content: msg.content.map((part) => {
+        if (part.type === "image_url" && part.image_url && typeof part.image_url === "object" && "url" in part.image_url) {
+          return { type: "image_url", image_url: part.image_url.url };
+        }
+        return part;
+      }),
+    };
+  });
 }
 
 function getProviders(): ProviderConfig[] {
@@ -73,6 +98,8 @@ export async function aiComplete(
       const model = provider.models[options.modelType];
       console.log(`[AI] Trying ${provider.name} (${model})...`);
 
+      const adaptedMessages = adaptMessagesForProvider(options.messages, provider.name);
+
       const response = await fetch(provider.apiUrl, {
         method: "POST",
         headers: {
@@ -81,7 +108,7 @@ export async function aiComplete(
         },
         body: JSON.stringify({
           model,
-          messages: options.messages,
+          messages: adaptedMessages,
           temperature: options.temperature ?? 0.4,
           max_tokens: options.max_tokens ?? 2000,
           stream: false,
@@ -129,6 +156,8 @@ export async function aiStream(
       const model = provider.models[options.modelType];
       console.log(`[AI] Streaming: trying ${provider.name} (${model})...`);
 
+      const adaptedMessages = adaptMessagesForProvider(options.messages, provider.name);
+
       const response = await fetch(provider.apiUrl, {
         method: "POST",
         headers: {
@@ -137,7 +166,7 @@ export async function aiStream(
         },
         body: JSON.stringify({
           model,
-          messages: options.messages,
+          messages: adaptedMessages,
           temperature: options.temperature ?? 0.4,
           max_tokens: options.max_tokens ?? 2000,
           stream: true,

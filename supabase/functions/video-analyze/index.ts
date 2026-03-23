@@ -299,7 +299,7 @@ If NO moving object is found at all:
 \`\`\``;
 
     // Build multi-frame content for position detection
-    const posContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+    const posContent: Array<{ type: string; text?: string; image_url?: string }> = [];
     posContent.push({
       type: "text",
       text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
@@ -313,7 +313,7 @@ If NO moving object is found at all:
       });
       posContent.push({
         type: "image_url",
-        image_url: { url: frames[i].data },
+        image_url: frames[i].data,
       });
     }
 
