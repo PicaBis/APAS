@@ -6,7 +6,7 @@ interface ApasLogoProps {
 }
 
 const ApasLogo: React.FC<ApasLogoProps> = ({ size = 64, animated = false }) => {
-  const id = `apas-${size}`;
+  const id = React.useId().replace(/:/g, '');
 
   return (
     <svg
@@ -16,50 +16,55 @@ const ApasLogo: React.FC<ApasLogoProps> = ({ size = 64, animated = false }) => {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       style={{
-        filter: `drop-shadow(0 2px 10px rgba(26,26,62,0.4)) drop-shadow(0 4px 20px rgba(201,168,76,0.2))`,
+        filter: `drop-shadow(0 2px 8px rgba(26,26,62,0.35))`,
       }}
     >
       <defs>
-        {/* Background circle gradient - deep navy to indigo */}
-        <radialGradient id={`${id}-bg`} cx="0.5" cy="0.5" r="0.55">
-          <stop offset="0%" stopColor="#2d3a6e" />
-          <stop offset="50%" stopColor="#232b55" />
-          <stop offset="100%" stopColor="#1a1a3e" />
+        {/* Background circle gradient - deep navy to darker navy */}
+        <radialGradient id={`${id}-bg`} cx="0.45" cy="0.4" r="0.6">
+          <stop offset="0%" stopColor="#2a3568" />
+          <stop offset="40%" stopColor="#222d58" />
+          <stop offset="75%" stopColor="#1c2248" />
+          <stop offset="100%" stopColor="#161a38" />
         </radialGradient>
 
-        {/* A letter gradient - silver blue to light slate */}
-        <linearGradient id={`${id}-letter`} x1="0.3" y1="0" x2="0.7" y2="1">
-          <stop offset="0%" stopColor="#a8b8d8" />
-          <stop offset="30%" stopColor="#8a9cc5" />
-          <stop offset="60%" stopColor="#6b7db5" />
-          <stop offset="100%" stopColor="#5a6da5" />
+        {/* Subtle edge highlight for 3D depth */}
+        <radialGradient id={`${id}-rim`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="88%" stopColor="transparent" />
+          <stop offset="95%" stopColor="rgba(60,75,130,0.15)" />
+          <stop offset="100%" stopColor="rgba(40,50,100,0.3)" />
+        </radialGradient>
+
+        {/* A letter gradient - light silvery blue */}
+        <linearGradient id={`${id}-letter`} x1="0.2" y1="0" x2="0.8" y2="1">
+          <stop offset="0%" stopColor="#b8c8e8" />
+          <stop offset="35%" stopColor="#95a8d0" />
+          <stop offset="70%" stopColor="#7b8fc0" />
+          <stop offset="100%" stopColor="#6878aa" />
+        </linearGradient>
+
+        {/* Lighter stroke for the right leg */}
+        <linearGradient id={`${id}-letter2`} x1="0.3" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor="#a0b0d0" />
+          <stop offset="100%" stopColor="#7888b5" />
         </linearGradient>
 
         {/* Golden dot gradient */}
-        <radialGradient id={`${id}-gold`} cx="0.4" cy="0.35" r="0.6">
-          <stop offset="0%" stopColor="#e8c85a" />
-          <stop offset="50%" stopColor="#d4aa4f" />
-          <stop offset="100%" stopColor="#c9a84c" />
+        <radialGradient id={`${id}-gold`} cx="0.4" cy="0.35" r="0.55">
+          <stop offset="0%" stopColor="#f0d060" />
+          <stop offset="40%" stopColor="#dbb44e" />
+          <stop offset="100%" stopColor="#c9a040" />
         </radialGradient>
 
-        {/* Subtle glass reflection */}
-        <linearGradient id={`${id}-glass`} x1="0.5" y1="0" x2="0.5" y2="0.6">
-          <stop offset="0%" stopColor="white" stopOpacity="0.08" />
+        {/* Subtle top glass reflection */}
+        <linearGradient id={`${id}-glass`} x1="0.5" y1="0" x2="0.5" y2="0.55">
+          <stop offset="0%" stopColor="white" stopOpacity="0.06" />
           <stop offset="100%" stopColor="white" stopOpacity="0" />
         </linearGradient>
 
-        {/* Glow filter for golden dot */}
-        <filter id={`${id}-goldglow`} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="2" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-
-        {/* Outer glow for circle */}
-        <filter id={`${id}-circleglow`} x="-15%" y="-15%" width="130%" height="130%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
+        {/* Golden dot glow */}
+        <filter id={`${id}-goldglow`} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="1.5" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -68,91 +73,65 @@ const ApasLogo: React.FC<ApasLogoProps> = ({ size = 64, animated = false }) => {
       </defs>
 
       {/* Main circular background */}
-      <circle
-        cx="60"
-        cy="60"
-        r="54"
-        fill={`url(#${id}-bg)`}
-        filter={`url(#${id}-circleglow)`}
-      />
+      <circle cx="60" cy="60" r="56" fill={`url(#${id}-bg)`} />
 
-      {/* Subtle border ring */}
-      <circle
-        cx="60"
-        cy="60"
-        r="53"
-        fill="none"
-        stroke="#3a4a8a"
-        strokeWidth="1"
-        opacity="0.4"
-      />
+      {/* Rim depth effect */}
+      <circle cx="60" cy="60" r="56" fill={`url(#${id}-rim)`} />
+
+      {/* Very subtle border */}
+      <circle cx="60" cy="60" r="55.5" fill="none" stroke="#3a4a80" strokeWidth="0.5" opacity="0.3" />
 
       {/* Glass reflection on upper portion */}
-      <ellipse
-        cx="60"
-        cy="42"
-        rx="40"
-        ry="30"
-        fill={`url(#${id}-glass)`}
+      <ellipse cx="58" cy="40" rx="38" ry="28" fill={`url(#${id}-glass)`} />
+
+      {/* Left main stroke - thick, sweeping upward from bottom-left to apex */}
+      <path
+        d="M32 90 C34 82, 38 68, 44 56 C50 44, 54 36, 57 30 Q58.5 27, 60 27"
+        stroke={`url(#${id}-letter)`}
+        strokeWidth="6.5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
 
-      {/* Stylized "A" letter - main strokes */}
-      {/* Left stroke of A */}
+      {/* Right stroke - thinner, flowing from apex down to the right */}
       <path
-        d="M38 88 L55 32 Q56 29 58 29"
-        stroke={`url(#${id}-letter)`}
-        strokeWidth="7"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Right stroke of A - curves elegantly */}
-      <path
-        d="M58 29 Q60 29 62 32 L82 88"
-        stroke={`url(#${id}-letter)`}
-        strokeWidth="5"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.7"
-      />
-      {/* Crossbar of A - slightly angled */}
-      <path
-        d="M44 70 L72 62"
-        stroke={`url(#${id}-letter)`}
+        d="M60 27 Q62 27, 64 32 C68 40, 74 54, 80 68 C83 75, 85 80, 86 84"
+        stroke={`url(#${id}-letter2)`}
         strokeWidth="4"
         fill="none"
         strokeLinecap="round"
-        opacity="0.5"
+        strokeLinejoin="round"
+        opacity="0.75"
       />
 
-      {/* Golden accent dot - top right area */}
+      {/* Crossbar - subtle angled line across the A */}
+      <path
+        d="M42 72 L74 63"
+        stroke={`url(#${id}-letter2)`}
+        strokeWidth="3"
+        fill="none"
+        strokeLinecap="round"
+        opacity="0.4"
+      />
+
+      {/* Golden accent dot - positioned at top-right near the apex */}
       <circle
-        cx="72"
-        cy="30"
-        r="7"
+        cx="70"
+        cy="28"
+        r="6.5"
         fill={`url(#${id}-gold)`}
         filter={`url(#${id}-goldglow)`}
         className={animated ? 'apas-gold-dot' : ''}
       />
-      {/* Golden dot highlight */}
-      <circle
-        cx="70"
-        cy="28"
-        r="2.5"
-        fill="white"
-        opacity="0.3"
-      />
-
-      {/* Small decorative dots */}
-      <circle cx="30" cy="48" r="1" fill="#6b7db5" opacity="0.3" />
-      <circle cx="88" cy="68" r="1" fill="#6b7db5" opacity="0.2" />
+      {/* Small specular highlight on the golden dot */}
+      <circle cx="68.5" cy="26" r="2" fill="white" opacity="0.25" />
 
       {animated && (
         <style>{`
           @keyframes apasGoldPulse {
-            0%, 100% { opacity: 1; transform-origin: 72px 30px; transform: scale(1); }
-            50% { opacity: 0.85; transform-origin: 72px 30px; transform: scale(1.15); }
+            0%, 100% { opacity: 1; transform-origin: 70px 28px; transform: scale(1); }
+            50% { opacity: 0.85; transform-origin: 70px 28px; transform: scale(1.12); }
           }
           .apas-gold-dot {
             animation: apasGoldPulse 3s ease-in-out infinite;
