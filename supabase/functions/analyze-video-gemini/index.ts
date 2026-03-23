@@ -639,145 +639,135 @@ If NO moving object is found at all:
         ? (isAr ? "\u062d\u0631\u0643\u0629 \u0623\u0641\u0642\u064a\u0629" : "Horizontal motion")
         : (isAr ? "\u062d\u0631\u0643\u0629 \u0645\u0642\u0630\u0648\u0641 (\u0642\u0630\u0641 \u0645\u0627\u0626\u0644)" : "Projectile motion (oblique throw)");
 
-    // Build structured analysis text with clean sections
+    // Build beautiful structured analysis text
     const lines: string[] = [];
 
     // Hidden JSON block for programmatic parsing (frontend extracts this)
     lines.push("```json\n" + JSON.stringify(finalResult, null, 2) + "\n```");
     lines.push("");
 
+    const vx = Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10;
+    const vy = Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10;
+    const dragLabel = finalResult.dragEffect === 'none'
+      ? (isAr ? 'لا يوجد' : 'None')
+      : finalResult.dragEffect === 'slight'
+        ? (isAr ? 'طفيف' : 'Slight')
+        : (isAr ? 'كبير' : 'Significant');
+
     if (isAr) {
-      // Arabic structured output
-      lines.push(`## \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u0623\u0633\u0627\u0633\u064a\u0629`);
+      // ── Arabic beautiful output ──
+      lines.push(`## تحليل حركة المقذوف`);
       lines.push("");
-      lines.push(`| \u0627\u0644\u0628\u064a\u0627\u0646 | \u0627\u0644\u0642\u064a\u0645\u0629 |`);
-      lines.push(`|---|---|`);
-      lines.push(`| \u0646\u0648\u0639 \u0627\u0644\u0645\u0642\u0630\u0648\u0641 | ${finalResult.objectType} |`);
-      lines.push(`| \u0646\u0648\u0639 \u0627\u0644\u062d\u0631\u0643\u0629 | ${motionTypeLabel} |`);
-      lines.push(`| \u0639\u062f\u062f \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a | ${aiPositions.length} |`);
-      if (finalResult.peakFrame) lines.push(`| \u0625\u0637\u0627\u0631 \u0627\u0644\u0630\u0631\u0648\u0629 | #${finalResult.peakFrame} |`);
-      if (finalResult.impactFrame) lines.push(`| \u0625\u0637\u0627\u0631 \u0627\u0644\u0627\u0631\u062a\u0637\u0627\u0645 | #${finalResult.impactFrame} |`);
-      lines.push(`| \u062a\u0623\u062b\u064a\u0631 \u0627\u0644\u0633\u062d\u0628 | ${finalResult.dragEffect === 'none' ? '\u0644\u0627 \u064a\u0648\u062c\u062f' : finalResult.dragEffect === 'slight' ? '\u0637\u0641\u064a\u0641' : '\u0643\u0628\u064a\u0631'} |`);
+      lines.push(`**نوع الجسم:** ${finalResult.objectType}`);
+      lines.push(`**نوع الحركة:** ${motionTypeLabel}`);
+      lines.push(`**الإطارات المحللة:** ${aiPositions.length} إطار`);
+      lines.push(`**تأثير مقاومة الهواء:** ${dragLabel}`);
       lines.push("");
 
-      lines.push(`## \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0629`);
+      lines.push(`---`);
       lines.push("");
-      lines.push(`| \u0627\u0644\u0643\u0645\u064a\u0629 | \u0627\u0644\u0642\u064a\u0645\u0629 | \u0627\u0644\u0648\u062d\u062f\u0629 |`);
-      lines.push(`|---|---|---|`);
-      lines.push(`| \u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 (\u03b8) | ${finalAngle} | \u00b0 |`);
-      lines.push(`| \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629 (v\u2080) | ${finalVelocity} | m/s |`);
-      lines.push(`| \u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 (h) | ${finalResult.height} | m |`);
-      lines.push(`| \u0627\u0644\u0643\u062a\u0644\u0629 (m) | ${finalResult.mass} | kg |`);
-      lines.push(`| \u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629 | ${confidence}% | \u2014 |`);
+      lines.push(`## النتائج الفيزيائية`);
+      lines.push("");
+      lines.push(`- **زاوية الإطلاق:** ${finalAngle}°`);
+      lines.push(`- **السرعة الابتدائية:** ${finalVelocity} m/s`);
+      lines.push(`- **ارتفاع الإطلاق:** ${finalResult.height} m`);
+      lines.push(`- **الكتلة:** ${finalResult.mass} kg`);
+      lines.push(`- **نسبة الثقة:** ${confidence}%`);
       lines.push("");
 
-      lines.push(`## \u0627\u0644\u0645\u0639\u0627\u062f\u0644\u0627\u062a \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645\u0629`);
+      lines.push(`---`);
       lines.push("");
-      lines.push(`**\u0645\u0639\u0627\u062f\u0644\u0629 \u0627\u0644\u0645\u0633\u0627\u0631:**`);
-      lines.push(`\`y = x\u00B7tan(\u03b8) \u2212 g\u00B7x\u00B2 / (2\u00B7v\u2080\u00B2\u00B7cos\u00B2(\u03b8))\``);
+      lines.push(`## المعادلات`);
       lines.push("");
-      lines.push(`**\u062d\u0633\u0627\u0628 \u0627\u0644\u0632\u0627\u0648\u064a\u0629:**`);
-      lines.push(`\`\u03b8 = arctan(v_y / v_x) = arctan(${Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10} / ${Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10}) = ${finalAngle}\u00b0\``);
+      lines.push(`> **معادلة المسار**`);
+      lines.push(`> y = x * tan(theta) - g * x^2 / (2 * v0^2 * cos^2(theta))`);
       lines.push("");
-      lines.push(`**\u0645\u0631\u0643\u0628\u0627\u062a \u0627\u0644\u0633\u0631\u0639\u0629:**`);
-      lines.push(`\`v_x = v\u2080\u00B7cos(\u03b8) = ${finalVelocity}\u00B7cos(${finalAngle}\u00b0) = ${Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10} m/s\``);
-      lines.push(`\`v_y = v\u2080\u00B7sin(\u03b8) = ${finalVelocity}\u00B7sin(${finalAngle}\u00b0) = ${Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10} m/s\``);
+      lines.push(`> **مركبات السرعة**`);
+      lines.push(`> vx = ${finalVelocity} * cos(${finalAngle}) = ${vx} m/s`);
+      lines.push(`> vy = ${finalVelocity} * sin(${finalAngle}) = ${vy} m/s`);
       lines.push("");
       if (curveFitInfo) {
-        lines.push(`**\u062c\u0648\u062f\u0629 \u0627\u0644\u0645\u0637\u0627\u0628\u0642\u0629:** ${curveFitInfo}`);
+        lines.push(`> **جودة المطابقة:** ${curveFitInfo}`);
         lines.push("");
       }
 
-      if (aiPositions.length > 0) {
-        lines.push(`## \u062c\u062f\u0648\u0644 \u0627\u0644\u0645\u0633\u0627\u0631`);
+      if (aiPositions.length > 0 && aiPositions.length <= 20) {
+        lines.push(`---`);
         lines.push("");
-        lines.push(`| \u0627\u0644\u0625\u0637\u0627\u0631 | x (px) | y (px) | t (s) |`);
-        lines.push(`|---|---|---|---|`);
+        lines.push(`## مسار الحركة`);
+        lines.push("");
         for (let i = 0; i < aiPositions.length; i++) {
           const p = aiPositions[i];
-          const t = typeof p.t === "number" ? p.t.toFixed(3) : (i * 0.1).toFixed(3);
-          lines.push(`| ${i + 1} | ${Math.round(p.x)} | ${Math.round(p.y)} | ${t} |`);
+          const t = typeof p.t === "number" ? p.t.toFixed(2) : (i * 0.1).toFixed(2);
+          lines.push(`- **${i + 1}.** x=${Math.round(p.x)} , y=${Math.round(p.y)} , t=${t}s`);
         }
         lines.push("");
       }
 
-      lines.push(`## \u0627\u0644\u0645\u0646\u0647\u062c\u064a\u0629`);
-      lines.push("");
-      lines.push(`1. \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 \u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0648\u0627\u0633\u0637\u0629 Gemini 2.5 Flash (\u062a\u062d\u0644\u064a\u0644 \u062d\u0631\u0643\u0629 \u0623\u0635\u0644\u064a)`);
-      lines.push(`2. \u062a\u062a\u0628\u0639 ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u0641\u064a\u062f\u064a\u0648`);
-      lines.push(`3. \u062d\u0633\u0627\u0628 \u0627\u0644\u0632\u0627\u0648\u064a\u0629: \u03b8 = arctan(v_y / v_x)`);
-      lines.push(`4. \u0645\u0637\u0627\u0628\u0642\u0629 \u0645\u0646\u062d\u0646\u0649 \u0642\u0637\u0639\u064a (Least Squares)`);
-      lines.push(`5. \u062a\u0642\u0627\u0637\u0639 \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0648\u0627\u062e\u062a\u064a\u0627\u0631 \u0627\u0644\u0623\u0641\u0636\u0644`);
-      lines.push(`6. \u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0634\u0627\u0630\u0629 (MAD)`);
-      lines.push("");
       lines.push(`---`);
-      lines.push(`*\u0645\u062d\u0631\u0643 \u0627\u0644\u062a\u062d\u0644\u064a\u0644: APAS + Gemini 2.5 Flash (Native Video)*`);
-    } else {
-      // English structured output
-      lines.push(`## Basic Information`);
       lines.push("");
-      lines.push(`| Property | Value |`);
-      lines.push(`|---|---|`);
-      lines.push(`| Projectile Type | ${finalResult.objectType} |`);
-      lines.push(`| Motion Type | ${motionTypeLabel} |`);
-      lines.push(`| Frames Analyzed | ${aiPositions.length} |`);
-      if (finalResult.peakFrame) lines.push(`| Peak Frame | #${finalResult.peakFrame} |`);
-      if (finalResult.impactFrame) lines.push(`| Impact Frame | #${finalResult.impactFrame} |`);
-      lines.push(`| Drag Effect | ${finalResult.dragEffect} |`);
+      lines.push(`## المنهجية`);
+      lines.push("");
+      lines.push(`تحليل الفيديو مباشرة عبر Gemini 2.5 Flash مع تتبع ${aiPositions.length} موقع ومطابقة منحنى قطعي ثم تصفية القيم الشاذة.`);
+      lines.push("");
+      lines.push(`*APAS + Gemini 2.5 Flash*`);
+    } else {
+      // ── English beautiful output ──
+      lines.push(`## Projectile Motion Analysis`);
+      lines.push("");
+      lines.push(`**Object:** ${finalResult.objectType}`);
+      lines.push(`**Motion type:** ${motionTypeLabel}`);
+      lines.push(`**Frames analyzed:** ${aiPositions.length}`);
+      lines.push(`**Air resistance:** ${dragLabel}`);
       lines.push("");
 
+      lines.push(`---`);
+      lines.push("");
       lines.push(`## Physics Results`);
       lines.push("");
-      lines.push(`| Quantity | Value | Unit |`);
-      lines.push(`|---|---|---|`);
-      lines.push(`| Launch Angle (\u03b8) | ${finalAngle} | \u00b0 |`);
-      lines.push(`| Initial Velocity (v\u2080) | ${finalVelocity} | m/s |`);
-      lines.push(`| Launch Height (h) | ${finalResult.height} | m |`);
-      lines.push(`| Mass (m) | ${finalResult.mass} | kg |`);
-      lines.push(`| Confidence | ${confidence}% | \u2014 |`);
+      lines.push(`- **Launch angle:** ${finalAngle}°`);
+      lines.push(`- **Initial velocity:** ${finalVelocity} m/s`);
+      lines.push(`- **Launch height:** ${finalResult.height} m`);
+      lines.push(`- **Mass:** ${finalResult.mass} kg`);
+      lines.push(`- **Confidence:** ${confidence}%`);
       lines.push("");
 
-      lines.push(`## Equations Used`);
+      lines.push(`---`);
       lines.push("");
-      lines.push(`**Trajectory Equation:**`);
-      lines.push(`\`y = x\u00B7tan(\u03b8) \u2212 g\u00B7x\u00B2 / (2\u00B7v\u2080\u00B2\u00B7cos\u00B2(\u03b8))\``);
+      lines.push(`## Equations`);
       lines.push("");
-      lines.push(`**Angle Calculation:**`);
-      lines.push(`\`\u03b8 = arctan(v_y / v_x) = arctan(${Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10} / ${Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10}) = ${finalAngle}\u00b0\``);
+      lines.push(`> **Trajectory equation**`);
+      lines.push(`> y = x * tan(theta) - g * x^2 / (2 * v0^2 * cos^2(theta))`);
       lines.push("");
-      lines.push(`**Velocity Components:**`);
-      lines.push(`\`v_x = v\u2080\u00B7cos(\u03b8) = ${finalVelocity}\u00B7cos(${finalAngle}\u00b0) = ${Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10} m/s\``);
-      lines.push(`\`v_y = v\u2080\u00B7sin(\u03b8) = ${finalVelocity}\u00B7sin(${finalAngle}\u00b0) = ${Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10} m/s\``);
+      lines.push(`> **Velocity components**`);
+      lines.push(`> vx = ${finalVelocity} * cos(${finalAngle}) = ${vx} m/s`);
+      lines.push(`> vy = ${finalVelocity} * sin(${finalAngle}) = ${vy} m/s`);
       lines.push("");
       if (curveFitInfo) {
-        lines.push(`**Curve Fit Quality:** ${curveFitInfo}`);
+        lines.push(`> **Curve fit quality:** ${curveFitInfo}`);
         lines.push("");
       }
 
-      if (aiPositions.length > 0) {
-        lines.push(`## Trajectory Table`);
+      if (aiPositions.length > 0 && aiPositions.length <= 20) {
+        lines.push(`---`);
         lines.push("");
-        lines.push(`| Frame | x (px) | y (px) | t (s) |`);
-        lines.push(`|---|---|---|---|`);
+        lines.push(`## Trajectory Points`);
+        lines.push("");
         for (let i = 0; i < aiPositions.length; i++) {
           const p = aiPositions[i];
-          const t = typeof p.t === "number" ? p.t.toFixed(3) : (i * 0.1).toFixed(3);
-          lines.push(`| ${i + 1} | ${Math.round(p.x)} | ${Math.round(p.y)} | ${t} |`);
+          const t = typeof p.t === "number" ? p.t.toFixed(2) : (i * 0.1).toFixed(2);
+          lines.push(`- **${i + 1}.** x=${Math.round(p.x)} , y=${Math.round(p.y)} , t=${t}s`);
         }
         lines.push("");
       }
 
+      lines.push(`---`);
+      lines.push("");
       lines.push(`## Methodology`);
       lines.push("");
-      lines.push(`1. Native video analysis via Gemini 2.5 Flash (motion analysis)`);
-      lines.push(`2. Tracked ${aiPositions.length} positions across video`);
-      lines.push(`3. Angle: \u03b8 = arctan(v_y / v_x)`);
-      lines.push(`4. Parabolic Curve Fit (Least Squares)`);
-      lines.push(`5. Cross-validated & selected best result`);
-      lines.push(`6. Outlier filtering (MAD)`);
+      lines.push(`Native video analysis via Gemini 2.5 Flash with ${aiPositions.length} tracked positions, parabolic curve fitting, and outlier filtering.`);
       lines.push("");
-      lines.push(`---`);
-      lines.push(`*Analysis engine: APAS + Gemini 2.5 Flash (Native Video)*`);
+      lines.push(`*APAS + Gemini 2.5 Flash*`);
     }
 
     const finalText = lines.join("\n");
