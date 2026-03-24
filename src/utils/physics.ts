@@ -484,13 +484,16 @@ export const calculateTrajectory = (
       }
       y = 0;
 
+      // Add the exact ground contact point before bouncing so the trajectory
+      // passes through y=0 cleanly (prevents spline overshoot underground)
+      addPoint();
+
       if (enableBounce && bounces < maxBounces && Math.abs(vy) > MIN_BOUNCE_VELOCITY) {
         vy = -vy * bounceCOR; // reverse and dampen
         vx = vx * (0.9 + bounceCOR * 0.1); // friction
         bounces++;
         bounceEvents.push(points.length);
       } else {
-        addPoint();
         break;
       }
     }

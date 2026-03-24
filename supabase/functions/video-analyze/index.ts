@@ -18,7 +18,7 @@ interface Position {
  * In image coordinates, y increases downward, so we invert Dy.
  */
 function computeLaunchAngle(positions: Position[]): number {
-  if (positions.length < 2) return 45; // fallback
+  if (positions.length < 2) return -1; // signal: insufficient data
 
   const maxPairs = Math.min(positions.length - 1, 4);
   let weightedDx = 0;
@@ -40,7 +40,7 @@ function computeLaunchAngle(positions: Position[]): number {
     totalWeight += weight;
   }
 
-  if (totalWeight === 0) return 45;
+  if (totalWeight === 0) return -1; // signal: no valid pairs
 
   const avgVx = weightedDx / totalWeight;
   const avgVy = weightedDy / totalWeight;
@@ -48,19 +48,26 @@ function computeLaunchAngle(positions: Position[]): number {
   const absVx = Math.abs(avgVx);
   const absVy = Math.abs(avgVy);
 
-  // Very small movement in both directions
-  if (absVx < 1 && absVy < 1) return 45;
+  // Very small movement — use position displacement as fallback
+  if (absVx < 1 && absVy < 1) {
+    const first = positions[0];
+    const last = positions[positions.length - 1];
+    const dx = Math.abs(last.x - first.x);
+    const dy = Math.abs(last.y - first.y);
+    if (dx < 1 && dy < 1) return -1; // truly no movement
+    return Math.max(0, Math.min(90, Math.round(Math.atan2(dy, dx) * (180 / Math.PI) * 10) / 10));
+  }
 
   // Nearly vertical: Vx ~ 0
-  if (absVx < absVy * 0.05 && absVy > 5) return 90;
+  if (absVx < absVy * 0.05 && absVy > 5) return 89.5;
 
   // Nearly horizontal: Vy ~ 0
-  if (absVy < absVx * 0.05 && absVx > 5) return 0;
+  if (absVy < absVx * 0.05 && absVx > 5) return 0.5;
 
   // General case: arctan(Vy / Vx)
   const angle = Math.atan2(absVy, absVx) * (180 / Math.PI);
 
-  // Return precise angle without aggressive rounding
+  // Return precise angle with 1 decimal place
   return Math.max(0, Math.min(90, Math.round(angle * 10) / 10));
 }
 
@@ -387,8 +394,7 @@ If NO moving object is found at all:
 
     console.log(`[APAS] Pass 1 complete via Claude. Raw response length: ${posText.length}`);
 
-    // Parse the positions from AI response
-    const jsonMatch = posText.match(/```json\s*([\s\S]*?)```/);
+    // Parse the positions from AI response — robust multi-strategy extraction
     let aiResult: {
       detected?: boolean;
       objectType?: string;
@@ -401,15 +407,37 @@ If NO moving object is found at all:
       positions?: Array<{ frame: number; x: number; y: number }>;
     } = {};
 
+    let parsed = false;
+
+    // Strategy 1: Extract from ```json ... ``` fenced block
+    const jsonMatch = posText.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
-      try {
-        aiResult = JSON.parse(jsonMatch[1].trim());
-      } catch {
-        try { aiResult = JSON.parse(posText.trim()); } catch { /* ignore */ }
-      }
-    } else {
-      try { aiResult = JSON.parse(posText.trim()); } catch { /* ignore */ }
+      try { aiResult = JSON.parse(jsonMatch[1].trim()); parsed = true; } catch { /* try next */ }
     }
+
+    // Strategy 2: Parse entire response as JSON
+    if (!parsed) {
+      try { aiResult = JSON.parse(posText.trim()); parsed = true; } catch { /* try next */ }
+    }
+
+    // Strategy 3: Find JSON object in text
+    if (!parsed) {
+      const objMatch = posText.match(/\{[\s\S]*\}/);
+      if (objMatch) {
+        try { aiResult = JSON.parse(objMatch[0]); parsed = true; } catch { /* try next */ }
+      }
+    }
+
+    // Strategy 4: Fix common JSON issues
+    if (!parsed) {
+      try {
+        const cleaned = posText.replace(/```[\s\S]*?```/g, '').replace(/,\s*([}\]])/g, '$1').trim();
+        const objMatch2 = cleaned.match(/\{[\s\S]*\}/);
+        if (objMatch2) { aiResult = JSON.parse(objMatch2[0]); parsed = true; }
+      } catch { /* give up */ }
+    }
+
+    console.log(`[APAS] Parsing ${parsed ? 'succeeded' : 'FAILED'}, positions: ${aiResult.positions?.length ?? 0}`);
 
     // PASS 2: Multi-method geometric computation
 
@@ -457,49 +485,66 @@ If NO moving object is found at all:
       const linearVelocity = estimateVelocity(cleanPositions, imageWidth, calibrationMeters);
       console.log(`[APAS] Linear velocity estimate: ${linearVelocity} m/s`);
 
+      // Use velocity angle only if valid (not -1)
+      const hasVelocityAngle = velocityAngle >= 0;
+
       // Cross-validate and select best values
       if (motionType === "vertical") {
-        finalAngle = 90;
+        finalAngle = 89.5;
         finalVelocity = linearVelocity;
       } else if (motionType === "horizontal") {
-        finalAngle = 0;
+        finalAngle = 0.5;
         finalVelocity = linearVelocity;
       } else {
         if (curveFit && curveFit.r_squared > 0.7 && curveAngle !== null) {
           finalAngle = curveAngle;
           finalVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
-          if (Math.abs(curveAngle - velocityAngle) < 15) {
+          if (hasVelocityAngle && Math.abs(curveAngle - velocityAngle) < 15) {
             confidence += 10;
-          } else {
+          } else if (hasVelocityAngle) {
             finalAngle = Math.round((curveAngle * 0.6 + velocityAngle * 0.4) * 10) / 10;
           }
         } else if (curveFit && curveFit.r_squared > 0.4 && curveAngle !== null) {
-          finalAngle = Math.round((curveAngle * 0.4 + velocityAngle * 0.6) * 10) / 10;
+          if (hasVelocityAngle) {
+            finalAngle = Math.round((curveAngle * 0.4 + velocityAngle * 0.6) * 10) / 10;
+          } else {
+            finalAngle = curveAngle;
+          }
           finalVelocity = curveVelocity !== null
             ? Math.round((curveVelocity * 0.4 + linearVelocity * 0.6) * 10) / 10
             : linearVelocity;
-        } else {
+        } else if (hasVelocityAngle) {
           finalAngle = velocityAngle;
           finalVelocity = linearVelocity;
+        } else if (curveAngle !== null) {
+          finalAngle = curveAngle;
+          finalVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
         }
+        // else: keep defaults (45, 15)
       }
 
       finalAngle = Math.max(0, Math.min(90, finalAngle));
 
-      // Calculate confidence (Claude vision is more accurate, higher base)
-      let baseConfidence = 55;
+      // Calculate confidence — with successful position tracking, start at higher base
+      let baseConfidence = 60;
       baseConfidence += Math.min(20, cleanPositions.length * 3);
       if (cleanPositions.length === positions.length) baseConfidence += 8;
       if (curveFit && curveFit.r_squared > 0.8) baseConfidence += 12;
       else if (curveFit && curveFit.r_squared > 0.5) baseConfidence += 6;
-      if (curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 10) baseConfidence += 5;
+      if (hasVelocityAngle && curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 10) baseConfidence += 5;
       if (Math.abs(finalAngle - 45) > 5 && Math.abs(finalAngle - 60) > 5 && Math.abs(finalAngle - 90) > 5) baseConfidence += 3;
 
-      confidence = Math.min(98, Math.max(40, baseConfidence));
+      confidence = Math.min(98, Math.max(55, baseConfidence));
+      console.log(`[APAS] Confidence: ${confidence}% (base=${baseConfidence}, positions=${cleanPositions.length})`);
 
       trajectoryDescription = cleanPositions.map((p, i) =>
         `Frame ${i + 1}: (${Math.round(p.x)}, ${Math.round(p.y)}) @ t=${p.t.toFixed(3)}s`
       ).join(" -> ");
+    } else if (detected && aiPositions.length === 1) {
+      confidence = 45;
+      console.log(`[APAS] Only 1 position detected, using defaults with low confidence`);
+    } else {
+      console.log(`[APAS] No positions detected (detected=${detected}, positions=${aiPositions.length})`);
     }
 
     // Build final response

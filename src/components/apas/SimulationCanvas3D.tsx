@@ -1015,6 +1015,13 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
         }
         projectile.position.copy(pos3D);
 
+        // Ground collision: clamp projectile to never go below ground plane (y=0).
+        // The CatmullRom spline can overshoot between control points causing
+        // the ball to dip underground. Clamping ensures realistic ground contact.
+        if (projectile.position.y < 0) {
+          projectile.position.y = 0;
+        }
+
         // Align directional models (rocket, arrow) tangent to the path
         if (isDirectional && trajMeshes && trajMeshes.curve) {
           // Get tangent direction from the curve at the current parameter
