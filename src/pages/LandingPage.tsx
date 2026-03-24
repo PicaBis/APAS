@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Download, Monitor } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
