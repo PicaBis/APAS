@@ -35,13 +35,6 @@
       "icon.ico",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "../dist",
-        "to": "app",
-        "filter": ["**/*"]
-      }
-    ],
     "win": {
       "target": [
         {

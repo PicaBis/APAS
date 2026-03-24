@@ -1,9 +1,5 @@
 const { app, BrowserWindow, Menu, shell, dialog, session, Tray, nativeImage } = require('electron');
 const path = require('path');
-const fs = require('fs');
-
-// Determine if we're running in development or production
-const isDev = !app.isPackaged;
 
 // URLs
 const APAS_URL = 'https://a-p-a-s.vercel.app';
@@ -12,35 +8,10 @@ let mainWindow;
 let splashWindow;
 let tray = null;
 
-// Navigate within the SPA using React Router (BrowserRouter uses pathname-based routing)
+// Navigate within the SPA by loading the Vercel URL with the given route
 function navigateTo(route) {
   if (!mainWindow) return;
-  const appPath = getAppPath();
-  if (appPath) {
-    // For local files, use executeJavaScript to push route via React Router
-    // This works with BrowserRouter which reads window.location.pathname
-    mainWindow.webContents.executeJavaScript(
-      `window.history.pushState({}, '', '${route}'); window.dispatchEvent(new PopStateEvent('popstate'));`
-    ).catch(() => {});
-  } else {
-    mainWindow.loadURL(APAS_URL + route);
-  }
-}
-
-// Get the path to the built web app
-function getAppPath() {
-  if (isDev) {
-    const devDistPath = path.join(__dirname, '..', 'dist');
-    if (fs.existsSync(devDistPath)) {
-      return devDistPath;
-    }
-    return null;
-  }
-  const prodPath = path.join(process.resourcesPath, 'app');
-  if (fs.existsSync(prodPath)) {
-    return prodPath;
-  }
-  return null;
+  mainWindow.loadURL(APAS_URL + route);
 }
 
 function createSplashWindow() {
@@ -95,13 +66,19 @@ function createWindow() {
     }, 2000);
   });
 
-  // Try to load local files first, fall back to URL
-  const appPath = getAppPath();
-  if (appPath && fs.existsSync(path.join(appPath, 'index.html'))) {
-    mainWindow.loadFile(path.join(appPath, 'index.html'));
-  } else {
-    mainWindow.loadURL(APAS_URL);
-  }
+  // Load the web app from the hosted URL
+  mainWindow.loadURL(APAS_URL);
+
+  // Handle load failures with a retry mechanism
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    console.error(`Failed to load: ${errorCode} - ${errorDescription}`);
+    // Retry after 3 seconds
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.loadURL(APAS_URL);
+      }
+    }, 3000);
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith(APAS_URL) && !url.startsWith('file://')) {
@@ -305,20 +282,12 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
+    // Remove restrictive CSP headers that block the hosted app from loading
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [
-            "default-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://a-p-a-s.vercel.app https://*.vercel.app; " +
-            "style-src 'self' 'unsafe-inline' https://a-p-a-s.vercel.app https://*.vercel.app https://fonts.googleapis.com; " +
-            "font-src 'self' https://fonts.gstatic.com data:; " +
-            "img-src 'self' data: blob: https:; " +
-            "connect-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app https://*.supabase.co https://api.openweathermap.org https://api.open-meteo.com wss://*.supabase.co;"
-          ],
-        },
-      });
+      const responseHeaders = { ...details.responseHeaders };
+      delete responseHeaders['content-security-policy'];
+      delete responseHeaders['Content-Security-Policy'];
+      callback({ responseHeaders });
     });
 
     createSplashWindow();
