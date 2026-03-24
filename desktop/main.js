@@ -37,26 +37,16 @@ function checkOnline() {
   });
 }
 
-// Cache the main page HTML for offline use
-async function cacheWebApp() {
+// Cache the complete page (HTML + JS + CSS + images) for offline use
+function cacheWebApp() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   ensureCacheDir();
-  try {
-    const request = net.request(APAS_URL);
-    request.on('response', (response) => {
-      let data = '';
-      response.on('data', (chunk) => { data += chunk.toString(); });
-      response.on('end', () => {
-        fs.writeFileSync(path.join(CACHE_DIR, 'index.html'), data);
-        console.log('[Cache] Main page cached successfully');
-      });
-    });
-    request.on('error', (err) => {
-      console.error('[Cache] Failed to cache:', err.message);
-    });
-    request.end();
-  } catch (err) {
-    console.error('[Cache] Cache error:', err.message);
-  }
+  const savePath = path.join(CACHE_DIR, 'index.html');
+  mainWindow.webContents.savePage(savePath, 'HTMLComplete').then(() => {
+    console.log('[Cache] Full page saved successfully (HTML + assets)');
+  }).catch((err) => {
+    console.error('[Cache] Failed to save page:', err.message);
+  });
 }
 
 // Navigate within the SPA
@@ -143,8 +133,12 @@ function createWindow(mode) {
 
   if (mode === 'online') {
     mainWindow.loadURL(APAS_URL);
-    // Cache for future offline use
-    cacheWebApp();
+    // Cache for future offline use after page finishes loading
+    mainWindow.webContents.on('did-finish-load', () => {
+      setTimeout(() => {
+        cacheWebApp();
+      }, 3000); // Wait 3s for dynamic content to render
+    });
   } else {
     // Offline mode: load cached version or show fallback
     const cachedPage = path.join(CACHE_DIR, 'index.html');
@@ -383,7 +377,9 @@ ipcMain.handle('check-online', async () => {
 
 ipcMain.handle('check-cache', () => {
   const cachedPage = path.join(CACHE_DIR, 'index.html');
-  return fs.existsSync(cachedPage);
+  const cachedFiles = path.join(CACHE_DIR, 'index_files');
+  // Check for both the HTML and the assets directory (created by savePage)
+  return fs.existsSync(cachedPage) && fs.existsSync(cachedFiles);
 });
 
 ipcMain.on('close-mode-window', () => {
@@ -414,8 +410,12 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
-    // Permissive CSP for hosted app
+    // Permissive CSP for hosted app — skip for local file:// URLs (offline mode)
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      if (details.url.startsWith('file://')) {
+        callback({ responseHeaders: details.responseHeaders });
+        return;
+      }
       const responseHeaders = { ...details.responseHeaders };
       delete responseHeaders['content-security-policy'];
       delete responseHeaders['Content-Security-Policy'];
