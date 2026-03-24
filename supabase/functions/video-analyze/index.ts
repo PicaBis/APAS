@@ -448,8 +448,9 @@ If NO moving object is found at all:
     let trajectoryDescription = "";
     let curveFitInfo = "";
 
-    const detected = aiResult.detected !== false;
+    // Treat as not detected if parsing failed or no positions were returned
     const aiPositions = aiResult.positions || [];
+    const detected = aiResult.detected !== false && (parsed && aiPositions.length > 0);
     const imageWidth = aiResult.imageWidth || 384;
 
     if (detected && aiPositions.length >= 2) {
@@ -499,9 +500,8 @@ If NO moving object is found at all:
         if (curveFit && curveFit.r_squared > 0.7 && curveAngle !== null) {
           finalAngle = curveAngle;
           finalVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
-          if (hasVelocityAngle && Math.abs(curveAngle - velocityAngle) < 15) {
-            confidence += 10;
-          } else if (hasVelocityAngle) {
+          if (hasVelocityAngle && Math.abs(curveAngle - velocityAngle) > 15) {
+            // Methods disagree significantly — blend them
             finalAngle = Math.round((curveAngle * 0.6 + velocityAngle * 0.4) * 10) / 10;
           }
         } else if (curveFit && curveFit.r_squared > 0.4 && curveAngle !== null) {
@@ -525,16 +525,24 @@ If NO moving object is found at all:
 
       finalAngle = Math.max(0, Math.min(90, finalAngle));
 
-      // Calculate confidence — with successful position tracking, start at higher base
-      let baseConfidence = 60;
-      baseConfidence += Math.min(20, cleanPositions.length * 3);
-      if (cleanPositions.length === positions.length) baseConfidence += 8;
-      if (curveFit && curveFit.r_squared > 0.8) baseConfidence += 12;
-      else if (curveFit && curveFit.r_squared > 0.5) baseConfidence += 6;
-      if (hasVelocityAngle && curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 10) baseConfidence += 5;
+      // Calculate confidence — with successful position tracking via Claude vision,
+      // start at a high base since we have real trajectory data
+      let baseConfidence = 70;
+      // More positions = higher confidence (up to +15)
+      baseConfidence += Math.min(15, cleanPositions.length * 2);
+      // No outliers filtered = better data quality
+      if (cleanPositions.length === positions.length) baseConfidence += 5;
+      // Good curve fit = strong trajectory match
+      if (curveFit && curveFit.r_squared > 0.85) baseConfidence += 10;
+      else if (curveFit && curveFit.r_squared > 0.7) baseConfidence += 7;
+      else if (curveFit && curveFit.r_squared > 0.5) baseConfidence += 4;
+      // Methods agree = higher confidence (cross-validation bonus)
+      if (hasVelocityAngle && curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 10) baseConfidence += 8;
+      else if (hasVelocityAngle && curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 20) baseConfidence += 4;
+      // Non-trivial angle (not a common default) = more confident in detection
       if (Math.abs(finalAngle - 45) > 5 && Math.abs(finalAngle - 60) > 5 && Math.abs(finalAngle - 90) > 5) baseConfidence += 3;
 
-      confidence = Math.min(98, Math.max(55, baseConfidence));
+      confidence = Math.min(98, Math.max(60, baseConfidence));
       console.log(`[APAS] Confidence: ${confidence}% (base=${baseConfidence}, positions=${cleanPositions.length})`);
 
       trajectoryDescription = cleanPositions.map((p, i) =>
