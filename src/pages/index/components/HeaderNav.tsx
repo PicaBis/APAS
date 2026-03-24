@@ -49,7 +49,7 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 relative">
           {lang !== 'ar' && (
             <button onClick={() => { onOpenSettings(); playNav(isMuted); }}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5"
               title="Settings">
               <Settings className="w-4 h-4 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-45" />
               <span className="hidden xs:inline font-medium">
@@ -59,7 +59,7 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
           )}
           {lang === 'ar' && (
             <button onClick={() => { playPageTransition(isMuted); setTimeout(() => navigate('/home'), 120); }}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
               title="الرئيسية">
               <Home className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
               <span className="hidden xs:inline font-medium">الرئيسية</span>
@@ -122,14 +122,14 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
           <DevPrivilegesButton lang={lang} />
           {isAdmin && (
             <button onClick={() => navigate('/admin')}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5"
               title="Admin">
               <Shield className="w-4 h-4" />
             </button>
           )}
           {user ? (
             <button onClick={async () => { await signOut(); navigate('/'); }}
-              className="group text-xs font-medium text-muted-foreground hover:text-destructive px-2 py-1.5 rounded-lg hover:bg-destructive/10 transition-all duration-300 flex items-center gap-1.5"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-destructive px-2 py-1.5 rounded-lg hover:bg-destructive/10 transition-all duration-300 flex items-center gap-1.5"
               title="Sign Out">
               <LogOut className="w-4 h-4" />
             </button>
@@ -144,7 +144,7 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
                 </span>
               </button>
               <button onClick={() => navigate('/')}
-                className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 flex items-center gap-1"
+                className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 flex items-center gap-1"
                 title={lang === 'ar' ? 'تسجيل الدخول' : lang === 'fr' ? 'Connexion' : 'Login'}>
                 <LogIn className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline font-medium text-[11px]">
@@ -155,7 +155,7 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
           ) : null}
           {lang !== 'ar' && (
             <button onClick={() => { playPageTransition(isMuted); setTimeout(() => navigate('/home'), 120); }}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
               title={lang === 'fr' ? 'Accueil' : 'Home'}>
               <Home className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
               <span className="hidden xs:inline font-medium">
@@ -165,7 +165,7 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
           )}
           {lang === 'ar' && (
             <button onClick={() => { onOpenSettings(); playNav(isMuted); }}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5"
               title="الإعدادات">
               <Settings className="w-4 h-4 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-45" />
               <span className="hidden xs:inline font-medium">الإعدادات</span>
