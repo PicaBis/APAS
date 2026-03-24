@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Video, Mic, Aperture, Eye, Ruler, Calculator, Globe2, Layers, Shield, BookOpen, Crosshair } from 'lucide-react';
+import { Aperture, Eye, Ruler, Calculator, Globe2, Layers, Shield, BookOpen, Crosshair } from 'lucide-react';
 import ApasVisionButton from '@/components/apas/ApasVisionButton';
 import ApasVideoButton from '@/components/apas/ApasVideoButton';
 import ApasVoiceButton from '@/components/apas/ApasVoiceButton';
@@ -34,7 +34,7 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({
   gravity,
   airResistance,
   mass,
-  windSpeed,
+  windSpeed: _windSpeed,
   onUpdateParams,
   onMediaAnalyzed,
   calibrationScale,

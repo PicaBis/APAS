@@ -618,6 +618,8 @@ const Index = () => {
                   if (params.height !== undefined) sim.setHeight(params.height);
                   if (params.mass !== undefined) sim.setMass(params.mass);
                   if (params.gravity !== undefined) sim.setGravity(params.gravity);
+                  const detectedEmoji = objectTypeToEmoji(params.objectType);
+                  if (detectedEmoji) setActivePresetEmoji(detectedEmoji);
                 }}
                 onMediaAnalyzed={(src) => { setLastAnalyzedMediaSrc(src); setLastAnalyzedMediaType('image'); }}
                 calibrationScale={calibrationScale}
