@@ -394,13 +394,63 @@ const LandingPage: React.FC = () => {
       <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 text-center">
         <div className="flex justify-center mb-6">
           <div className="relative">
-            <div style={{ animation: 'heroLogoFloat 5s ease-in-out infinite' }}>
-              <ApasLogo size={140} animated />
+            {/* Outer glowing ring */}
+            <div className="absolute -inset-5 rounded-full hero-logo-ring" />
+            {/* Orbiting particles */}
+            <div className="absolute -inset-8 hero-logo-orbit">
+              <div className="hero-orbit-dot hero-orbit-dot-1" />
+              <div className="hero-orbit-dot hero-orbit-dot-2" />
+              <div className="hero-orbit-dot hero-orbit-dot-3" />
             </div>
-            <div className="absolute -inset-6 bg-primary/10 rounded-full blur-3xl -z-10 animate-pulse" />
+            {/* Soft glow behind logo */}
+            <div className="absolute -inset-10 bg-primary/15 rounded-full blur-3xl -z-10 animate-pulse" />
+            <div className="absolute -inset-4 bg-primary/8 rounded-full blur-xl -z-10" style={{ animation: 'heroGlowPulse 4s ease-in-out infinite' }} />
+            <div style={{ animation: 'heroLogoFloat 5s ease-in-out infinite' }}>
+              <ApasLogo size={100} animated />
+            </div>
           </div>
         </div>
-        <style>{`@keyframes heroLogoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }`}</style>
+        <style>{`
+          @keyframes heroLogoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+          }
+          @keyframes heroGlowPulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.15); }
+          }
+          .hero-logo-ring {
+            border: 2px solid;
+            border-color: hsl(var(--primary) / 0.2);
+            border-radius: 9999px;
+            animation: heroRingSpin 12s linear infinite;
+          }
+          @keyframes heroRingSpin {
+            0% { transform: rotate(0deg); border-color: hsl(var(--primary) / 0.15); }
+            50% { border-color: hsl(var(--primary) / 0.35); }
+            100% { transform: rotate(360deg); border-color: hsl(var(--primary) / 0.15); }
+          }
+          .hero-logo-orbit {
+            position: absolute;
+            border-radius: 9999px;
+            animation: heroOrbitSpin 10s linear infinite;
+          }
+          @keyframes heroOrbitSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .hero-orbit-dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 9999px;
+            background: hsl(var(--primary));
+            box-shadow: 0 0 8px 2px hsl(var(--primary) / 0.5);
+          }
+          .hero-orbit-dot-1 { top: 0; left: 50%; transform: translateX(-50%); }
+          .hero-orbit-dot-2 { bottom: 15%; right: 5%; background: hsl(42 70% 54%); box-shadow: 0 0 8px 2px hsl(42 70% 54% / 0.5); }
+          .hero-orbit-dot-3 { bottom: 15%; left: 5%; opacity: 0.6; width: 4px; height: 4px; }
+        `}</style>
         <h1 className="text-5xl sm:text-7xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent mb-3">
           {t.heroTitle}
         </h1>
