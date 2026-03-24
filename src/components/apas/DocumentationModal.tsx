@@ -23,7 +23,7 @@ const DocumentationModal: React.FC<DocumentationModalProps> = ({ open, onClose, 
   const [copied, setCopied] = useState(false);
   const isRTL = lang === 'ar';
 
-  const appUrl = 'https://aipas.vercel.app';
+  const appUrl = 'https://a-p-a-s.vercel.app';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(appUrl);

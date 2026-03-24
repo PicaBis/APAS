@@ -279,7 +279,7 @@ const LandingPage: React.FC = () => {
               <>
                 <button
                   onClick={() => navigate('/')}
-                  className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                  className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
                 >
                   <LogIn className="w-4 h-4" />
                   <span className="hidden sm:inline font-medium">Log In</span>
@@ -298,7 +298,7 @@ const LandingPage: React.FC = () => {
                 {isAdmin && (
                   <button
                     onClick={() => navigate('/admin')}
-                    className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                    className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
                     title="Admin Panel"
                   >
                     <Shield className="w-4 h-4" />
@@ -309,7 +309,7 @@ const LandingPage: React.FC = () => {
                 {user && (
                   <button
                     onClick={async () => { await signOut(); navigate('/'); }}
-                    className="group text-xs font-medium text-muted-foreground hover:text-destructive px-2 sm:px-3 py-1.5 rounded-lg hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                    className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-destructive px-2 sm:px-3 py-1.5 rounded-lg hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
                     title="Sign Out"
                   >
                     <LogOut className="w-4 h-4" />
@@ -329,7 +329,7 @@ const LandingPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => { navigate('/'); }}
-                      className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                      className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
                     >
                       <LogIn className="w-4 h-4" />
                       <span className="hidden sm:inline font-medium">
@@ -343,7 +343,7 @@ const LandingPage: React.FC = () => {
             <a
               href="#download-section"
               onClick={(e) => { e.preventDefault(); playLandingNav(muted); document.getElementById('download-section')?.scrollIntoView({ behavior: 'smooth' }); }}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate cursor-pointer"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate cursor-pointer"
               title={t.downloadNav}
             >
               <Download className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
@@ -351,7 +351,7 @@ const LandingPage: React.FC = () => {
             </a>
             <button
               onClick={() => { playLandingNav(muted); setShowAbout(true); }}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
               title={lang === 'ar' ? '\u062d\u0648\u0644 \u0627\u0644\u062a\u0637\u0628\u064a\u0642' : 'About'}
             >
               <Info className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
@@ -361,7 +361,7 @@ const LandingPage: React.FC = () => {
             </button>
             <button
               onClick={handleThemeToggle}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
               title={nightMode ? (lang === 'ar' ? '\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0646\u0647\u0627\u0631\u064a' : lang === 'fr' ? 'Mode Clair' : 'Light Mode') : (lang === 'ar' ? '\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0644\u064a\u0644\u064a' : lang === 'fr' ? 'Mode Sombre' : 'Dark Mode')}
             >
               <span className={themeSwitching ? 'theme-switch-animate' : ''}>
@@ -373,7 +373,7 @@ const LandingPage: React.FC = () => {
             </button>
             <button
               onClick={() => setMuted(!muted)}
-              className="group text-xs font-medium text-muted-foreground hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 nav-btn-animate"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 nav-btn-animate"
               title={muted ? 'Unmute' : 'Mute'}
             >
               {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -381,7 +381,7 @@ const LandingPage: React.FC = () => {
             <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-0.5">
               {(['ar', 'en', 'fr'] as Lang[]).map((l) => (
                 <button key={l} onClick={() => handleLangSwitch(l)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 nav-btn-animate ${lang === l ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 nav-btn-animate ${lang === l ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground dark:text-foreground hover:text-foreground'}`}>
                   {l === 'ar' ? '\u0639\u0631\u0628\u064a' : l === 'en' ? 'EN' : 'FR'}
                 </button>
               ))}

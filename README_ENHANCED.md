@@ -12,7 +12,7 @@
 
 APAS is a sophisticated web-based projectile motion analysis system that combines classical physics with artificial intelligence to provide accurate trajectory simulations and analysis. The enhanced version includes advanced physics effects, real-time weather integration, and video analysis capabilities.
 
-**Live Demo:** [aipas.vercel.app](https://aipas.vercel.app)
+**Live Demo:** [a-p-a-s.vercel.app](https://a-p-a-s.vercel.app)
 
 ---
 
