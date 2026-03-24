@@ -5,23 +5,31 @@ const config: CapacitorConfig = {
   appName: 'APAS',
   webDir: 'dist',
   server: {
+    url: 'https://a-p-a-s.vercel.app',
+    cleartext: false,
     androidScheme: 'https',
-    allowNavigation: ['*.supabase.co', '*.supabase.in'],
+    allowNavigation: [
+      'a-p-a-s.vercel.app',
+      '*.vercel.app',
+      '*.supabase.co',
+      '*.supabase.in',
+    ],
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 3000,
       launchAutoHide: true,
-      backgroundColor: '#0d1117',
+      backgroundColor: '#0a0a2e',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
-      showSpinner: false,
+      showSpinner: true,
+      spinnerColor: '#6366f1',
       splashFullScreen: true,
       splashImmersive: true,
     },
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#0d1117',
+      backgroundColor: '#0a0a2e',
     },
     Keyboard: {
       resize: 'body',
