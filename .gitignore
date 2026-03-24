@@ -23,3 +23,17 @@ dist-ssr
 *.sln
 *.sw?
 **/tempobook/**
+
+# Android build artifacts
+android/app/build/
+android/build/
+android/.gradle/
+android/capacitor-android/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+android/.project
+android/.settings/
+android/app/.classpath
+android/app/.project
+android/app/.settings/
+android/app/.gitignore
