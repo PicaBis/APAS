@@ -12,6 +12,21 @@ let mainWindow;
 let splashWindow;
 let tray = null;
 
+// Navigate within the SPA using React Router (BrowserRouter uses pathname-based routing)
+function navigateTo(route) {
+  if (!mainWindow) return;
+  const appPath = getAppPath();
+  if (appPath) {
+    // For local files, use executeJavaScript to push route via React Router
+    // This works with BrowserRouter which reads window.location.pathname
+    mainWindow.webContents.executeJavaScript(
+      `window.history.pushState({}, '', '${route}'); window.dispatchEvent(new PopStateEvent('popstate'));`
+    ).catch(() => {});
+  } else {
+    mainWindow.loadURL(APAS_URL + route);
+  }
+}
+
 // Get the path to the built web app
 function getAppPath() {
   if (isDev) {
@@ -136,12 +151,7 @@ function createTray() {
       click: () => {
         if (mainWindow) {
           mainWindow.show();
-          const appPath = getAppPath();
-          if (appPath) {
-            mainWindow.loadFile(path.join(appPath, 'index.html'));
-          } else {
-            mainWindow.loadURL(APAS_URL + '/home');
-          }
+          navigateTo('/home');
         }
       },
     },
@@ -150,12 +160,7 @@ function createTray() {
       click: () => {
         if (mainWindow) {
           mainWindow.show();
-          const appPath = getAppPath();
-          if (appPath) {
-            mainWindow.loadFile(path.join(appPath, 'index.html'), { hash: '/simulator' });
-          } else {
-            mainWindow.loadURL(APAS_URL + '/simulator');
-          }
+          navigateTo('/simulator');
         }
       },
     },
@@ -187,29 +192,19 @@ function createMenu() {
       submenu: [
         {
           label: 'الصفحة الرئيسية',
-          accelerator: 'CmdOrCtrl+H',
+          accelerator: 'CmdOrCtrl+Shift+H',
           click: () => {
             if (mainWindow) {
-              const appPath = getAppPath();
-              if (appPath) {
-                mainWindow.loadFile(path.join(appPath, 'index.html'));
-              } else {
-                mainWindow.loadURL(APAS_URL + '/home');
-              }
+              navigateTo('/home');
             }
           },
         },
         {
           label: 'المحاكاة',
-          accelerator: 'CmdOrCtrl+M',
+          accelerator: 'CmdOrCtrl+Shift+M',
           click: () => {
             if (mainWindow) {
-              const appPath = getAppPath();
-              if (appPath) {
-                mainWindow.loadFile(path.join(appPath, 'index.html'), { hash: '/simulator' });
-              } else {
-                mainWindow.loadURL(APAS_URL + '/simulator');
-              }
+              navigateTo('/simulator');
             }
           },
         },
