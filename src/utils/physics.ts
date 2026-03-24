@@ -473,7 +473,10 @@ export const calculateTrajectory = (
     // Ground hit detection: only trigger if the projectile crosses y=0 from above
     // or started at y>=0 and comes back down
     if (y <= 0 && wasAboveGround && height >= 0) {
-      // Interpolate to find exact ground crossing point
+      // Interpolate to find exact ground crossing point.
+      // The previous-previous point (before the underground one we just added)
+      // is used as the "above ground" reference for interpolation.
+      const undergroundIdx = points.length - 1;
       const prevPt = points.length > 1 ? points[points.length - 2] : null;
       if (prevPt && prevPt.y > 0 && y < 0) {
         const frac = prevPt.y / (prevPt.y - y);
@@ -484,9 +487,18 @@ export const calculateTrajectory = (
       }
       y = 0;
 
-      // Add the exact ground contact point before bouncing so the trajectory
-      // passes through y=0 cleanly (prevents spline overshoot underground)
-      addPoint();
+      // Replace the underground point with the interpolated ground-contact point
+      // so the trajectory array maintains monotonic time ordering.
+      // (Previously a second addPoint() created a time inversion: points[N].time > points[N+1].time)
+      points[undergroundIdx] = {
+        x: r3(x), y: r3(y), time: r3(t),
+        vx: r3(vx), vy: r3(vy),
+        speed: r3(Math.sqrt(vx * vx + vy * vy)),
+        ax: r3(ax), ay: r3(ay),
+        acceleration: r3(Math.sqrt(ax * ax + ay * ay)),
+        kineticEnergy: r3(0.5 * mass * (vx * vx + vy * vy)),
+        potentialEnergy: r3(mass * Math.max(0, gravity) * Math.max(0, y)),
+      };
 
       if (enableBounce && bounces < maxBounces && Math.abs(vy) > MIN_BOUNCE_VELOCITY) {
         vy = -vy * bounceCOR; // reverse and dampen
