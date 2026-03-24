@@ -425,6 +425,37 @@ const LandingPage: React.FC = () => {
         </div>
       </nav>
 
+      {/* Hero logo styles (outside section to avoid nth-child offset) */}
+      <style>{`
+        .hero-logo-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .hero-logo-glow {
+          background: radial-gradient(circle, hsl(var(--primary) / 0.12) 0%, transparent 70%);
+          animation: heroGlowBreath 6s ease-in-out infinite;
+        }
+        @keyframes heroGlowBreath {
+          0%, 100% { opacity: 0.6; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.08); }
+        }
+        .hero-logo-arc {
+          animation: heroArcSpin 20s linear infinite;
+        }
+        @keyframes heroArcSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .hero-logo-breathe {
+          animation: heroLogoBreathe 5s ease-in-out infinite;
+        }
+        @keyframes heroLogoBreathe {
+          0%, 100% { transform: scale(1) translateY(0); }
+          50% { transform: scale(1.03) translateY(-4px); }
+        }
+      `}</style>
+
       {/* Hero Section */}
       <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 text-center hero-stagger">
         <div className="flex justify-center mb-6">
@@ -448,35 +479,6 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
         </div>
-        <style>{`
-          .hero-logo-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .hero-logo-glow {
-            background: radial-gradient(circle, hsl(var(--primary) / 0.12) 0%, transparent 70%);
-            animation: heroGlowBreath 6s ease-in-out infinite;
-          }
-          @keyframes heroGlowBreath {
-            0%, 100% { opacity: 0.6; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.08); }
-          }
-          .hero-logo-arc {
-            animation: heroArcSpin 20s linear infinite;
-          }
-          @keyframes heroArcSpin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-          .hero-logo-breathe {
-            animation: heroLogoBreathe 5s ease-in-out infinite;
-          }
-          @keyframes heroLogoBreathe {
-            0%, 100% { transform: scale(1) translateY(0); }
-            50% { transform: scale(1.03) translateY(-4px); }
-          }
-        `}</style>
         <h1 className="text-5xl sm:text-7xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent mb-3 animate-gradient-text">
           {t.heroTitle}
         </h1>
