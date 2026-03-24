@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { detectPerformance } from '@/utils/performanceDetect';
 
 type Platform = 'x' | 'facebook';
 
@@ -196,10 +197,12 @@ const TestimonialCard: React.FC<{ testimonial: Testimonial }> = ({ testimonial }
  * → seamless infinite loop with no gaps, like Windsurf.
  * No hover pause — continuous movement always.
  */
-const COPY_COUNT = 4; // 4 copies ensures full coverage on ultra-wide screens
+const FULL_COPY_COUNT = 4; // 4 copies ensures full coverage on ultra-wide screens
+const LITE_COPY_COUNT = 2; // 2 copies for low-end devices to reduce DOM nodes
 
-const pct = 100 / COPY_COUNT; // 25%
-const marqueeStyles = `
+function buildMarqueeStyles(copyCount: number) {
+  const pct = 100 / copyCount;
+  return `
 @keyframes apas-marquee-left {
   from { transform: translateX(0); }
   to { transform: translateX(-${pct}%); }
@@ -226,19 +229,27 @@ const marqueeStyles = `
 .apas-marquee-track--right {
   animation: apas-marquee-right 60s linear infinite;
 }
+@media (prefers-reduced-motion: reduce) {
+  .apas-marquee-track--left,
+  .apas-marquee-track--right {
+    animation: none;
+  }
+}
 `;
+}
 
-const ScrollingRow: React.FC<{ testimonials: Testimonial[]; direction: 'left' | 'right' }> = ({
+const ScrollingRow: React.FC<{ testimonials: Testimonial[]; direction: 'left' | 'right'; copyCount: number; paused: boolean }> = ({
   testimonials,
   direction,
+  copyCount,
+  paused,
 }) => {
-  // Repeat COPY_COUNT times: animation scrolls exactly 1/COPY_COUNT of total width
-  const items = Array.from({ length: COPY_COUNT }, () => testimonials).flat();
+  const items = Array.from({ length: copyCount }, () => testimonials).flat();
   const trackClass = `apas-marquee-track ${direction === 'left' ? 'apas-marquee-track--left' : 'apas-marquee-track--right'}`;
 
   return (
     <div className="apas-marquee-container py-2">
-      <div className={trackClass}>
+      <div className={trackClass} style={paused ? { animationPlayState: 'paused' } : undefined}>
         {items.map((t, i) => (
           <TestimonialCard key={`${direction}-${t.handle}-${i}`} testimonial={t} />
         ))}
@@ -248,20 +259,25 @@ const ScrollingRow: React.FC<{ testimonials: Testimonial[]; direction: 'left' | 
 };
 
 const TestimonialsSection: React.FC<TestimonialsSectionProps> = ({ lang }) => {
+  const perf = useMemo(() => detectPerformance(), []);
+  const lite = perf.shouldReduceAnimations;
+  const copyCount = lite ? LITE_COPY_COUNT : FULL_COPY_COUNT;
+  const styles = useMemo(() => buildMarqueeStyles(copyCount), [copyCount]);
+
   const title = lang === 'ar' ? 'ماذا يقول المستخدمون؟' : lang === 'fr' ? "Qu'en disent les utilisateurs ?" : 'What Users Say';
   const subtitle = lang === 'ar' ? 'آراء الأساتذة والطلاب والباحثين' : lang === 'fr' ? 'Avis des enseignants, \u00e9tudiants et chercheurs' : 'Reviews from educators, students, and researchers';
 
   return (
     <section className="relative z-10 py-16 overflow-hidden" dir="ltr">
-      <style>{marqueeStyles}</style>
+      <style>{styles}</style>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mb-10 text-center">
         <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">{title}</h2>
         <p className="text-muted-foreground">{subtitle}</p>
       </div>
 
       <div className="space-y-6">
-        <ScrollingRow testimonials={TESTIMONIALS_ROW1} direction="left" />
-        <ScrollingRow testimonials={TESTIMONIALS_ROW2} direction="right" />
+        <ScrollingRow testimonials={TESTIMONIALS_ROW1} direction="left" copyCount={copyCount} paused={lite} />
+        <ScrollingRow testimonials={TESTIMONIALS_ROW2} direction="right" copyCount={copyCount} paused={lite} />
       </div>
     </section>
   );

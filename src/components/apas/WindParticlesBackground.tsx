@@ -1,11 +1,37 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { detectPerformance } from '@/utils/performanceDetect';
 
 /**
  * Animated floating particles background — like wind-blown dots.
  * Similar to the HeaderWave particles but covers the full page background.
  * Pure CSS/SVG animation, no canvas, lightweight.
+ *
+ * On low-end devices or when prefers-reduced-motion is set, renders a
+ * minimal static version (just a few faint dots, no animateMotion).
  */
 const WindParticlesBackground: React.FC = () => {
+  const perf = useMemo(() => detectPerformance(), []);
+
+  // On low-end devices: render only a few static dots with no motion
+  if (perf.shouldReduceAnimations) {
+    return (
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <svg
+          className="absolute inset-0 w-full h-full"
+          viewBox="0 0 1600 900"
+          preserveAspectRatio="xMidYMid slice"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle cx="200" cy="200" r="3" fill="hsl(var(--primary))" opacity="0.15" />
+          <circle cx="800" cy="400" r="4" fill="hsl(var(--primary))" opacity="0.12" />
+          <circle cx="1200" cy="300" r="2.5" fill="hsl(var(--primary))" opacity="0.1" />
+          <circle cx="400" cy="650" r="3.5" fill="hsl(var(--primary))" opacity="0.1" />
+          <circle cx="1000" cy="700" r="3" fill="hsl(var(--primary))" opacity="0.08" />
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
       {/* Light mode particles */}

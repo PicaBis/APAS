@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { detectPerformance } from '@/utils/performanceDetect';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen } from 'lucide-react';
@@ -131,6 +132,8 @@ export default function AuthPage() {
   const T = AUTH_TRANSLATIONS[lang];
   const isRTL = lang === 'ar';
   const isFr = lang === 'fr';
+  const perf = useMemo(() => detectPerformance(), []);
+  const lite = perf.shouldReduceAnimations;
 
   const navigateWithSound = useCallback((path: string) => {
     playPageTransition(false);
@@ -222,20 +225,32 @@ export default function AuthPage() {
 
         {/* Background decorations */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse" />
-          <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-          <div className="absolute -bottom-20 right-1/4 w-72 h-72 rounded-full bg-accent/5 blur-3xl animate-pulse" style={{ animationDelay: '4s' }} />
-          {/* Floating physics formulas */}
+          {/* Ambient blur circles — skip heavy blur on low-end GPUs */}
+          {!lite && (
+            <>
+              <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse" />
+              <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+              <div className="absolute -bottom-20 right-1/4 w-72 h-72 rounded-full bg-accent/5 blur-3xl animate-pulse" style={{ animationDelay: '4s' }} />
+            </>
+          )}
+          {lite && (
+            <>
+              <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 opacity-40" />
+              <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 opacity-30" />
+            </>
+          )}
+          {/* Floating physics formulas — fewer on low-end */}
           {useMemo(() => {
-            const formulas = [
+            const allFormulas = [
               'F = ma', 'E = mc²', 'v = v₀ + at', 'x = ½at²',
               'p = mv', 'KE = ½mv²', 'ΔE = W', 'τ = r × F',
               'ω = Δθ/Δt', 'a = v²/r', 'F = -kx', 'T = 2π√(l/g)',
             ];
+            const formulas = lite ? allFormulas.slice(0, 4) : allFormulas;
             return formulas.map((f, i) => (
               <span
                 key={i}
-                className="floating-formula absolute text-xs sm:text-sm font-mono text-foreground/[0.06] select-none"
+                className={`absolute text-xs sm:text-sm font-mono text-foreground/[0.06] select-none ${lite ? '' : 'floating-formula'}`}
                 style={{
                   left: `${8 + (i % 4) * 24}%`,
                   top: `${5 + Math.floor(i / 4) * 30 + (i % 3) * 8}%`,
@@ -246,12 +261,14 @@ export default function AuthPage() {
                 {f}
               </span>
             ));
-          }, [])}
-          {/* Orbit decoration rings */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px]">
-            <div className="absolute inset-0 rounded-full border border-primary/[0.04] orbit-ring" />
-            <div className="absolute inset-8 rounded-full border border-primary/[0.03] orbit-ring-reverse" />
-          </div>
+          }, [lite])}
+          {/* Orbit decoration rings — skip on low-end */}
+          {!lite && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px]">
+              <div className="absolute inset-0 rounded-full border border-primary/[0.04] orbit-ring" />
+              <div className="absolute inset-8 rounded-full border border-primary/[0.03] orbit-ring-reverse" />
+            </div>
+          )}
         </div>
 
         <div className="w-full max-w-md z-10">
@@ -259,7 +276,7 @@ export default function AuthPage() {
           <div className="text-center mb-8" style={{ animation: 'heroFadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both' }}>
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="relative">
-                <div className="absolute -inset-3 rounded-full bg-primary/10 blur-xl animate-pulse" />
+                {!lite && <div className="absolute -inset-3 rounded-full bg-primary/10 blur-xl animate-pulse" />}
                 <ApasLogo size={48} animated />
               </div>
               <h1 className="text-4xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent animate-gradient-text">

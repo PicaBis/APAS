@@ -14,6 +14,7 @@ import WindParticlesBackground from '@/components/apas/WindParticlesBackground';
 import TestimonialsSection from '@/components/apas/TestimonialsSection';
 import ProfessionalFooter from '@/components/apas/ProfessionalFooter';
 import { playPageTransition, playLandingNav, playThemeToggle, playLangSwitch } from '@/utils/sound';
+import { detectPerformance } from '@/utils/performanceDetect';
 import { Smartphone } from 'lucide-react';
 import { PWAInstallPrompt } from '@/components/mobile';
 
@@ -250,6 +251,9 @@ const LandingPage: React.FC = () => {
     try { localStorage.setItem('apas_landing_muted', String(muted)); } catch { /* storage unavailable */ }
   }, [muted]);
 
+  const perf = useMemo(() => detectPerformance(), []);
+  const lite = perf.shouldReduceAnimations;
+
   const navigateWithSound = useCallback((path: string) => {
     playPageTransition(muted);
     // Small delay to let the sound play before navigating
@@ -293,11 +297,20 @@ const LandingPage: React.FC = () => {
       {/* Wind particles background */}
       <WindParticlesBackground />
 
-      {/* Ambient background blurs */}
+      {/* Ambient background blurs — skip heavy blur on low-end GPUs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse-slow" />
-        <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
-        <div className="absolute -bottom-20 right-1/4 w-72 h-72 rounded-full bg-accent/5 blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
+        {!lite ? (
+          <>
+            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse-slow" />
+            <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+            <div className="absolute -bottom-20 right-1/4 w-72 h-72 rounded-full bg-accent/5 blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
+          </>
+        ) : (
+          <>
+            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 opacity-40" />
+            <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 opacity-30" />
+          </>
+        )}
       </div>
 
       {/* Nav bar */}
@@ -453,6 +466,11 @@ const LandingPage: React.FC = () => {
         @keyframes heroLogoBreathe {
           0%, 100% { transform: scale(1) translateY(0); }
           50% { transform: scale(1.03) translateY(-4px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-logo-glow { animation: none; opacity: 0.6; }
+          .hero-logo-arc { animation: none; }
+          .hero-logo-breathe { animation: none; }
         }
       `}</style>
 

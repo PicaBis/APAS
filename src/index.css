@@ -917,3 +917,37 @@ body {
 .nav-btn-animate:hover::after {
   opacity: 1;
 }
+
+/* ═══ Reduced Motion & Low-End GPU Support ═══ */
+@media (prefers-reduced-motion: reduce) {
+  /* Disable all infinite CSS animations */
+  .animate-pulse,
+  .animate-pulse-slow,
+  .animate-float,
+  .animate-bounce,
+  .animate-spin,
+  .animate-gradient-text,
+  .animate-cta-glow,
+  .floating-formula,
+  .orbit-ring,
+  .orbit-ring-reverse,
+  .apas-assistant-btn,
+  .apas-assistant-btn .sparkle-icon,
+  .apas-assistant-btn .sparkle-icon-flash {
+    animation: none !important;
+  }
+  /* Keep one-shot entrance animations but remove delays */
+  .hero-stagger > *,
+  .feature-stagger > *,
+  .stat-stagger > * {
+    animation-duration: 0.01s !important;
+    animation-delay: 0s !important;
+  }
+  /* Disable backdrop-blur (very expensive on weak GPUs) */
+  .backdrop-blur-xl,
+  .backdrop-blur-sm,
+  .backdrop-blur-md {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}

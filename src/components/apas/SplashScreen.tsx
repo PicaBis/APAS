@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Lang } from '@/constants/translations';
 import { playLoadingSound } from '@/utils/sound';
+import { detectPerformance } from '@/utils/performanceDetect';
 
 interface SplashScreenProps {
   lang: Lang;
@@ -107,8 +108,10 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
   const startTimeRef = useRef<number>(0);
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const letterIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const perf = useMemo(() => detectPerformance(), []);
+  const lite = perf.shouldReduceAnimations;
 
-  const drawScene = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, prog: number) => {
+  const drawScene = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, prog: number, isLite: boolean) => {
     ctx.clearRect(0, 0, w, h);
     // Deep navy background with subtle indigo gradient
     const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
@@ -118,6 +121,10 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
     bgGrad.addColorStop(1, '#151535');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
+
+    // On low-end devices, skip all animated canvas decorations
+    if (isLite) return;
+
     const time = Date.now() * 0.001;
     const fade = Math.min(prog * 2, 1);
 
@@ -189,7 +196,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
+    // On low-end devices, use 1x resolution to reduce GPU load
+    const dpr = lite ? 1 : (window.devicePixelRatio || 1);
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
     canvas.style.width = window.innerWidth + 'px';
@@ -203,12 +211,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
       const t = Math.min(elapsed / animDuration, 1);
       const easedT = 1 - Math.pow(1 - t, 3);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawScene(ctx, window.innerWidth, window.innerHeight, easedT);
+      drawScene(ctx, window.innerWidth, window.innerHeight, easedT, lite);
       animFrameRef.current = requestAnimationFrame(frame);
     };
     animFrameRef.current = requestAnimationFrame(frame);
     return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current); };
-  }, [drawScene]);
+  }, [drawScene, lite]);
 
   // All timers in a single effect — no dependency on phase, runs once on mount
   useEffect(() => {
