@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Activity, BarChart3, Bookmark, Settings } from 'lucide-react';
+import { Home, Activity, BarChart3, Wrench, Settings } from 'lucide-react';
 
-type Tab = 'home' | 'simulation' | 'analysis' | 'saved' | 'settings';
+type Tab = 'home' | 'simulation' | 'analysis' | 'tools' | 'settings';
 
 interface MobileBottomNavProps {
   activeTab: Tab;
@@ -15,8 +15,8 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
   const tabs: { id: Tab; icon: React.FC<{ className?: string }>; labelAr: string; labelEn: string; labelFr: string }[] = [
     { id: 'home', icon: Home, labelAr: 'الرئيسية', labelEn: 'Home', labelFr: 'Accueil' },
     { id: 'simulation', icon: Activity, labelAr: 'المحاكاة', labelEn: 'Simulate', labelFr: 'Simuler' },
+    { id: 'tools', icon: Wrench, labelAr: 'الأدوات', labelEn: 'Tools', labelFr: 'Outils' },
     { id: 'analysis', icon: BarChart3, labelAr: 'التحليل', labelEn: 'Analysis', labelFr: 'Analyse' },
-    { id: 'saved', icon: Bookmark, labelAr: 'المحفوظات', labelEn: 'Saved', labelFr: 'Sauvé' },
     { id: 'settings', icon: Settings, labelAr: 'إعدادات', labelEn: 'Settings', labelFr: 'Réglages' },
   ];
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, RotateCcw, Turtle } from 'lucide-react';
+import { Play, Pause, RotateCcw, Turtle, FastForward } from 'lucide-react';
 
 interface MobileFloatingControlsProps {
   isAnimating: boolean;
@@ -21,47 +21,61 @@ const MobileFloatingControls: React.FC<MobileFloatingControlsProps> = ({
   lang,
 }) => {
   const isSlowMotion = playbackSpeed < 1;
+  const isFastMotion = playbackSpeed > 1;
+
+  const cycleSpeed = () => {
+    if (playbackSpeed === 1) onSetPlaybackSpeed(0.25);
+    else if (playbackSpeed === 0.25) onSetPlaybackSpeed(0.5);
+    else if (playbackSpeed === 0.5) onSetPlaybackSpeed(2);
+    else if (playbackSpeed === 2) onSetPlaybackSpeed(4);
+    else onSetPlaybackSpeed(1);
+  };
 
   return (
-    <div className="mobile-floating-controls absolute bottom-4 left-1/2 -translate-x-1/2 z-30 md:hidden">
-      <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-background/70 backdrop-blur-xl border border-border/50 shadow-xl shadow-black/20">
+    <div className="mobile-floating-controls absolute bottom-2 left-1/2 -translate-x-1/2 z-30 md:hidden">
+      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-background/60 backdrop-blur-xl border border-border/40 shadow-lg shadow-black/10">
         {/* Reset */}
         <button
           onClick={onReset}
-          className="p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 active:scale-90 transition-all duration-200 touch-manipulation"
+          className="p-1.5 rounded-full text-muted-foreground hover:text-foreground active:scale-90 transition-all duration-150 touch-manipulation"
           title={lang === 'ar' ? 'إعادة' : 'Reset'}
         >
-          <RotateCcw className="w-5 h-5" />
+          <RotateCcw className="w-3.5 h-3.5" />
         </button>
 
         {/* Play / Pause */}
         <button
           onClick={onTogglePlay}
-          className={`p-3.5 rounded-2xl shadow-lg active:scale-90 transition-all duration-200 touch-manipulation ${
+          className={`p-2 rounded-full shadow-md active:scale-90 transition-all duration-150 touch-manipulation ${
             isAnimating
-              ? 'bg-amber-500 text-white shadow-amber-500/30'
-              : 'bg-primary text-primary-foreground shadow-primary/30'
+              ? 'bg-amber-500 text-white shadow-amber-500/20'
+              : 'bg-primary text-primary-foreground shadow-primary/20'
           }`}
           title={isAnimating ? (lang === 'ar' ? 'إيقاف' : 'Pause') : (lang === 'ar' ? 'تشغيل' : 'Play')}
         >
           {isAnimating ? (
-            <Pause className="w-6 h-6" />
+            <Pause className="w-4 h-4" />
           ) : (
-            <Play className="w-6 h-6 ml-0.5" />
+            <Play className="w-4 h-4 ml-0.5" />
           )}
         </button>
 
-        {/* Slow motion */}
+        {/* Speed cycle */}
         <button
-          onClick={() => onSetPlaybackSpeed(isSlowMotion ? 1 : 0.25)}
-          className={`p-2.5 rounded-xl active:scale-90 transition-all duration-200 touch-manipulation ${
+          onClick={cycleSpeed}
+          className={`p-1.5 rounded-full active:scale-90 transition-all duration-150 touch-manipulation relative ${
             isSlowMotion
-              ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30'
-              : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+              ? 'text-blue-500'
+              : isFastMotion
+              ? 'text-orange-500'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
-          title={lang === 'ar' ? 'حركة بطيئة' : 'Slow Motion'}
+          title={lang === 'ar' ? 'سرعة التشغيل' : 'Playback Speed'}
         >
-          <Turtle className="w-5 h-5" />
+          {isFastMotion ? <FastForward className="w-3.5 h-3.5" /> : <Turtle className="w-3.5 h-3.5" />}
+          <span className="absolute -top-1 -right-1 text-[7px] font-bold bg-background/80 rounded px-0.5">
+            {playbackSpeed !== 1 ? `${playbackSpeed}x` : ''}
+          </span>
         </button>
       </div>
     </div>

@@ -5,8 +5,6 @@ const config: CapacitorConfig = {
   appName: 'APAS',
   webDir: 'dist',
   server: {
-    url: 'https://a-p-a-s.vercel.app',
-    cleartext: false,
     androidScheme: 'https',
     allowNavigation: [
       'a-p-a-s.vercel.app',
@@ -17,7 +15,7 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 3000,
+      launchShowDuration: 2500,
       launchAutoHide: true,
       backgroundColor: '#0a0a2e',
       androidSplashResourceName: 'splash',

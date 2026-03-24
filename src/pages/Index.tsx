@@ -68,6 +68,7 @@ import {
   MobileAIAssistant,
   MobileAnalysisDashboard,
   MobileSavedExperiments,
+  MobileToolsPanel,
   PWAInstallPrompt,
 } from '@/components/mobile';
 import type { SavedExperiment } from '@/components/mobile';
@@ -171,7 +172,7 @@ const Index = () => {
   const isMobile = useIsMobile();
 
   // ── Mobile UI State ──
-  const [mobileActiveTab, setMobileActiveTab] = useState<'home' | 'simulation' | 'analysis' | 'saved' | 'settings'>('simulation');
+  const [mobileActiveTab, setMobileActiveTab] = useState<'home' | 'simulation' | 'analysis' | 'tools' | 'settings'>('simulation');
   const [showMobileBottomSheet, setShowMobileBottomSheet] = useState(false);
   const [showMobileAI, setShowMobileAI] = useState(false);
 
@@ -410,7 +411,8 @@ const Index = () => {
     { key: 'height', label: lang === 'ar' ? 'الارتفاع' : lang === 'fr' ? 'Hauteur' : 'Height', value: sim.height, min: 0, max: 5000, step: 0.5, unit: 'm', onChange: sim.setHeight },
     { key: 'gravity', label: lang === 'ar' ? 'الجاذبية' : lang === 'fr' ? 'Gravité' : 'Gravity', value: sim.gravity, min: 0, max: 100, step: 0.01, unit: 'm/s²', onChange: (v: number) => sim.setGravity(Math.max(0, v)) },
     { key: 'mass', label: lang === 'ar' ? 'الكتلة' : lang === 'fr' ? 'Masse' : 'Mass', value: sim.mass, min: 0.01, max: 50000, step: 0.01, unit: 'kg', onChange: sim.setMass },
-  ], [lang, sim.velocity, sim.angle, sim.height, sim.gravity, sim.mass, sim.setVelocity, sim.setAngle, sim.setHeight, sim.setGravity, sim.setMass]);
+    { key: 'windSpeed', label: lang === 'ar' ? 'سرعة الرياح' : lang === 'fr' ? 'Vent' : 'Wind Speed', value: sim.windSpeed, min: -50, max: 50, step: 0.5, unit: 'm/s', onChange: sim.setWindSpeed },
+  ], [lang, sim.velocity, sim.angle, sim.height, sim.gravity, sim.mass, sim.windSpeed, sim.setVelocity, sim.setAngle, sim.setHeight, sim.setGravity, sim.setMass, sim.setWindSpeed]);
 
   // ── Splash Screen ──
   if (showSplash) {
@@ -561,9 +563,9 @@ const Index = () => {
                     <Eye className="w-6 h-6 text-purple-500 mx-auto mb-2" />
                     <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'مساعد AI' : 'AI Assistant'}</span>
                   </button>
-                  <button onClick={() => setMobileActiveTab('saved')} className="p-4 rounded-xl bg-secondary/50 border border-border/30 text-center active:scale-95 transition-all">
-                    <Save className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
-                    <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'التجارب المحفوظة' : 'Saved Experiments'}</span>
+                  <button onClick={() => setMobileActiveTab('tools')} className="p-4 rounded-xl bg-secondary/50 border border-border/30 text-center active:scale-95 transition-all">
+                    <Camera className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                    <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'أدوات الرؤية' : 'Vision Tools'}</span>
                   </button>
                 </div>
                 {/* Current params summary */}
@@ -599,28 +601,35 @@ const Index = () => {
               </div>
             )}
 
-            {/* ── Saved Tab ── */}
-            {mobileActiveTab === 'saved' && (
-              <div className="px-4 py-4">
-                <MobileSavedExperiments
-                  lang={lang}
-                  currentParams={{
-                    velocity: sim.velocity,
-                    angle: sim.angle,
-                    height: sim.height,
-                    gravity: sim.gravity,
-                    airResistance: sim.airResistance,
-                    mass: sim.mass,
-                  }}
-                  prediction={sim.prediction ? {
-                    range: sim.prediction.range,
-                    maxHeight: sim.prediction.maxHeight,
-                    timeOfFlight: sim.prediction.timeOfFlight,
-                  } : null}
-                  integrationMethod={sim.selectedIntegrationMethod}
-                  onLoadExperiment={handleMobileExperimentLoad}
-                />
-              </div>
+            {/* ── Tools Tab ── */}
+            {mobileActiveTab === 'tools' && (
+              <MobileToolsPanel
+                lang={lang}
+                velocity={sim.velocity}
+                angle={sim.angle}
+                height={sim.height}
+                gravity={sim.gravity}
+                airResistance={sim.airResistance}
+                mass={sim.mass}
+                windSpeed={sim.windSpeed}
+                onUpdateParams={(params) => {
+                  if (params.velocity !== undefined) sim.setVelocity(params.velocity);
+                  if (params.angle !== undefined) sim.setAngle(params.angle);
+                  if (params.height !== undefined) sim.setHeight(params.height);
+                  if (params.mass !== undefined) sim.setMass(params.mass);
+                  if (params.gravity !== undefined) sim.setGravity(params.gravity);
+                }}
+                onMediaAnalyzed={(src) => { setLastAnalyzedMediaSrc(src); setLastAnalyzedMediaType('image'); }}
+                calibrationScale={calibrationScale}
+                onOpenCalculator={() => setShowCalculator(true)}
+                onOpenRuler={() => setShowRuler(true)}
+                onOpenProtractor={() => setShowProtractor(true)}
+                onOpenEnvironment={() => setShowEnvSelector(true)}
+                onOpenDocumentation={() => setShowDocumentation(true)}
+                onOpenLiveCalibration={() => setShowLiveCalibration(true)}
+                onOpenSecurityPrivacy={() => setShowSecurityPrivacy(true)}
+                onOpenComprehensiveGuide={() => setShowComprehensiveGuide(true)}
+              />
             )}
 
             {/* ── Settings Tab ── */}
@@ -670,6 +679,29 @@ const Index = () => {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
                   <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'ارتداد المقذوف' : 'Bouncing'}</span>
                   <Switch checked={sim.enableBounce} onCheckedChange={(checked) => { sim.setEnableBounce(checked); playToggle(sim.isMuted, checked); }} />
+                </div>
+
+                {/* Saved Experiments section */}
+                <div className="pt-2">
+                  <h3 className="text-sm font-bold text-foreground mb-2">{lang === 'ar' ? 'التجارب المحفوظة' : 'Saved Experiments'}</h3>
+                  <MobileSavedExperiments
+                    lang={lang}
+                    currentParams={{
+                      velocity: sim.velocity,
+                      angle: sim.angle,
+                      height: sim.height,
+                      gravity: sim.gravity,
+                      airResistance: sim.airResistance,
+                      mass: sim.mass,
+                    }}
+                    prediction={sim.prediction ? {
+                      range: sim.prediction.range,
+                      maxHeight: sim.prediction.maxHeight,
+                      timeOfFlight: sim.prediction.timeOfFlight,
+                    } : null}
+                    integrationMethod={sim.selectedIntegrationMethod}
+                    onLoadExperiment={handleMobileExperimentLoad}
+                  />
                 </div>
               </div>
             )}
