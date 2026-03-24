@@ -73,8 +73,10 @@ function createWindow() {
         splashWindow.close();
         splashWindow = null;
       }
-      mainWindow.show();
-      mainWindow.focus();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
     }, 2000);
   });
 
@@ -333,7 +335,10 @@ if (!gotTheLock) {
     }, 1500);
 
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      } else if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
       }
     });
