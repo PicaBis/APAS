@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Download, Monitor } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -211,6 +211,41 @@ const LandingPage: React.FC = () => {
   const t = LANG_DATA[lang];
   const isRTL = t.dir === 'rtl';
 
+  // Scroll-triggered reveal
+  const revealRefs = useRef<(HTMLElement | null)[]>([]);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+    );
+    revealRefs.current.forEach((el) => { if (el) observer.observe(el); });
+    return () => observer.disconnect();
+  }, []);
+  const addRevealRef = useCallback((el: HTMLElement | null) => {
+    if (el && !revealRefs.current.includes(el)) revealRefs.current.push(el);
+  }, []);
+
+  // Animated counter
+  const [statsVisible, setStatsVisible] = useState(false);
+  const statsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = statsRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setStatsVisible(true); obs.disconnect(); } },
+      { threshold: 0.3 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   useEffect(() => {
     try { localStorage.setItem('apas_landing_muted', String(muted)); } catch { /* storage unavailable */ }
   }, [muted]);
@@ -391,7 +426,7 @@ const LandingPage: React.FC = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 text-center">
+      <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 text-center hero-stagger">
         <div className="flex justify-center mb-6">
           <div className="relative hero-logo-container">
             {/* Ambient glow */}
@@ -442,14 +477,14 @@ const LandingPage: React.FC = () => {
             50% { transform: scale(1.03) translateY(-4px); }
           }
         `}</style>
-        <h1 className="text-5xl sm:text-7xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent mb-3">
+        <h1 className="text-5xl sm:text-7xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent mb-3 animate-gradient-text">
           {t.heroTitle}
         </h1>
         <h2 className="text-lg sm:text-xl font-semibold text-foreground/90 mb-4">{t.heroSubtitle}</h2>
         <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed">{t.heroDesc}</p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button onClick={() => navigateWithSound('/simulator')}
-            className="group px-8 py-3 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 nav-btn-animate">
+            className="group px-8 py-3 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 nav-btn-animate animate-cta-glow">
             <Zap className="w-5 h-5" />
             {t.enterSim}
             <ArrowRight className={`w-4 h-4 transition-transform duration-300 group-hover:translate-x-1 ${isRTL ? 'rotate-180 group-hover:-translate-x-1' : ''}`} />
@@ -463,22 +498,48 @@ const LandingPage: React.FC = () => {
         <ChevronDown className="w-6 h-6 text-muted-foreground mx-auto mt-12 animate-bounce" />
       </section>
 
+      {/* Animated Stats Counter Section */}
+      <section ref={statsRef} className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className={`grid grid-cols-2 sm:grid-cols-4 gap-4 ${statsVisible ? 'stat-stagger' : ''}`}>
+          {[
+            { value: '99.7%', label: lang === 'ar' ? 'دقة التنبؤ' : lang === 'fr' ? 'Précision IA' : 'AI Accuracy', color: 'text-emerald-500' },
+            { value: '3', label: lang === 'ar' ? 'طرق تكامل' : lang === 'fr' ? 'Méthodes' : 'Integration Methods', color: 'text-blue-500' },
+            { value: '8+', label: lang === 'ar' ? 'بيئة كوكبية' : lang === 'fr' ? 'Environnements' : 'Environments', color: 'text-purple-500' },
+            { value: '3', label: lang === 'ar' ? 'لغات مدعومة' : lang === 'fr' ? 'Langues' : 'Languages', color: 'text-amber-500' },
+          ].map((stat, i) => (
+            <div key={i} className="text-center p-5 rounded-xl border border-border/40 bg-card/40 backdrop-blur-sm">
+              <div className={`text-3xl sm:text-4xl font-bold ${stat.color} mb-1`}>
+                {statsVisible ? stat.value : '—'}
+              </div>
+              <div className="text-xs text-muted-foreground font-medium">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Features Section */}
-      <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-16">
+      <section ref={addRevealRef} className="reveal-on-scroll relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-16">
         <div className="text-center mb-12">
+          <span className="inline-block text-xs font-mono tracking-[0.2em] uppercase text-primary/70 mb-3">
+            [ {lang === 'ar' ? 'المميزات' : lang === 'fr' ? 'FONCTIONNALITÉS' : 'FEATURES'} ]
+          </span>
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">{t.whyTitle}</h2>
           <p className="text-muted-foreground">{t.whySubtitle}</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 feature-stagger">
           {t.features.map((f, i) => {
             const Icon = iconMap[f.icon] || Sparkles;
             return (
-              <div key={i} className="group p-5 rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 transition-all duration-300">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
-                  <Icon className="w-5 h-5 text-primary" />
+              <div key={i} className="group p-5 rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+                {/* Shimmer overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-primary/5 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-foreground mb-1.5">{f.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{f.desc}</p>
                 </div>
-                <h3 className="text-sm font-semibold text-foreground mb-1.5">{f.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{f.desc}</p>
               </div>
             );
           })}
@@ -486,10 +547,15 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Testimonials Section */}
-      <TestimonialsSection lang={lang} />
+      <div ref={addRevealRef} className="reveal-on-scroll">
+        <TestimonialsSection lang={lang} />
+      </div>
 
       {/* Comparison Table */}
-      <section className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-16">
+      <section ref={addRevealRef} className="reveal-on-scroll relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-16">
+        <span className="block text-center text-xs font-mono tracking-[0.2em] uppercase text-primary/70 mb-3">
+          [ {lang === 'ar' ? 'المقارنة' : lang === 'fr' ? 'COMPARAISON' : 'COMPARISON'} ]
+        </span>
         <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center mb-8">{t.compTitle}</h2>
         <div className="overflow-x-auto rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm shadow-lg">
           <table className="w-full text-sm">
@@ -520,7 +586,7 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Classroom Highlight */}
-      <section className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-16">
+      <section ref={addRevealRef} className="reveal-on-scroll relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-16">
         <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-card/80 to-secondary/30 backdrop-blur-sm p-8 sm:p-12 flex flex-col md:flex-row items-center gap-8">
           <div className="flex-shrink-0">
             <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -543,10 +609,10 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-16 text-center">
+      <section ref={addRevealRef} className="reveal-on-scroll relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-16 text-center">
         <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-6">{t.ctaTitle}</h2>
         <button onClick={() => navigateWithSound('/simulator')}
-          className="group px-10 py-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold text-lg shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 flex items-center gap-3 mx-auto nav-btn-animate">
+          className="group px-10 py-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-semibold text-lg shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-1 transition-all duration-300 flex items-center gap-3 mx-auto nav-btn-animate animate-cta-glow">
           <Sparkles className="w-5 h-5" />
           {t.ctaBtn}
           <ArrowRight className={`w-5 h-5 transition-transform duration-300 group-hover:translate-x-1 ${isRTL ? 'rotate-180 group-hover:-translate-x-1' : ''}`} />

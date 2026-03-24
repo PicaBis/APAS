@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen } from 'lucide-react';
@@ -225,14 +225,44 @@ export default function AuthPage() {
           <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse" />
           <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
           <div className="absolute -bottom-20 right-1/4 w-72 h-72 rounded-full bg-accent/5 blur-3xl animate-pulse" style={{ animationDelay: '4s' }} />
+          {/* Floating physics formulas */}
+          {useMemo(() => {
+            const formulas = [
+              'F = ma', 'E = mc²', 'v = v₀ + at', 'x = ½at²',
+              'p = mv', 'KE = ½mv²', 'ΔE = W', 'τ = r × F',
+              'ω = Δθ/Δt', 'a = v²/r', 'F = -kx', 'T = 2π√(l/g)',
+            ];
+            return formulas.map((f, i) => (
+              <span
+                key={i}
+                className="floating-formula absolute text-xs sm:text-sm font-mono text-foreground/[0.06] select-none"
+                style={{
+                  left: `${8 + (i % 4) * 24}%`,
+                  top: `${5 + Math.floor(i / 4) * 30 + (i % 3) * 8}%`,
+                  '--float-duration': `${7 + (i % 5) * 2}s`,
+                  '--float-delay': `${i * 0.6}s`,
+                } as React.CSSProperties}
+              >
+                {f}
+              </span>
+            ));
+          }, [])}
+          {/* Orbit decoration rings */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px]">
+            <div className="absolute inset-0 rounded-full border border-primary/[0.04] orbit-ring" />
+            <div className="absolute inset-8 rounded-full border border-primary/[0.03] orbit-ring-reverse" />
+          </div>
         </div>
 
         <div className="w-full max-w-md z-10">
           {/* Logo & Title */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-8" style={{ animation: 'heroFadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both' }}>
             <div className="flex items-center justify-center gap-3 mb-4">
-              <ApasLogo size={48} />
-              <h1 className="text-4xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent">
+              <div className="relative">
+                <div className="absolute -inset-3 rounded-full bg-primary/10 blur-xl animate-pulse" />
+                <ApasLogo size={48} animated />
+              </div>
+              <h1 className="text-4xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent animate-gradient-text">
                 APAS
               </h1>
             </div>
@@ -242,13 +272,15 @@ export default function AuthPage() {
           </div>
 
           {/* Auth Card */}
-          <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 backdrop-blur-xl">
+          <div className="animate-auth-card bg-card/80 border border-border/60 rounded-2xl shadow-2xl p-6 backdrop-blur-xl relative overflow-hidden">
+            {/* Card top gradient accent */}
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
             {/* Mode Tabs */}
             <div className="flex gap-1 mb-6 bg-secondary/50 rounded-lg p-1">
               <button
                 onClick={() => { playClick(false); setMode('login'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
-                  mode === 'login' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
+                  mode === 'login' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
                 <LogIn className="w-4 h-4" />
@@ -256,8 +288,8 @@ export default function AuthPage() {
               </button>
               <button
                 onClick={() => { playClick(false); setMode('signup'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
-                  mode === 'signup' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
+                  mode === 'signup' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
@@ -265,8 +297,8 @@ export default function AuthPage() {
               </button>
               <button
                 onClick={() => { playClick(false); setMode('otp'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
-                  mode === 'otp' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
+                  mode === 'otp' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
                 <Sparkles className="w-4 h-4" />
@@ -284,12 +316,12 @@ export default function AuthPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" key={mode}>
               {/* Email */}
-              <div>
+              <div style={{ animation: 'heroFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both' }}>
                 <label htmlFor="auth-email" className="block text-xs font-medium text-muted-foreground mb-1.5">{T.email}</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <input
                     id="auth-email"
                     name="email"
@@ -299,17 +331,17 @@ export default function AuthPage() {
                     placeholder={T.emailPlaceholder}
                     required
                     autoComplete="email"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                   />
                 </div>
               </div>
 
               {/* Password (only for login/signup) */}
               {mode !== 'otp' && (
-                <div>
+                <div style={{ animation: 'heroFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both' }}>
                   <label htmlFor="auth-password" className="block text-xs font-medium text-muted-foreground mb-1.5">{T.password}</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className="relative group">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <input
                       id="auth-password"
                       name="password"
@@ -349,7 +381,8 @@ export default function AuthPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ animation: 'heroFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both' }}
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -374,7 +407,7 @@ export default function AuthPage() {
             {/* Guest Access */}
             <button
               onClick={handleGuestAccess}
-              className="w-full py-2.5 rounded-lg border border-border bg-secondary/50 text-foreground font-medium text-sm hover:bg-secondary transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-lg border border-border bg-secondary/50 text-foreground font-medium text-sm hover:bg-secondary hover:border-primary/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2"
             >
               {T.continueAsGuest}
               <ArrowRight className="w-4 h-4" />
@@ -386,7 +419,7 @@ export default function AuthPage() {
           </div>
 
           {/* Footer */}
-          <p className="text-center text-xs text-muted-foreground mt-6">
+          <p className="text-center text-xs text-muted-foreground mt-6" style={{ animation: 'heroFadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both' }}>
             {T.footer}
           </p>
         </div>
