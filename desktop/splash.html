@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APAS Loading</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-app-region: drag;
+    }
+
+    .splash-container {
+      width: 500px;
+      height: 360px;
+      background: linear-gradient(135deg, #0a0a2e 0%, #1a1a4e 30%, #0d0d35 60%, #151540 100%);
+      border-radius: 20px;
+      border: 1px solid rgba(100, 140, 255, 0.2);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(80, 120, 255, 0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Animated background particles */
+    .splash-container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 30% 40%, rgba(80, 160, 255, 0.05) 0%, transparent 50%),
+                  radial-gradient(circle at 70% 60%, rgba(120, 80, 255, 0.05) 0%, transparent 50%),
+                  radial-gradient(circle at 50% 80%, rgba(0, 200, 150, 0.03) 0%, transparent 40%);
+      animation: rotateGlow 8s linear infinite;
+    }
+
+    @keyframes rotateGlow {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .logo-wrapper {
+      position: relative;
+      z-index: 2;
+      margin-bottom: 24px;
+    }
+
+    .logo-img {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      animation: logoAppear 1s ease-out forwards, logoPulse 3s ease-in-out 1s infinite;
+      opacity: 0;
+      filter: drop-shadow(0 0 20px rgba(80, 140, 255, 0.5));
+    }
+
+    @keyframes logoAppear {
+      0% { opacity: 0; transform: scale(0.5) translateY(20px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    @keyframes logoPulse {
+      0%, 100% { filter: drop-shadow(0 0 20px rgba(80, 140, 255, 0.5)); }
+      50% { filter: drop-shadow(0 0 35px rgba(80, 140, 255, 0.8)); }
+    }
+
+    /* Orbiting ring around logo */
+    .orbit-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 130px;
+      height: 130px;
+      margin-top: -65px;
+      margin-left: -65px;
+      border: 2px solid transparent;
+      border-top: 2px solid rgba(80, 180, 255, 0.6);
+      border-right: 2px solid rgba(80, 180, 255, 0.3);
+      border-radius: 50%;
+      animation: orbitSpin 2s linear infinite;
+    }
+
+    .orbit-ring::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      right: 20px;
+      width: 8px;
+      height: 8px;
+      background: #50b4ff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #50b4ff;
+    }
+
+    @keyframes orbitSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .app-name {
+      position: relative;
+      z-index: 2;
+      font-size: 36px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 8px;
+      margin-bottom: 8px;
+      animation: textAppear 1s ease-out 0.3s forwards;
+      opacity: 0;
+      text-shadow: 0 0 20px rgba(80, 140, 255, 0.5);
+    }
+
+    @keyframes textAppear {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .app-subtitle {
+      position: relative;
+      z-index: 2;
+      font-size: 12px;
+      color: rgba(180, 200, 255, 0.7);
+      margin-bottom: 32px;
+      animation: textAppear 1s ease-out 0.6s forwards;
+      opacity: 0;
+      letter-spacing: 2px;
+    }
+
+    .loading-bar-container {
+      position: relative;
+      z-index: 2;
+      width: 280px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      animation: textAppear 1s ease-out 0.9s forwards;
+      opacity: 0;
+    }
+
+    .loading-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6);
+      background-size: 300% 100%;
+      border-radius: 2px;
+      animation: loadProgress 3s ease-in-out forwards, shimmer 2s linear infinite;
+    }
+
+    @keyframes loadProgress {
+      0% { width: 0%; }
+      30% { width: 40%; }
+      60% { width: 70%; }
+      80% { width: 85%; }
+      100% { width: 100%; }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 300% 50%; }
+    }
+
+    .version-text {
+      position: absolute;
+      bottom: 16px;
+      right: 20px;
+      font-size: 10px;
+      color: rgba(150, 170, 220, 0.4);
+      z-index: 2;
+    }
+
+    /* Floating particles */
+    .particle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: rgba(100, 160, 255, 0.3);
+      border-radius: 50%;
+      z-index: 1;
+    }
+
+    .particle:nth-child(1) { top: 15%; left: 10%; animation: float 4s ease-in-out infinite; }
+    .particle:nth-child(2) { top: 25%; right: 15%; animation: float 5s ease-in-out 1s infinite; width: 2px; height: 2px; }
+    .particle:nth-child(3) { bottom: 30%; left: 20%; animation: float 6s ease-in-out 2s infinite; }
+    .particle:nth-child(4) { top: 40%; right: 25%; animation: float 4.5s ease-in-out 0.5s infinite; width: 4px; height: 4px; }
+    .particle:nth-child(5) { bottom: 20%; right: 10%; animation: float 5.5s ease-in-out 1.5s infinite; width: 2px; height: 2px; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+      50% { transform: translateY(-15px) scale(1.5); opacity: 0.7; }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+
+    <div class="logo-wrapper">
+      <img class="logo-img" src="icon.png" alt="APAS Logo">
+      <div class="orbit-ring"></div>
+    </div>
+
+    <div class="app-name">APAS</div>
+    <div class="app-subtitle">AI Projectile Analysis System</div>
+
+    <div class="loading-bar-container">
+      <div class="loading-bar"></div>
+    </div>
+
+    <div class="version-text">v1.0.0</div>
+  </div>
+</body>
+</html>

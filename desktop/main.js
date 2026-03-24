@@ -1,9 +1,52 @@
-const { app, BrowserWindow, Menu, shell, dialog, session } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, session, Tray, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
+// Determine if we're running in development or production
+const isDev = !app.isPackaged;
+
+// URLs
 const APAS_URL = 'https://a-p-a-s.vercel.app';
 
 let mainWindow;
+let splashWindow;
+let tray = null;
+
+// Get the path to the built web app
+function getAppPath() {
+  if (isDev) {
+    const devDistPath = path.join(__dirname, '..', 'dist');
+    if (fs.existsSync(devDistPath)) {
+      return devDistPath;
+    }
+    return null;
+  }
+  const prodPath = path.join(process.resourcesPath, 'app');
+  if (fs.existsSync(prodPath)) {
+    return prodPath;
+  }
+  return null;
+}
+
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 520,
+    height: 380,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    icon: path.join(__dirname, 'icon.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  splashWindow.center();
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -16,31 +59,43 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
     autoHideMenuBar: false,
     show: false,
+    backgroundColor: '#0a0a2e',
+    titleBarStyle: 'default',
   });
 
-  // Show window when ready to avoid white flash
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    setTimeout(() => {
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.close();
+        splashWindow = null;
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    }, 2000);
   });
 
-  // Load the production Vercel URL (always latest deployment)
-  mainWindow.loadURL(APAS_URL);
+  // Try to load local files first, fall back to URL
+  const appPath = getAppPath();
+  if (appPath && fs.existsSync(path.join(appPath, 'index.html'))) {
+    mainWindow.loadFile(path.join(appPath, 'index.html'));
+  } else {
+    mainWindow.loadURL(APAS_URL);
+  }
 
-  // Open external links in default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith(APAS_URL)) {
+    if (!url.startsWith(APAS_URL) && !url.startsWith('file://')) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
     return { action: 'allow' };
   });
 
-  // Handle navigation to external URLs
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith(APAS_URL) && !url.startsWith('https://a-p-a-s.vercel.app')) {
+    if (!url.startsWith(APAS_URL) && !url.startsWith('file://') && !url.startsWith('https://a-p-a-s.vercel.app')) {
       event.preventDefault();
       shell.openExternal(url);
     }
@@ -49,9 +104,80 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  mainWindow.on('close', (event) => {
+    if (tray && !app.isQuiting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
 }
 
-// Create application menu
+function createTray() {
+  const iconPath = path.join(__dirname, 'icon.png');
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(trayIcon);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'فتح APAS',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'الصفحة الرئيسية',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          const appPath = getAppPath();
+          if (appPath) {
+            mainWindow.loadFile(path.join(appPath, 'index.html'));
+          } else {
+            mainWindow.loadURL(APAS_URL + '/home');
+          }
+        }
+      },
+    },
+    {
+      label: 'المحاكاة',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          const appPath = getAppPath();
+          if (appPath) {
+            mainWindow.loadFile(path.join(appPath, 'index.html'), { hash: '/simulator' });
+          } else {
+            mainWindow.loadURL(APAS_URL + '/simulator');
+          }
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'خروج',
+      click: () => {
+        app.isQuiting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setToolTip('APAS - نظام تحليل المقذوفات');
+  tray.setContextMenu(contextMenu);
+
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 function createMenu() {
   const template = [
     {
@@ -59,14 +185,30 @@ function createMenu() {
       submenu: [
         {
           label: 'الصفحة الرئيسية',
+          accelerator: 'CmdOrCtrl+H',
           click: () => {
-            if (mainWindow) mainWindow.loadURL(APAS_URL + '/home');
+            if (mainWindow) {
+              const appPath = getAppPath();
+              if (appPath) {
+                mainWindow.loadFile(path.join(appPath, 'index.html'));
+              } else {
+                mainWindow.loadURL(APAS_URL + '/home');
+              }
+            }
           },
         },
         {
           label: 'المحاكاة',
+          accelerator: 'CmdOrCtrl+M',
           click: () => {
-            if (mainWindow) mainWindow.loadURL(APAS_URL + '/simulator');
+            if (mainWindow) {
+              const appPath = getAppPath();
+              if (appPath) {
+                mainWindow.loadFile(path.join(appPath, 'index.html'), { hash: '/simulator' });
+              } else {
+                mainWindow.loadURL(APAS_URL + '/simulator');
+              }
+            }
           },
         },
         { type: 'separator' },
@@ -93,7 +235,8 @@ function createMenu() {
               title: 'حول APAS',
               message: 'APAS - نظام تحليل المقذوفات بالذكاء الاصطناعي',
               detail:
-                'AI Projectile Analysis System\n\nتطوير: مجاهد عبدالهادي و موفقي ابراهيم\nالمدرسة العليا للأساتذة بالأغواط\n\nالإصدار: 1.0.0\n\nيتم تحميل آخر التحديثات تلقائياً من الخادم.',
+                'AI Projectile Analysis System\n\nالإصدار: ' + app.getVersion() + '\n\nتطوير: مجاهد عبدالهادي و موفقي ابراهيم\nالمدرسة العليا للأساتذة بالأغواط',
+              icon: nativeImage.createFromPath(path.join(__dirname, 'icon.png')),
             });
           },
         },
@@ -128,14 +271,18 @@ function createMenu() {
       submenu: [
         {
           label: 'الموقع الرسمي',
-          click: () => {
-            shell.openExternal('https://a-p-a-s.vercel.app');
-          },
+          click: () => shell.openExternal('https://a-p-a-s.vercel.app'),
         },
         {
           label: 'GitHub',
+          click: () => shell.openExternal('https://github.com/PicaBis/APAS'),
+        },
+        { type: 'separator' },
+        {
+          label: 'أدوات المطور',
+          accelerator: 'F12',
           click: () => {
-            shell.openExternal('https://github.com/PicaBis/APAS');
+            if (mainWindow) mainWindow.webContents.toggleDevTools();
           },
         },
       ],
@@ -146,36 +293,59 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-app.whenReady().then(() => {
-  // Content Security Policy — restrict what the renderer can load
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://a-p-a-s.vercel.app https://*.vercel.app; " +
-          "style-src 'self' 'unsafe-inline' https://a-p-a-s.vercel.app https://*.vercel.app https://fonts.googleapis.com; " +
-          "font-src 'self' https://fonts.gstatic.com data:; " +
-          "img-src 'self' data: blob: https:; " +
-          "connect-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app https://*.supabase.co https://api.openweathermap.org https://api.open-meteo.com;"
-        ],
-      },
+// Single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(() => {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://a-p-a-s.vercel.app https://*.vercel.app; " +
+            "style-src 'self' 'unsafe-inline' https://a-p-a-s.vercel.app https://*.vercel.app https://fonts.googleapis.com; " +
+            "font-src 'self' https://fonts.gstatic.com data:; " +
+            "img-src 'self' data: blob: https:; " +
+            "connect-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app https://*.supabase.co https://api.openweathermap.org https://api.open-meteo.com wss://*.supabase.co;"
+          ],
+        },
+      });
+    });
+
+    createSplashWindow();
+    createMenu();
+    createTray();
+
+    setTimeout(() => {
+      createWindow();
+    }, 1500);
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
     });
   });
 
-  createMenu();
-  createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
     }
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+  app.on('before-quit', () => {
+    app.isQuiting = true;
+  });
+}
