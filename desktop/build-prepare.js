@@ -20,6 +20,8 @@ const requiredFiles = [
   'main.js',
   'preload.js',
   'splash.html',
+  'mode-select.html',
+  'offline-fallback.html',
   'icon.png',
   'icon.ico',
   'installer/installer.nsh',
