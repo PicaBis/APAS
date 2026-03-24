@@ -1238,7 +1238,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           ctx.stroke();
 
           const angle2 = Math.atan2(dy, dx);
-          const headLen = Math.min(12 * sf2, len * 0.35);
+          const headLen = Math.max(8 * sf2, Math.min(14 * sf2, len * 0.35));
           ctx.beginPath();
           ctx.fillStyle = color;
           ctx.moveTo(toX2, toY2);
@@ -1288,12 +1288,12 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         if (vectorVisibility.Vx && Math.abs(activePt.vx) > 0.005) {
           const vxLen = Math.max(minVelArrowLen, Math.abs(activePt.vx) * velScale);
           const vxSign = activePt.vx >= 0 ? 1 : -1;
-          drawArrow(bx, by, bx + vxSign * vxLen, by, '#3b82f6', 'Vx');
+          drawArrow(bx, by, bx + vxSign * Math.max(vxLen, plotMin * 0.04), by, '#3b82f6', 'Vx');
         }
         if (vectorVisibility.Vy && Math.abs(activePt.vy) > 0.005) {
           const vyLen = Math.max(minVelArrowLen, Math.abs(activePt.vy) * velScale);
           const vySign = activePt.vy >= 0 ? 1 : -1;
-          drawArrow(bx, by, bx, by - vySign * vyLen, '#22c55e', 'Vy');
+          drawArrow(bx, by, bx, by - vySign * Math.max(vyLen, plotMin * 0.04), '#22c55e', 'Vy');
         }
 
         // ═══ FORCE VECTORS ═══
