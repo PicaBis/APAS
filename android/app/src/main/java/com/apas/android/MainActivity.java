@@ -39,7 +39,7 @@ public class MainActivity extends BridgeActivity {
             settings.setDatabaseEnabled(true);
 
             // Allow mixed content for local assets
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
 
             // Set initial scale to fit desktop layout on mobile screen
             webView.setInitialScale(0);
