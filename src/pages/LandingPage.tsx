@@ -393,63 +393,54 @@ const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 text-center">
         <div className="flex justify-center mb-6">
-          <div className="relative">
-            {/* Outer glowing ring */}
-            <div className="absolute -inset-5 rounded-full hero-logo-ring" />
-            {/* Orbiting particles */}
-            <div className="absolute -inset-8 hero-logo-orbit">
-              <div className="hero-orbit-dot hero-orbit-dot-1" />
-              <div className="hero-orbit-dot hero-orbit-dot-2" />
-              <div className="hero-orbit-dot hero-orbit-dot-3" />
-            </div>
-            {/* Soft glow behind logo */}
-            <div className="absolute -inset-10 bg-primary/15 rounded-full blur-3xl -z-10 animate-pulse" />
-            <div className="absolute -inset-4 bg-primary/8 rounded-full blur-xl -z-10" style={{ animation: 'heroGlowPulse 4s ease-in-out infinite' }} />
-            <div style={{ animation: 'heroLogoFloat 5s ease-in-out infinite' }}>
+          <div className="relative hero-logo-container">
+            {/* Ambient glow */}
+            <div className="absolute -inset-8 rounded-full hero-logo-glow" />
+            {/* Gradient arc ring */}
+            <svg className="absolute -inset-4 hero-logo-arc" viewBox="0 0 120 120" fill="none">
+              <circle cx="60" cy="60" r="56" stroke="url(#heroArcGrad)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="20 15 8 15" />
+              <defs>
+                <linearGradient id="heroArcGrad" x1="0" y1="0" x2="120" y2="120">
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.6" />
+                  <stop offset="50%" stopColor="hsl(42 70% 54%)" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.1" />
+                </linearGradient>
+              </defs>
+            </svg>
+            {/* Logo with subtle breathe */}
+            <div className="hero-logo-breathe relative z-10">
               <ApasLogo size={100} animated />
             </div>
           </div>
         </div>
         <style>{`
-          @keyframes heroLogoFloat {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+          .hero-logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
-          @keyframes heroGlowPulse {
-            0%, 100% { opacity: 0.5; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.15); }
+          .hero-logo-glow {
+            background: radial-gradient(circle, hsl(var(--primary) / 0.12) 0%, transparent 70%);
+            animation: heroGlowBreath 6s ease-in-out infinite;
           }
-          .hero-logo-ring {
-            border: 2px solid;
-            border-color: hsl(var(--primary) / 0.2);
-            border-radius: 9999px;
-            animation: heroRingSpin 12s linear infinite;
+          @keyframes heroGlowBreath {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.08); }
           }
-          @keyframes heroRingSpin {
-            0% { transform: rotate(0deg); border-color: hsl(var(--primary) / 0.15); }
-            50% { border-color: hsl(var(--primary) / 0.35); }
-            100% { transform: rotate(360deg); border-color: hsl(var(--primary) / 0.15); }
+          .hero-logo-arc {
+            animation: heroArcSpin 20s linear infinite;
           }
-          .hero-logo-orbit {
-            position: absolute;
-            border-radius: 9999px;
-            animation: heroOrbitSpin 10s linear infinite;
-          }
-          @keyframes heroOrbitSpin {
+          @keyframes heroArcSpin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
-          .hero-orbit-dot {
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            border-radius: 9999px;
-            background: hsl(var(--primary));
-            box-shadow: 0 0 8px 2px hsl(var(--primary) / 0.5);
+          .hero-logo-breathe {
+            animation: heroLogoBreathe 5s ease-in-out infinite;
           }
-          .hero-orbit-dot-1 { top: 0; left: 50%; transform: translateX(-50%); }
-          .hero-orbit-dot-2 { bottom: 15%; right: 5%; background: hsl(42 70% 54%); box-shadow: 0 0 8px 2px hsl(42 70% 54% / 0.5); }
-          .hero-orbit-dot-3 { bottom: 15%; left: 5%; opacity: 0.6; width: 4px; height: 4px; }
+          @keyframes heroLogoBreathe {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.03) translateY(-4px); }
+          }
         `}</style>
         <h1 className="text-5xl sm:text-7xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent mb-3">
           {t.heroTitle}
