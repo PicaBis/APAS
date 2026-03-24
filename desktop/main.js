@@ -70,7 +70,8 @@ function createWindow() {
   mainWindow.loadURL(APAS_URL);
 
   // Handle load failures with a retry mechanism
-  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, _validatedURL, isMainFrame) => {
+    if (!isMainFrame) return;
     console.error(`Failed to load: ${errorCode} - ${errorDescription}`);
     // Retry after 3 seconds
     setTimeout(() => {
@@ -282,11 +283,19 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
-    // Remove restrictive CSP headers that block the hosted app from loading
+    // Replace CSP with a permissive policy that allows the hosted app to load
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
       const responseHeaders = { ...details.responseHeaders };
       delete responseHeaders['content-security-policy'];
       delete responseHeaders['Content-Security-Policy'];
+      responseHeaders['Content-Security-Policy'] = [
+        "default-src 'self' https://a-p-a-s.vercel.app https://*.vercel.app; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://a-p-a-s.vercel.app https://*.vercel.app; " +
+        "style-src 'self' 'unsafe-inline' https: data:; " +
+        "font-src 'self' https: data:; " +
+        "img-src 'self' data: blob: https:; " +
+        "connect-src 'self' https: wss:;"
+      ];
       callback({ responseHeaders });
     });
 
