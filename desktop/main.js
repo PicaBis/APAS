@@ -82,7 +82,7 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith(APAS_URL) && !url.startsWith('file://')) {
+    if (!url.startsWith(APAS_URL)) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
@@ -90,7 +90,7 @@ function createWindow() {
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith(APAS_URL) && !url.startsWith('file://') && !url.startsWith('https://a-p-a-s.vercel.app')) {
+    if (!url.startsWith(APAS_URL)) {
       event.preventDefault();
       shell.openExternal(url);
     }
