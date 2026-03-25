@@ -133,32 +133,8 @@ export default function AuthPage() {
   const isFr = lang === 'fr';
   const [fullscreenNotice, setFullscreenNotice] = useState(false);
 
-  // Auto-enter fullscreen on mount for best experience
-  useEffect(() => {
-    const tryFullscreen = async () => {
-      try {
-        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen();
-          setFullscreenNotice(true);
-          setTimeout(() => setFullscreenNotice(false), 3500);
-        }
-      } catch {
-        // Fullscreen requires user gesture in most browsers, so we set up a one-time click handler
-        const handler = async () => {
-          try {
-            if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-              await document.documentElement.requestFullscreen();
-              setFullscreenNotice(true);
-              setTimeout(() => setFullscreenNotice(false), 3500);
-            }
-          } catch { /* ignore */ }
-          document.removeEventListener('click', handler);
-        };
-        document.addEventListener('click', handler, { once: true });
-      }
-    };
-    tryFullscreen();
-  }, []);
+  // Fullscreen is only triggered by explicit user gesture (e.g. clicking the fullscreen button)
+  // Removed auto-fullscreen on mount to avoid "API can only be initiated by a user gesture" errors
 
   const navigateWithSound = useCallback((path: string) => {
     playPageTransition(false);

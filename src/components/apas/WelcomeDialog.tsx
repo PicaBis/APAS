@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { BookOpen, Lightbulb, X } from 'lucide-react';
 
 interface WelcomeDialogProps {
@@ -16,7 +16,8 @@ const WelcomeDialog: React.FC<WelcomeDialogProps> = ({ open, lang, onOpenGuide, 
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onSkip(); }}>
-      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden border-border bg-background" dir={isRTL ? 'rtl' : 'ltr'}>
+      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden border-border bg-background" dir={isRTL ? 'rtl' : 'ltr'} aria-describedby={undefined}>
+        <DialogTitle className="sr-only">{t('مرحبا بك في APAS', 'Welcome to APAS', 'Bienvenue dans APAS')}</DialogTitle>
         {/* Header */}
         <div className="relative px-6 pt-6 pb-4 bg-gradient-to-b from-primary/10 to-transparent text-center">
           <button onClick={onSkip} className="absolute top-3 end-3 p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">

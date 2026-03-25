@@ -226,6 +226,16 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
       />
 
       <Suspense fallback={null}>
+        {showOnboarding && (
+          <OnboardingTutorial
+            lang={lang as 'ar' | 'en' | 'fr'}
+            open={showOnboarding}
+            onClose={() => setShowOnboarding(false)}
+          />
+        )}
+      </Suspense>
+
+      <Suspense fallback={null}>
         <ComprehensiveGuideModal
           open={showComprehensiveGuide}
           onClose={() => {

@@ -12,6 +12,8 @@ const EDGE_SUBJECT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subj
 interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
+  autoOpen?: boolean;
+  onDismiss?: () => void;
 }
 
 interface SubjectData {
@@ -108,7 +110,7 @@ function SolutionRenderer({ text }: { text: string }) {
 /*  Main Component                                                     */
 /* ------------------------------------------------------------------ */
 
-export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
+export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onDismiss }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
@@ -123,6 +125,15 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isAr = lang === 'ar';
+
+  // Auto-open file picker when autoOpen prop is set (for mobile header direct access)
+  const autoOpenTriggered = useRef(false);
+  useEffect(() => {
+    if (autoOpen && !autoOpenTriggered.current) {
+      autoOpenTriggered.current = true;
+      fileRef.current?.click();
+    }
+  }, [autoOpen]);
 
   useEffect(() => {
     if (!isAnalyzing) return;

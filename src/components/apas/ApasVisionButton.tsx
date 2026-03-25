@@ -19,6 +19,8 @@ interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
+  autoOpen?: boolean;
+  onDismiss?: () => void;
 }
 
 interface AnalysisData {
@@ -48,7 +50,7 @@ interface HistoryEntry {
   thumbnailData?: string;
 }
 
-export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed }: Props) {
+export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, autoOpen, onDismiss }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
@@ -73,6 +75,11 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
   const [permissionsGranted, setPermissionsGranted] = useState(false);
 
   const isAr = lang === 'ar';
+
+  // Auto-open choice modal when autoOpen prop is set (for mobile header direct access)
+  useEffect(() => {
+    if (autoOpen) setShowChoiceModal(true);
+  }, [autoOpen]);
 
   // Request all smart feature permissions
   const requestSmartPermissions = useCallback(async () => {
@@ -413,7 +420,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
 
       {/* Choice Modal — Upload or Capture */}
       {showChoiceModal && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowChoiceModal(false)}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { setShowChoiceModal(false); onDismiss?.(); }}>
           <div
             className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-xs overflow-hidden animate-slideDown"
             dir={isAr ? 'rtl' : 'ltr'}
@@ -424,7 +431,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                 <Aperture className="w-4 h-4 text-foreground" />
                 <h3 className="text-sm font-semibold text-foreground">APAS Vision</h3>
               </div>
-              <button onClick={() => setShowChoiceModal(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+              <button onClick={() => { setShowChoiceModal(false); onDismiss?.(); }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
                 <X className="w-4 h-4" />
               </button>
             </div>

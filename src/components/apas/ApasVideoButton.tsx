@@ -36,6 +36,8 @@ interface Props {
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
   calibrationMeters?: number;
   gravity?: number;
+  autoOpen?: boolean;
+  onDismiss?: () => void;
 }
 
 interface AnalysisData {
@@ -203,7 +205,7 @@ const extractFramesFromVideo = (
   });
 };
 
-export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed, calibrationMeters, gravity }: Props) {
+export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed, calibrationMeters, gravity, autoOpen, onDismiss }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
@@ -240,6 +242,11 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isAr = lang === 'ar';
+
+  // Auto-open choice modal when autoOpen prop is set (for mobile header direct access)
+  useEffect(() => {
+    if (autoOpen) setShowChoiceModal(true);
+  }, [autoOpen]);
 
   // Stop camera stream
   const stopCameraStream = useCallback(() => {
@@ -692,7 +699,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
 
       {/* Choice Modal — Upload or Record */}
       {showChoiceModal && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowChoiceModal(false)}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { setShowChoiceModal(false); onDismiss?.(); }}>
           <div
             className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-xs overflow-hidden animate-slideDown"
             dir={isAr ? 'rtl' : 'ltr'}
@@ -703,7 +710,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                 <Video className="w-4 h-4 text-foreground" />
                 <h3 className="text-sm font-semibold text-foreground">APAS Video</h3>
               </div>
-              <button onClick={() => setShowChoiceModal(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+              <button onClick={() => { setShowChoiceModal(false); onDismiss?.(); }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
                 <X className="w-4 h-4" />
               </button>
             </div>

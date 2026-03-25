@@ -796,15 +796,7 @@ const Index = () => {
             )}
           </div>
 
-          {/* Mobile Bottom Sheet — variables */}
-          {mobileActiveTab === 'simulation' && (
-            <MobileBottomSheet
-              variables={mobileVariables}
-              lang={lang}
-              isOpen={showMobileBottomSheet}
-              onToggle={() => setShowMobileBottomSheet(!showMobileBottomSheet)}
-            />
-          )}
+          {/* Mobile Bottom Sheet — hidden on mobile per user request (remove physics variables) */}
 
           {/* Mobile AI Assistant */}
           <MobileAIAssistant
@@ -829,58 +821,32 @@ const Index = () => {
             lang={lang}
           />
 
-          {/* Mobile APAS Feature Modals */}
-          {showMobileVision && createPortal(
-            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileVision(false)}>
-              <div className="bg-background border-t border-border rounded-t-2xl shadow-2xl w-full max-h-[80vh] overflow-y-auto p-4 space-y-3 animate-slideDown" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-foreground">APAS Vision</h3>
-                  <button onClick={() => setShowMobileVision(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X className="w-4 h-4" /></button>
-                </div>
-                <ApasVisionButton lang={lang} onUpdateParams={handleMobileVisionParams} />
-              </div>
-            </div>,
-            document.body
+          {/* Mobile APAS Feature Components — direct access via autoOpen (no intermediate bottom sheet) */}
+          {showMobileVision && (
+            <div className="hidden">
+              <ApasVisionButton lang={lang} onUpdateParams={handleMobileVisionParams} autoOpen onDismiss={() => setShowMobileVision(false)} />
+            </div>
           )}
-          {showMobileVideo && createPortal(
-            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileVideo(false)}>
-              <div className="bg-background border-t border-border rounded-t-2xl shadow-2xl w-full max-h-[80vh] overflow-y-auto p-4 space-y-3 animate-slideDown" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-foreground">APAS Video</h3>
-                  <button onClick={() => setShowMobileVideo(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X className="w-4 h-4" /></button>
-                </div>
-                <ApasVideoButton lang={lang} onUpdateParams={handleMobileVisionParams} />
-              </div>
-            </div>,
-            document.body
+          {showMobileVideo && (
+            <div className="hidden">
+              <ApasVideoButton lang={lang} onUpdateParams={handleMobileVisionParams} autoOpen onDismiss={() => setShowMobileVideo(false)} />
+            </div>
           )}
-          {showMobileSubject && createPortal(
-            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileSubject(false)}>
-              <div className="bg-background border-t border-border rounded-t-2xl shadow-2xl w-full max-h-[80vh] overflow-y-auto p-4 space-y-3 animate-slideDown" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-foreground">APAS Subject</h3>
-                  <button onClick={() => setShowMobileSubject(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X className="w-4 h-4" /></button>
-                </div>
-                <ApasSubjectReading lang={lang} onUpdateParams={handleMobileVisionParams} />
-              </div>
-            </div>,
-            document.body
+          {showMobileSubject && (
+            <div className="hidden">
+              <ApasSubjectReading lang={lang} onUpdateParams={handleMobileVisionParams} autoOpen onDismiss={() => setShowMobileSubject(false)} />
+            </div>
           )}
-          {showMobileVoice && createPortal(
-            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileVoice(false)}>
-              <div className="bg-background border-t border-border rounded-t-2xl shadow-2xl w-full max-h-[80vh] overflow-y-auto p-4 space-y-3 animate-slideDown" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-foreground">APAS Sound</h3>
-                  <button onClick={() => setShowMobileVoice(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X className="w-4 h-4" /></button>
-                </div>
-                <ApasVoiceButton
-                  lang={lang}
-                  onUpdateParams={handleMobileVoiceParams}
-                  simulationContext={{ velocity: sim.velocity, angle: sim.angle, height: sim.height, gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass }}
-                />
-              </div>
-            </div>,
-            document.body
+          {showMobileVoice && (
+            <div className="hidden">
+              <ApasVoiceButton
+                lang={lang}
+                onUpdateParams={handleMobileVoiceParams}
+                simulationContext={{ velocity: sim.velocity, angle: sim.angle, height: sim.height, gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass }}
+                autoOpen
+                onDismiss={() => setShowMobileVoice(false)}
+              />
+            </div>
           )}
 
           {/* Mobile Fullscreen Overlay (YouTube-style) */}

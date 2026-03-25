@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Mic, MicOff, Loader2, X, Volume2, CheckCircle, History } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,6 +16,8 @@ interface Props {
     airResistance: number;
     mass: number;
   };
+  autoOpen?: boolean;
+  onDismiss?: () => void;
 }
 
 interface ExtractedParams {
@@ -35,7 +37,7 @@ interface VoiceHistoryEntry {
   applied: boolean;
 }
 
-export default function ApasVoiceButton({ lang, onUpdateParams, simulationContext }: Props) {
+export default function ApasVoiceButton({ lang, onUpdateParams, simulationContext, autoOpen, onDismiss }: Props) {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -47,6 +49,16 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const isAr = lang === 'ar';
+
+  // Auto-start listening when autoOpen prop is set (for mobile header direct access)
+  const autoOpenTriggered = useRef(false);
+  useEffect(() => {
+    if (autoOpen && !autoOpenTriggered.current) {
+      autoOpenTriggered.current = true;
+      startListening();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
 
   const parseParamsFromAI = useCallback((text: string): { params: ExtractedParams | null; missing: string[]; message: string } => {
     const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
@@ -272,6 +284,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     setApplied(false);
     setAiMessage('');
     setMissingParams([]);
+    onDismiss?.();
   };
 
   return (
