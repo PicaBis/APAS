@@ -92,8 +92,8 @@ async function consumeAIStream(
         const content = parsed?.choices?.[0]?.delta?.content;
         if (content) onChunk(content);
       } catch {
-        buf = line + '\n' + buf;
-        break;
+        // Line is complete (has \n delimiter) but contains invalid JSON — skip it
+        // rather than retrying forever and blocking subsequent valid lines.
       }
     }
   }
@@ -180,6 +180,7 @@ const MobileAIAssistant: React.FC<MobileAIAssistantProps> = ({
 
     const fallback = getLocalFallback(text, lang);
     if (fallback) {
+      setIsLoading(true);
       let typed = '';
       const words = fallback.split(' ');
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
@@ -189,6 +190,7 @@ const MobileAIAssistant: React.FC<MobileAIAssistantProps> = ({
         await new Promise(r => setTimeout(r, 50));
         setMessages(prev => prev.map((m, idx) => idx === prev.length - 1 ? { ...m, content: snapshot } : m));
       }
+      setIsLoading(false);
       return;
     }
 

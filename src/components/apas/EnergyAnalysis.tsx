@@ -62,7 +62,7 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
     const totalLoss = Math.max(0, totalInitial - totalFinal);
 
     // Find peak point (max PE)
-    const peakPt = trajectoryData.reduce((a, b) => b.potentialEnergy > a.potentialEnergy ? b : a, trajectoryData[0]);
+    const peakPt = trajectoryData.reduce((a, b) => (b.potentialEnergy ?? 0) > (a.potentialEnergy ?? 0) ? b : a, trajectoryData[0]);
 
     // Energy efficiency: KE at end / KE at start
     const efficiency = (first.kineticEnergy ?? 0) > 0 ? ((last.kineticEnergy ?? 0) / (first.kineticEnergy ?? 1)) * 100 : 100;
