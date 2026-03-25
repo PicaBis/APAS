@@ -136,6 +136,7 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
             setShowComprehensiveGuide(true);
           }}
           onStartQuickTips={() => {
+            setShowWelcomeDialog(false);
             setShowOnboarding(true);
           }}
           onSkip={() => {

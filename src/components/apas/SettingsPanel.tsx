@@ -398,7 +398,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             >
               <div className="space-y-1.5">
                 <button
-                  onClick={() => { onOpenGuide(); playNav(isMuted); }}
+                  onClick={() => { onOpenGuide(); onClose(); playNav(isMuted); }}
                   className="w-full text-xs font-medium py-2.5 px-3 rounded-lg flex items-center gap-2 text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 transition-all duration-300"
                 >
                   <Info className="w-4 h-4 text-primary" />
@@ -412,7 +412,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   {t('التوثيق', 'Documentation', 'Documentation')}
                 </button>
                 <button
-                  onClick={() => { onOpenComprehensiveGuide(); playNav(isMuted); }}
+                  onClick={() => { onOpenComprehensiveGuide(); onClose(); playNav(isMuted); }}
                   className="w-full text-xs font-medium py-2.5 px-3 rounded-lg flex items-center gap-2 text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 transition-all duration-300"
                 >
                   <BookOpen className="w-4 h-4 text-primary" />
