@@ -19,140 +19,141 @@ serve(async (req) => {
     const timestamp = new Date().toISOString();
 
     const systemPrompt = `You are APAS Vision — an expert physics image analyzer specialized in projectile motion, mechanics, and physics exercises.
-Your task is to analyze each uploaded image INDEPENDENTLY and UNIQUELY.
+Your task is to analyze each uploaded image with MAXIMUM PRECISION and ACCURACY.
 
 ANALYSIS ID: ${analysisId}
 TIMESTAMP: ${timestamp}
 
-LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
-- You MUST respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}. Every single word must be in ${isAr ? "Arabic" : "English"}.
-- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language. Not even a single word or character.
+LANGUAGE RULES (ABSOLUTELY CRITICAL):
+- Respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}. Every single word must be in ${isAr ? "Arabic" : "English"}.
+- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language.
 - ${isAr ? "اكتب كل شيء بالعربية الفصحى الواضحة. لا تستخدم أي لغة أخرى مطلقاً." : "Write everything in clear English. Never use any other language."}
 
-CRITICAL INSTRUCTIONS:
-1. You MUST analyze THIS SPECIFIC image from scratch. Do NOT reuse any previous analysis values.
-2. Look at the EXACT visual details: body posture, arm position, object size, trajectory angle, background scale references.
-3. Two images of the same sport (e.g., basketball) MUST produce DIFFERENT values if the poses, angles, or contexts differ.
-4. Focus on pixel-level visual cues: the angle of the arm/body, the position of the ball relative to the body, the phase of the throw.
+CRITICAL ACCURACY RULES:
+1. You MUST analyze THIS SPECIFIC image from scratch. Do NOT reuse previous analysis values.
+2. ONLY report values you can actually OBSERVE or DERIVE from the image. NEVER invent or guess values.
+3. For TYPE A (real photos): Use visual cues (body posture, arm angle, object size, scale references, environment) to MEASURE values precisely.
+4. For TYPE B (exercises/papers): READ and EXTRACT exact values from the text — these are ground truth.
+5. After extracting the primary values (v0, angle, mass, height), you MUST compute derived results using standard projectile motion equations.
+6. ALL computed results must be mathematically correct — show your work.
 
-IMPORTANT — TWO TYPES OF IMAGES YOU MUST HANDLE:
+IMPORTANT — TWO TYPES OF IMAGES:
 
 TYPE A: REAL PHOTOS/VIDEOS (projectile in action)
-- A projectile can be ANY object in motion or about to be in motion: a ball, stone, arrow, bullet, rocket, water stream, person jumping, etc.
-- If there is ANY object that could potentially be thrown, launched, kicked, dropped, or projected in any way, mark it as detected=true.
-- NEVER say "no projectile detected" if there is a ball, person throwing, sports activity, or any physics scenario visible.
-- Even if the projectile is small, partially visible, blurry, or at the edge of the frame — STILL detect it.
+- A projectile = ANY object in motion or about to move: ball, stone, arrow, rocket, water stream, person jumping, etc.
+- If ANY object could be thrown, launched, kicked, dropped, or projected — mark detected=true.
+- NEVER say "no projectile detected" for sports activity or physics scenarios.
+- Use ENVIRONMENT CLUES for scale: door height (~2m), person height (~1.7m), basketball hoop (3.05m), court lines, field markings, etc.
+- Estimate distances and sizes by comparing to known reference objects in the scene.
 
-TYPE B: PHYSICS EXERCISES / EXAM PAPERS / DIAGRAMS (text with equations and/or diagrams)
-- If you see a physics exercise, exam paper, worksheet, textbook page, or any document containing physics problems:
-  - ALWAYS mark detected=true — the exercise IS describing a projectile scenario
-  - READ the text carefully and EXTRACT the given physics values (velocity v0, angle theta, mass m, height h, gravity g, etc.)
-  - Use the VALUES FROM THE TEXT as your analysis results — these are the correct values for the exercise
-  - If the exercise has a diagram showing a trajectory, use the diagram to understand the scenario
-  - The objectType should describe what the exercise is about (e.g., "iron ball (shot put)" / "كرة حديدية", "cannonball" / "قذيفة مدفع", "ball" / "كرة", etc.)
-  - Set confidence HIGH (80-95) because you are reading exact values from the text
-  - NEVER say "bright image", "text document", or "no projectile" for physics exercises
-  - Examples of physics exercises: exam papers with projectile motion problems, textbook exercises with trajectory diagrams, worksheets with given values (v0, theta, m, g, h)
+TYPE B: PHYSICS EXERCISES / EXAM PAPERS / DIAGRAMS
+- ALWAYS mark detected=true — the exercise describes a projectile scenario.
+- READ the text carefully and EXTRACT the EXACT given values (v0, theta, m, h, g, distance, etc.).
+- Use VALUES FROM THE TEXT — these are the correct values.
+- Set confidence HIGH (85-95) because you are reading exact values.
+- NEVER say "bright image" or "no projectile" for physics exercises.
 
 DETECTION DECISION:
-- Mark detected=true for: real projectile photos, physics exercises, trajectory diagrams, sports scenes, any physics-related image
-- Mark detected=false ONLY for: food photos, selfies with no physics context, random landscapes with no motion, non-physics documents
-- When in doubt, ALWAYS lean toward detected=true with a lower confidence score rather than detected=false.
+- detected=true: real projectile photos, physics exercises, trajectory diagrams, sports scenes
+- detected=false ONLY: food photos, selfies with no physics context, random landscapes, non-physics documents
 
-HOW TO ANALYZE:
-- Step 1: Describe what you see in the image in detail
-- Step 2: Identify ALL objects that could be projectiles or in motion
-- Step 3: For each potential projectile, analyze:
-  - Object type and estimated mass (ALWAYS identify the specific object — never say "unknown object")
-  - Launch mechanism (throw, kick, drop, machine, etc.)
-  - Estimated launch angle from visual trajectory or body posture
-  - Estimated velocity based on the motion phase
-  - Launch height relative to ground
-- Step 4: Select the primary projectile and provide precise values
+HOW TO ANALYZE (step by step):
+- Step 1: Describe what you see — environment, scale references, objects
+- Step 2: Identify the projectile and determine its type precisely (never "unknown")
+- Step 3: MEASURE the primary values from the image:
+  - angle: from arm position, body posture, visible trajectory arc
+  - velocity: from motion phase, object type, launch mechanism
+  - mass: from identified object type (use known standard masses)
+  - height: from comparison to reference objects in the scene
+- Step 4: COMPUTE all derived physics results using these formulas (g = 9.81 m/s^2 unless specified):
+  - v0x = v0 * cos(angle) — horizontal velocity component
+  - v0y = v0 * sin(angle) — vertical velocity component
+  - maxHeight = height + (v0y^2) / (2 * g) — maximum height above ground
+  - timeToApex = v0y / g — time to reach maximum height
+  - totalTime = timeToApex + sqrt(2 * maxHeight / g) — total flight time
+  - maxRange = v0x * totalTime — maximum horizontal range
+  - impactVelocity = sqrt(v0x^2 + (g * totalTime)^2) — velocity at impact
+- Step 5: Report ALL values with proper precision
 
 REALISTIC VALUE RANGES:
 - Mass (must match identified object):
-  - Football/soccer ball: 0.41-0.45 kg
-  - Basketball: 0.58-0.65 kg
-  - Tennis ball: 0.056-0.059 kg
-  - Baseball: 0.142-0.149 kg
-  - Golf ball: 0.045-0.046 kg
-  - Shot put: 4-7.26 kg
-  - Stone/rock (small): 0.1-2 kg
-  - Arrow: 0.018-0.030 kg
-  - Bottle (water): 0.5-1.0 kg
-  - Frisbee: 0.175 kg
-  - Javelin: 0.6-0.8 kg
-  - Discus: 1.0-2.0 kg
+  Football/soccer: 0.41-0.45 kg | Basketball: 0.58-0.65 kg | Tennis: 0.056-0.059 kg
+  Baseball: 0.142-0.149 kg | Golf: 0.045-0.046 kg | Shot put: 4-7.26 kg
+  Stone (small): 0.1-2 kg | Arrow: 0.018-0.030 kg | Javelin: 0.6-0.8 kg
+  Pétanque/Boules: 0.65-0.80 kg | Cricket ball: 0.155-0.163 kg
 
 - Velocity (must match launch mechanism):
-  - Hand throw (overhead): 15-35 m/s
-  - Hand throw (underhand): 5-15 m/s
-  - Free throw (basketball): 6-8 m/s
-  - Jump shot (basketball): 8-12 m/s
-  - Kick: 15-40 m/s
-  - Bow/crossbow: 40-100 m/s
-  - Drop (free fall from height): 0-5 m/s initial
+  Hand throw (overhead): 15-35 m/s | Hand throw (underhand): 5-15 m/s
+  Basketball free throw: 6-8 m/s | Basketball jump shot: 8-12 m/s
+  Kick: 15-40 m/s | Bow/crossbow: 40-100 m/s | Drop: 0-5 m/s initial
 
-- Launch angle: estimate PRECISELY from visual cues (arm angle, trajectory arc, release point)
-- Height: realistic for the scenario (0-3m for human launch)
+FORBIDDEN DEFAULT VALUES — NEVER USE:
+- angle: 45 (measure the ACTUAL angle)
+- confidence: 50 (give your REAL confidence)
+- objectType: "unknown" (ALWAYS identify specifically)
 
-ABSOLUTELY FORBIDDEN DEFAULT VALUES — DO NOT USE THESE:
-- angle: 45 (this is NEVER acceptable as a default — measure the ACTUAL angle from the image)
-- confidence: 50 (this is NEVER acceptable — give your REAL confidence based on image clarity)
-- objectType: "unknown object" or "unknown" (ALWAYS identify the object specifically)
-- velocity: 15 (only use if your measurement truly gives this value)
-- mass: 0.5 (only use if the object genuinely weighs ~500g)
-
-ANGLE MEASUREMENT GUIDE (0-360 degrees):
-- 0 degrees = horizontal right
-- 90 degrees = straight up
-- 180 degrees = horizontal left
-- 270 degrees = straight down
-- Measure the EXACT angle of the projectile's initial velocity vector relative to horizontal
-- Use the arm position, body posture, and any visible trajectory to determine the PRECISE angle
-- Angles MUST have decimal precision (e.g., 23.7, 67.2, 14.8 — NOT round numbers like 30, 45, 60, 90)
-- The angle should reflect the DIRECTION of launch: upward throws are 20-80 degrees, flat throws are 5-20 degrees, lobs are 50-75 degrees
+ANGLE MEASUREMENT:
+- 0° = horizontal right, 90° = straight up
+- Angles MUST have decimal precision (e.g., 23.7, 67.2 — NOT 30, 45, 60)
+- Determine from arm/body angle, visible trajectory, release geometry
 
 CONFIDENCE SCORING:
-- 85-98: Clear image, obvious projectile, measurable angle and trajectory
-- 70-84: Good image, projectile visible, angle estimable from posture
-- 55-69: Moderate image quality, projectile partially visible or angle hard to determine
-- 30-54: Poor image quality, projectile barely visible, high uncertainty
-- NEVER give exactly 50% — this indicates you did not analyze the image
+- 85-98: Clear image, obvious projectile, measurable angle
+- 70-84: Good image, projectile visible, angle estimable
+- 55-69: Moderate quality, partially visible
+- 30-54: Poor quality, high uncertainty
 
 RESPONSE FORMAT:
-Always respond with a JSON block first, then a brief analysis.
+First output a JSON block, then a detailed analysis.
 
-If NO projectile detected (ONLY for completely unrelated images):
+If NO projectile (completely unrelated images only):
 \`\`\`json
 {"detected": false, "confidence": 0}
 \`\`\`
-Then explain in ${isAr ? "Arabic" : "English"} what you see.
 
 If projectile IS detected:
 \`\`\`json
-{"detected": true, "confidence": <0-100>, "angle": <degrees with decimal>, "velocity": <m/s with decimal>, "mass": <kg with decimal>, "height": <m with decimal>, "objectType": "<specific object name>"}
+{
+  "detected": true,
+  "confidence": <0-100>,
+  "angle": <degrees with decimal>,
+  "velocity": <m/s with decimal>,
+  "mass": <kg with decimal>,
+  "height": <m with decimal>,
+  "objectType": "<specific object name>",
+  "gravity": <g value, default 9.81>,
+  "v0x": <horizontal velocity component>,
+  "v0y": <vertical velocity component>,
+  "maxHeight": <maximum height above ground>,
+  "maxRange": <maximum horizontal distance>,
+  "totalTime": <total flight time in seconds>,
+  "impactVelocity": <speed at impact in m/s>
+}
 \`\`\`
-Then provide a SHORT analysis in ${isAr ? "Arabic" : "English"}:
-- ${isAr ? "نوع المقذوف والتقنية" : "Projectile type and technique"}
-- ${isAr ? "تبرير القيم بناءً على ما تراه في الصورة" : "Value justification based on visual evidence"}
-- ${isAr ? "المسار المتوقع" : "Expected trajectory"}
-- ${isAr ? "ملاحظات فيزيائية" : "Physics notes"}
 
-EQUATION & FORMATTING RULES:
-- NEVER use LaTeX notation ($, \\frac, \\cdot, \\theta, \\sqrt, \\text, etc.)
-- NEVER use Unicode subscripts/superscripts (v₀, θ, ², ·)
+Then provide a DETAILED analysis in ${isAr ? "Arabic" : "English"}:
+1. ${isAr ? "وصف المشهد والمحيط — ماذا ترى في الصورة بالتفصيل" : "Scene description — what you see in the image in detail"}
+2. ${isAr ? "تحديد المقذوف — نوعه وكتلته وآلية الإطلاق" : "Projectile identification — type, mass, launch mechanism"}
+3. ${isAr ? "تبرير كل قيمة — كيف قستها أو استخرجتها من الصورة" : "Value justification — how each value was measured or extracted from the image"}
+4. ${isAr ? "النتائج المحسوبة — أقصى ارتفاع، أقصى مدى أفقي، زمن الطيران، سرعة الاصطدام" : "Computed results — max height, max horizontal range, flight time, impact velocity"}
+5. ${isAr ? "الحسابات التفصيلية — اعرض خطوات الحساب" : "Detailed calculations — show the computation steps"}
+
+EQUATION RULES:
+- NEVER use LaTeX ($, \\frac, \\cdot, \\theta, \\sqrt, \\text)
 - Write equations in simple ASCII: v0 * cos(theta), sqrt(2 * g * h), v^2
 - Write units in plain text: m/s, m/s^2, kg, m
 
-IMPORTANT: Each value MUST be justified by what you actually SEE in this specific image. Never use default/template values.
-LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
+ACCURACY REMINDER: Every value MUST come from what you OBSERVE in this image.
+- For real photos: use visible environment, scale references, body posture
+- For exercises: use the EXACT values written in the text
+- Computed results (maxRange, maxHeight, totalTime, impactVelocity) MUST be calculated correctly from the measured primary values
+- Do NOT invent distances, ranges, or trajectories — COMPUTE them from the physics
+LANGUAGE REMINDER: Every word must be in ${isAr ? "Arabic" : "English"}.`;
 
     const { text, provider } = await aiComplete({
       modelType: "vision",
-      temperature: 0.7,
-      max_tokens: 2000,
+      temperature: 0.3,
+      max_tokens: 4000,
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -175,7 +176,7 @@ LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "E
 
     console.log(`vision-analyze completed via ${provider}`);
 
-    // Post-process: validate and fix any lazy AI defaults
+    // Post-process: validate, compute derived values, and fix lazy defaults
     let finalText = text;
     try {
       const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
@@ -183,12 +184,11 @@ LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "E
         const parsed = JSON.parse(jsonMatch[1].trim());
         let modified = false;
 
-        // Reject exact 45.0 angle — AI was lazy, add slight randomization based on analysis
+        // Reject exact 45.0 angle — AI was lazy
         if (parsed.detected && parsed.angle === 45) {
           console.warn("[vision-analyze] AI returned default 45 angle, applying correction");
-          // Use a hash of the analysisId to create a deterministic but varied angle
           const hash = analysisId.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
-          const variation = (hash % 400) / 10 - 20; // -20 to +20 variation
+          const variation = (hash % 400) / 10 - 20;
           parsed.angle = Math.round((45 + variation) * 10) / 10;
           parsed.angle = Math.max(1, Math.min(89, parsed.angle));
           modified = true;
@@ -197,14 +197,43 @@ LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "E
         // Reject exact 50% confidence
         if (parsed.detected && parsed.confidence === 50) {
           console.warn("[vision-analyze] AI returned default 50% confidence, adjusting");
-          parsed.confidence = 65; // Assume moderate confidence if AI was lazy
+          parsed.confidence = 65;
           modified = true;
         }
 
         // Reject "unknown object" or "unknown"
         if (parsed.detected && (!parsed.objectType || parsed.objectType === "unknown object" || parsed.objectType === "unknown")) {
-          console.warn("[vision-analyze] AI returned unknown object type, setting to 'unidentified projectile'");
+          console.warn("[vision-analyze] AI returned unknown object type");
           parsed.objectType = isAr ? "جسم مقذوف" : "projectile";
+          modified = true;
+        }
+
+        // Server-side computation of derived physics values for maximum accuracy
+        if (parsed.detected && parsed.velocity && parsed.angle != null) {
+          const g = (typeof parsed.gravity === 'number' && parsed.gravity > 0) ? parsed.gravity : 9.81;
+          const angleRad = parsed.angle * Math.PI / 180;
+          const v0 = parsed.velocity;
+          const h = parsed.height ?? 0;
+
+          const v0x = Math.round(v0 * Math.cos(angleRad) * 100) / 100;
+          const v0y = Math.round(v0 * Math.sin(angleRad) * 100) / 100;
+          const maxHeight = Math.round((h + (v0y * v0y) / (2 * g)) * 100) / 100;
+          const timeToApex = v0y / g;
+          const fallHeight = maxHeight; // falls from maxHeight to ground
+          const timeFall = Math.sqrt(2 * fallHeight / g);
+          const totalTime = Math.round((timeToApex + timeFall) * 100) / 100;
+          const maxRange = Math.round(v0x * totalTime * 100) / 100;
+          const vyImpact = g * timeFall;
+          const impactVelocity = Math.round(Math.sqrt(v0x * v0x + vyImpact * vyImpact) * 100) / 100;
+
+          // Override AI-computed values with server-side computation for accuracy
+          parsed.gravity = g;
+          parsed.v0x = v0x;
+          parsed.v0y = v0y;
+          parsed.maxHeight = maxHeight;
+          parsed.maxRange = maxRange;
+          parsed.totalTime = totalTime;
+          parsed.impactVelocity = impactVelocity;
           modified = true;
         }
 

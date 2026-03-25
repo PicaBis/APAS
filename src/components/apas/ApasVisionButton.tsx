@@ -29,6 +29,13 @@ interface AnalysisData {
   mass?: number;
   height?: number;
   objectType?: string;
+  gravity?: number;
+  v0x?: number;
+  v0y?: number;
+  maxHeight?: number;
+  maxRange?: number;
+  totalTime?: number;
+  impactVelocity?: number;
 }
 
 interface HistoryEntry {
@@ -759,21 +766,66 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                   </div>
 
                   {analysisData.detected && (
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { label: isAr ? 'الزاوية' : 'Angle', value: analysisData.angle, unit: '°' },
-                        { label: isAr ? 'السرعة' : 'Velocity', value: analysisData.velocity, unit: ' m/s' },
-                        { label: isAr ? 'الكتلة' : 'Mass', value: analysisData.mass, unit: ' kg' },
-                        { label: isAr ? 'الارتفاع' : 'Height', value: analysisData.height, unit: ' m' },
-                      ].map(item => (
-                        <div key={item.label} className="border border-border rounded-lg p-2.5 text-center bg-secondary/30">
-                          <p className="text-[10px] text-muted-foreground mb-0.5">{item.label}</p>
-                          <p className="text-sm font-semibold font-mono text-foreground">
-                            {item.value != null ? `${item.value}${item.unit}` : '—'}
+                    <>
+                      {/* Primary measured values */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: isAr ? 'الزاوية' : 'Angle', value: analysisData.angle, unit: '°' },
+                          { label: isAr ? 'السرعة' : 'Velocity', value: analysisData.velocity, unit: ' m/s' },
+                          { label: isAr ? 'الكتلة' : 'Mass', value: analysisData.mass, unit: ' kg' },
+                          { label: isAr ? 'الارتفاع' : 'Height', value: analysisData.height, unit: ' m' },
+                        ].map(item => (
+                          <div key={item.label} className="border border-border rounded-lg p-2.5 text-center bg-secondary/30">
+                            <p className="text-[10px] text-muted-foreground mb-0.5">{item.label}</p>
+                            <p className="text-sm font-semibold font-mono text-foreground">
+                              {item.value != null ? `${item.value}${item.unit}` : '—'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Computed physics results */}
+                      {(analysisData.maxRange != null || analysisData.maxHeight != null) && (
+                        <div className="border border-primary/20 rounded-lg p-3 bg-primary/5">
+                          <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">
+                            {isAr ? 'النتائج المحسوبة' : 'Computed Results'}
                           </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { label: isAr ? 'أقصى مدى أفقي' : 'Max Range', value: analysisData.maxRange, unit: ' m' },
+                              { label: isAr ? 'أقصى ارتفاع' : 'Max Height', value: analysisData.maxHeight, unit: ' m' },
+                              { label: isAr ? 'زمن الطيران' : 'Flight Time', value: analysisData.totalTime, unit: ' s' },
+                              { label: isAr ? 'سرعة الاصطدام' : 'Impact Speed', value: analysisData.impactVelocity, unit: ' m/s' },
+                            ].map(item => (
+                              <div key={item.label} className="border border-primary/10 rounded-md p-2 text-center bg-background">
+                                <p className="text-[9px] text-muted-foreground mb-0.5">{item.label}</p>
+                                <p className="text-xs font-semibold font-mono text-primary">
+                                  {item.value != null ? `${item.value}${item.unit}` : '—'}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                          {analysisData.v0x != null && analysisData.v0y != null && (
+                            <div className="mt-2 flex gap-2">
+                              <div className="flex-1 border border-border/30 rounded-md p-1.5 text-center bg-secondary/20">
+                                <p className="text-[8px] text-muted-foreground">v0x</p>
+                                <p className="text-[11px] font-mono text-foreground">{analysisData.v0x} m/s</p>
+                              </div>
+                              <div className="flex-1 border border-border/30 rounded-md p-1.5 text-center bg-secondary/20">
+                                <p className="text-[8px] text-muted-foreground">v0y</p>
+                                <p className="text-[11px] font-mono text-foreground">{analysisData.v0y} m/s</p>
+                              </div>
+                              {analysisData.gravity && (
+                                <div className="flex-1 border border-border/30 rounded-md p-1.5 text-center bg-secondary/20">
+                                  <p className="text-[8px] text-muted-foreground">g</p>
+                                  <p className="text-[11px] font-mono text-foreground">{analysisData.gravity} m/s²</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </>
                   )}
                 </>
               )}
