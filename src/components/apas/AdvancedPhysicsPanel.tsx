@@ -241,20 +241,22 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
   };
 
   return (
-    <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+    <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
       <button
             onClick={() => { setIsExpanded(!isExpanded); playSectionToggle(false); }}
-            className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+            className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-          <Zap className="w-4 h-4 text-primary" />
+        <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
+          <Zap className="w-5 h-5 text-primary" />
           {T('advancedPhysics', lang)}
         </h3>
-        <ChevronDown
-          className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${
-            isExpanded ? 'rotate-180' : ''
-          }`}
-        />
+        <div className="w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+          />
+        </div>
       </button>
 
       {isExpanded && (

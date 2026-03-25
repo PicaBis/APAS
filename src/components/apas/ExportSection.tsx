@@ -285,16 +285,18 @@ ${trajectoryData
     (prediction ? `|R=${prediction.range.toFixed(2)}|H=${prediction.maxHeight.toFixed(2)}|T=${prediction.timeOfFlight.toFixed(2)}` : '');
 
   return (
-    <div className="border border-border rounded-xl overflow-hidden bg-card/80 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+    <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
       <button
         onClick={() => { setExpanded(!expanded); playSectionToggle(muted); }}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+        className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-          <FileDown className="w-3.5 h-3.5 text-primary" />
+        <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
+          <FileDown className="w-5 h-5 text-primary" />
           {isAr ? 'التصدير' : 'Export'}
         </h3>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+        <div className="w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+        </div>
       </button>
 
       {expanded && (

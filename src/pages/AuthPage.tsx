@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen } from 'lucide-react';
+import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen, Maximize } from 'lucide-react';
 import ApasLogo from '@/components/apas/ApasLogo';
 import PageTransition from '@/components/apas/PageTransition';
 import AboutModal from '@/components/apas/AboutModal';
@@ -131,6 +131,34 @@ export default function AuthPage() {
   const T = AUTH_TRANSLATIONS[lang];
   const isRTL = lang === 'ar';
   const isFr = lang === 'fr';
+  const [fullscreenNotice, setFullscreenNotice] = useState(false);
+
+  // Auto-enter fullscreen on mount for best experience
+  useEffect(() => {
+    const tryFullscreen = async () => {
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+          setFullscreenNotice(true);
+          setTimeout(() => setFullscreenNotice(false), 3500);
+        }
+      } catch {
+        // Fullscreen requires user gesture in most browsers, so we set up a one-time click handler
+        const handler = async () => {
+          try {
+            if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+              await document.documentElement.requestFullscreen();
+              setFullscreenNotice(true);
+              setTimeout(() => setFullscreenNotice(false), 3500);
+            }
+          } catch { /* ignore */ }
+          document.removeEventListener('click', handler);
+        };
+        document.addEventListener('click', handler, { once: true });
+      }
+    };
+    tryFullscreen();
+  }, []);
 
   const navigateWithSound = useCallback((path: string) => {
     playPageTransition(false);
@@ -423,6 +451,18 @@ export default function AuthPage() {
             {T.footer}
           </p>
         </div>
+
+        {/* Fullscreen notification */}
+        {fullscreenNotice && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-slideDown">
+            <div className="bg-primary/95 text-primary-foreground px-6 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-3 text-sm font-medium border border-primary-foreground/20">
+              <Maximize className="w-5 h-5" />
+              <span>
+                {lang === 'ar' ? 'تم تفعيل وضع ملء الشاشة لأفضل تجربة' : isFr ? 'Mode plein écran activé pour une meilleure expérience' : 'Fullscreen mode activated for the best experience'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* About Modal */}
         <AboutModal open={showAbout} onClose={() => setShowAbout(false)} lang={lang} limitTabs />

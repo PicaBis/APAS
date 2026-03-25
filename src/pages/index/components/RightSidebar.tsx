@@ -92,8 +92,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   return (
     <aside data-tour="right-panel" className={`space-y-3 sm:space-y-4 order-3 lg:sticky lg:top-16 lg:self-start lg:pt-2${isFocusMode ? ' hidden' : ''}`}>
       {/* Integration Methods - Simple Version */}
-      <div className="border border-border/50 rounded-xl p-4 bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5">
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight mb-3 flex items-center gap-2">
+      <div className="border-2 border-border/40 rounded-2xl p-4 sm:p-5 bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 dark:border-border/30">
+        <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight mb-3 flex items-center gap-2.5">
           {lang === 'ar' ? 'طريقة التكامل' : 'Integration Method'}
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
@@ -129,7 +129,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       </div>
 
       {/* APAS Vision */}
-      <div className="border border-border/50 rounded-xl p-4 space-y-3 bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 relative">
+      <div className="border-2 border-border/40 rounded-2xl p-4 sm:p-5 space-y-3 bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 dark:border-border/30 relative">
         {!canAccessRestrictedFeature && (
           <div className="absolute inset-0 z-10 rounded-xl bg-background/80 backdrop-blur-sm flex items-center justify-center cursor-pointer" onClick={() => onShowRestrictionOverlay('Smart Vision')}>
             <p className="text-xs text-muted-foreground text-center px-4 font-medium">
@@ -137,7 +137,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             </p>
           </div>
         )}
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight mb-2 flex items-center gap-2">
+        <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight mb-2 flex items-center gap-2.5">
           {lang === 'ar' ? 'الرؤية الذكية' : 'Smart Vision'}
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -164,16 +164,18 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       </div>
 
       {/* Presets / Scenarios */}
-      <Collapsible defaultOpen={false} className="border border-border/50 rounded-xl bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5">
+      <Collapsible defaultOpen={false} className="border-2 border-border/40 rounded-2xl bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 dark:border-border/30">
         <CollapsibleTrigger 
           onClick={() => playSectionToggle(isMuted)}
-          className="flex items-center justify-between w-full p-3 sm:p-4 cursor-pointer hover:bg-primary/5 transition-all duration-300"
+          className="flex items-center justify-between w-full p-4 sm:p-5 cursor-pointer hover:bg-primary/5 transition-all duration-300 group"
         >
-          <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-            <Layers className="w-4 h-4 text-primary" />
+          <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
+            <Layers className="w-5 h-5 text-primary" />
             {lang === 'ar' ? 'السيناريوهات الجانبية' : 'Side Scenarios'}
           </h3>
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 [[data-state=open]>&]:rotate-180" />
+          <div className="w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+            <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-300 [[data-state=open]>&]:rotate-180" />
+          </div>
         </CollapsibleTrigger>
         <CollapsibleContent className="px-3 sm:px-4 pb-3 sm:pb-4">
           <div className="grid grid-cols-3 sm:grid-cols-2 gap-1.5">
