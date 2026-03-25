@@ -74,12 +74,12 @@ const WelcomeDialog: React.FC<WelcomeDialogProps> = ({ open, lang, onOpenGuide, 
         </div>
 
         {/* Note */}
-        <div className="px-6 pb-4">
-          <p className="text-[10px] text-muted-foreground/70 text-center leading-relaxed">
+        <div className="mx-6 mb-4 px-3.5 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
+          <p className="text-[11px] text-foreground/80 text-center leading-relaxed font-medium">
             {t(
-              'ملاحظة: إذا تخطيت، يمكنك إيجاد الدليل الشامل والدليل السريع في قسم المساعدة داخل الإعدادات في أي وقت.',
-              'Note: If you skip, you can find the comprehensive guide and quick tips in the Help section inside Settings anytime.',
-              'Note: Si vous passez, vous trouverez le guide complet et les conseils rapides dans la section Aide des Parametres a tout moment.'
+              '💡 ملاحظة: إذا تخطيت، يمكنك إيجاد الدليل الشامل والدليل السريع في قسم المساعدة داخل الإعدادات في أي وقت.',
+              '💡 Note: If you skip, you can find the comprehensive guide and quick tips in the Help section inside Settings anytime.',
+              '💡 Note: Si vous passez, vous trouverez le guide complet et les conseils rapides dans la section Aide des Parametres a tout moment.'
             )}
           </p>
         </div>

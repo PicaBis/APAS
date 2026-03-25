@@ -11,7 +11,7 @@ export function useAccentTheme(lang: string, nightMode: boolean) {
   const tLabel = (ar: string, en: string, fr: string) => lang === 'ar' ? ar : lang === 'fr' ? fr : en;
 
   const ALL_ACCENT_COLORS: AccentColor[] = useMemo(() => [
-        { id: 'navy', label: tLabel('كحلي', 'Navy', 'Marine'), hsl: '230 45% 45%', ring: '42 55% 55%' },
+        { id: 'navy', label: tLabel('كحلي (الأصلي)', 'Navy (Original)', 'Marine (Original)'), hsl: '230 45% 45%', ring: '42 55% 55%' },
         { id: 'gold', label: tLabel('ذهبي', 'Gold', 'Or'), hsl: '42 55% 55%', ring: '42 55% 55%' },
         { id: 'blue', label: tLabel('أزرق', 'Blue', 'Bleu'), hsl: '217 91% 60%', ring: '217 91% 60%' },
         { id: 'purple', label: tLabel('بنفسجي', 'Purple', 'Violet'), hsl: '270 70% 60%', ring: '270 70% 60%' },
