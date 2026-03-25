@@ -230,6 +230,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
   const trimVideoRef = useRef<HTMLVideoElement>(null);
   // Processing steps state
   const [currentStep, setCurrentStep] = useState(-1);
+  // Detailed report toggle
+  const [showDetailedReport, setShowDetailedReport] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -1041,7 +1043,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       {showModal && createPortal(
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => !isAnalyzing && setShowModal(false)}>
           <div
-            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-slideDown"
             dir={isAr ? 'rtl' : 'ltr'}
             onClick={e => e.stopPropagation()}
           >
@@ -1170,6 +1172,28 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                           </p>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Detailed Physics Report */}
+                  {analysisText && (
+                    <div className="border border-border rounded-lg bg-secondary/20 overflow-hidden">
+                      <button
+                        onClick={() => setShowDetailedReport(prev => !prev)}
+                        className="w-full flex items-center justify-between p-3 hover:bg-secondary/40 transition-all duration-200"
+                      >
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-2">
+                          📋 {isAr ? 'التقرير الفيزيائي المفصل' : 'Detailed Physics Report'}
+                        </span>
+                        <span className={`text-xs text-muted-foreground transition-transform duration-200 ${showDetailedReport ? 'rotate-180' : ''}`}>
+                          ▼
+                        </span>
+                      </button>
+                      {showDetailedReport && (
+                        <div className="p-4 border-t border-border/50 prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed [&_h1]:text-base [&_h1]:font-bold [&_h1]:mb-3 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-4 [&_h3]:text-xs [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-1 [&_table]:text-[10px] [&_table]:w-full [&_th]:p-1.5 [&_th]:bg-secondary/50 [&_td]:p-1.5 [&_td]:border-t [&_td]:border-border/30 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:text-[11px] [&_blockquote]:text-muted-foreground [&_hr]:my-3 [&_hr]:border-border/30 [&_strong]:text-foreground">
+                          <ReactMarkdown>{analysisText}</ReactMarkdown>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>

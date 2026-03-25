@@ -466,8 +466,8 @@ RESPOND WITH ONLY THIS JSON (no other text, no markdown fences):
 If NO moving object is found at all:
 {"detected": false, "positions": []}`;
 
-    // Step 5: Call AI model with the video and prompt
-    console.log(`[APAS-AI] Calling AI model for physics analysis...`);
+    // Step 5: Call AI model with the video and prompt (Pass 1: position tracking)
+    console.log(`[APAS-AI] Calling AI model for physics analysis (Pass 1: tracking)...`);
 
     const genRes = await fetch(
       `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
@@ -496,12 +496,10 @@ If NO moving object is found at all:
       },
     );
 
-    // Cleanup: delete the file from AI provider (best-effort)
-    deleteAIFile(activeFile.name, geminiKey);
-
     if (!genRes.ok) {
       const errorText = await genRes.text();
       console.error(`[APAS-AI] API error ${genRes.status}: ${errorText}`);
+      deleteAIFile(activeFile.name, geminiKey);
       throw new Error(`APAS AI error: ${genRes.status} - ${errorText}`);
     }
 
@@ -511,10 +509,11 @@ If NO moving object is found at all:
       genData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     if (!responseText) {
+      deleteAIFile(activeFile.name, geminiKey);
       throw new Error("AI returned empty response");
     }
 
-    console.log(`[APAS-AI] AI response length: ${responseText.length}`);
+    console.log(`[APAS-AI] Pass 1 response length: ${responseText.length}`);
 
     // Step 6: Parse AI response — robust multi-strategy JSON extraction
     let aiResult: {
@@ -740,6 +739,106 @@ If NO moving object is found at all:
         ? (isAr ? "\u062d\u0631\u0643\u0629 \u0623\u0641\u0642\u064a\u0629" : "Horizontal motion")
         : (isAr ? "\u062d\u0631\u0643\u0629 \u0645\u0642\u0630\u0648\u0641 (\u0642\u0630\u0641 \u0645\u0627\u0626\u0644)" : "Projectile motion (oblique throw)");
 
+    const vx = Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10;
+    const vy = Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10;
+    const g = (typeof userGravity === 'number' && userGravity > 0) ? userGravity : 9.81;
+    const maxHeightCalc = Math.round((finalResult.height + (vy * vy) / (2 * g)) * 10) / 10;
+    const timeOfFlight = Math.round((vy / g + Math.sqrt(2 * (finalResult.height + (vy * vy) / (2 * g)) / g)) * 100) / 100;
+    const rangeCalc = Math.round(vx * timeOfFlight * 10) / 10;
+    const dragLabel = finalResult.dragEffect === 'none'
+      ? (isAr ? '\u0644\u0627 \u064a\u0648\u062c\u062f' : 'None')
+      : finalResult.dragEffect === 'slight'
+        ? (isAr ? '\u0637\u0641\u064a\u0641' : 'Slight')
+        : (isAr ? '\u0643\u0628\u064a\u0631' : 'Significant');
+
+    // Step 8: Pass 2 — Generate detailed descriptive physics report via AI
+    console.log(`[APAS-AI] Starting Pass 2: detailed report generation...`);
+
+    const reportLang = isAr ? "Arabic" : "English";
+    const detailedReportPrompt = `You are APAS (Advanced Physics Analysis System) — a world-class physics video analysis expert.
+You have already analyzed this video and extracted the following physics data:
+
+COMPUTED PHYSICS DATA:
+- Object type: ${finalResult.objectType}
+- Motion type: ${motionTypeLabel}
+- Launch angle: ${finalAngle}° from horizontal
+- Initial velocity: ${finalVelocity} m/s (vx=${vx} m/s, vy=${vy} m/s)
+- Launch height: ${finalResult.height} m above ground
+- Estimated mass: ${finalResult.mass} kg
+- Maximum height (calculated): ${maxHeightCalc} m
+- Horizontal range (calculated): ${rangeCalc} m
+- Time of flight (calculated): ${timeOfFlight} s
+- Air resistance effect: ${dragLabel}
+- Confidence: ${finalResult.confidence}%
+- Tracked positions: ${aiPositions.length} points
+${curveFitInfo ? `- Curve fit quality: ${curveFitInfo}` : ''}
+
+YOUR TASK: Write a comprehensive, detailed physics analysis report in ${reportLang} about this video.
+Watch the video again carefully and write a RICH, DETAILED report that covers:
+
+1. **Projectile Identification**: What exactly is the object? Describe its appearance, color, size, shape in detail.
+2. **Launch Environment**: Where is the launch happening? Describe the setting, background, ground surface, weather conditions visible.
+3. **Launch Setup**: What launch mechanism/method is used? Describe the launch pad, throwing technique, or mechanism visible.
+4. **Launch Point**: Exact description of where the projectile starts its motion.
+5. **Initial Height**: How high above the ground does the projectile start? Estimate with reasoning.
+6. **Launch Angle Analysis**: Why is the angle ${finalAngle}°? What visual evidence supports this?
+7. **Velocity Analysis**: Describe the speed — is it fast/slow? Compare to similar real-world projectiles. What visual cues indicate speed?
+8. **Trajectory Description**: Describe the path — is it a clean parabola? Any deviations? What happens at peak? 
+9. **Maximum Altitude**: Estimated peak height with reasoning from visual cues.
+10. **Mass Estimation**: Why do you estimate ${finalResult.mass} kg? What visual cues support this?
+11. **Air Resistance**: Is there visible drag effect? Smoke trail? Deceleration?
+12. **Landing/Impact**: Where does the object land? Any visible impact?
+13. **Additional Observations**: Any other interesting physics phenomena visible (spin, tumbling, separation, etc.)
+
+FORMAT: Write in clean Markdown with headers (##), bold text, and bullet points.
+Write as an expert physicist providing a thorough analysis — be descriptive, specific, and detailed.
+Do NOT include any JSON blocks. Write ONLY the descriptive report.
+Do NOT start with a title like "Report" — start directly with the content sections.
+Write the ENTIRE report in ${reportLang}.`;
+
+    let detailedReport = "";
+    try {
+      const reportRes = await fetch(
+        `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    file_data: {
+                      mime_type: contentType,
+                      file_uri: activeFile.uri,
+                    },
+                  },
+                  { text: detailedReportPrompt },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 16000,
+            },
+          }),
+        },
+      );
+
+      if (reportRes.ok) {
+        const reportData = await reportRes.json();
+        detailedReport = reportData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        console.log(`[APAS-AI] Pass 2 detailed report length: ${detailedReport.length}`);
+      } else {
+        console.warn(`[APAS-AI] Pass 2 report generation failed: ${reportRes.status}`);
+      }
+    } catch (reportErr) {
+      console.warn(`[APAS-AI] Pass 2 report generation error:`, reportErr);
+    }
+
+    // Cleanup: delete the file from AI provider (best-effort) — after both passes
+    deleteAIFile(activeFile.name, geminiKey);
+
     // Build beautiful structured analysis text
     const lines: string[] = [];
 
@@ -747,117 +846,147 @@ If NO moving object is found at all:
     lines.push("```json\n" + JSON.stringify(finalResult, null, 2) + "\n```");
     lines.push("");
 
-    const vx = Math.round(finalVelocity * Math.cos(finalAngle * Math.PI / 180) * 10) / 10;
-    const vy = Math.round(finalVelocity * Math.sin(finalAngle * Math.PI / 180) * 10) / 10;
-    const dragLabel = finalResult.dragEffect === 'none'
-      ? (isAr ? 'لا يوجد' : 'None')
-      : finalResult.dragEffect === 'slight'
-        ? (isAr ? 'طفيف' : 'Slight')
-        : (isAr ? 'كبير' : 'Significant');
-
     if (isAr) {
-      // ── Arabic beautiful output ──
-      lines.push(`## تحليل حركة المقذوف`);
-      lines.push("");
-      lines.push(`**نوع الجسم:** ${finalResult.objectType}`);
-      lines.push(`**نوع الحركة:** ${motionTypeLabel}`);
-      lines.push(`**الإطارات المحللة:** ${aiPositions.length} إطار`);
-      lines.push(`**تأثير مقاومة الهواء:** ${dragLabel}`);
+      // ── Arabic comprehensive output ──
+      lines.push(`# \u062a\u0642\u0631\u064a\u0631 \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a \u0627\u0644\u0634\u0627\u0645\u0644 - APAS AI`);
       lines.push("");
 
-      lines.push(`---`);
+      // Summary card
+      lines.push(`## \u0645\u0644\u062e\u0635 \u0627\u0644\u062a\u062d\u0644\u064a\u0644`);
       lines.push("");
-      lines.push(`## النتائج الفيزيائية`);
-      lines.push("");
-      lines.push(`- **زاوية الإطلاق:** ${finalAngle}°`);
-      lines.push(`- **السرعة الابتدائية:** ${finalVelocity} m/s`);
-      lines.push(`- **ارتفاع الإطلاق:** ${finalResult.height} m`);
-      lines.push(`- **الكتلة:** ${finalResult.mass} kg`);
-      lines.push(`- **نسبة الثقة:** ${confidence}%`);
+      lines.push(`| \u0627\u0644\u0645\u0639\u0644\u0645\u0629 | \u0627\u0644\u0642\u064a\u0645\u0629 |`);
+      lines.push(`|---|---|`);
+      lines.push(`| **\u0646\u0648\u0639 \u0627\u0644\u0645\u0642\u0630\u0648\u0641** | ${finalResult.objectType} |`);
+      lines.push(`| **\u0646\u0648\u0639 \u0627\u0644\u062d\u0631\u0643\u0629** | ${motionTypeLabel} |`);
+      lines.push(`| **\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642** | ${finalAngle}\u00b0 |`);
+      lines.push(`| **\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629** | ${finalVelocity} m/s |`);
+      lines.push(`| **\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642** | ${finalResult.height} m |`);
+      lines.push(`| **\u0627\u0644\u0643\u062a\u0644\u0629 \u0627\u0644\u062a\u0642\u062f\u064a\u0631\u064a\u0629** | ${finalResult.mass} kg |`);
+      lines.push(`| **\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639** | ${maxHeightCalc} m |`);
+      lines.push(`| **\u0627\u0644\u0645\u062f\u0649 \u0627\u0644\u0623\u0641\u0642\u064a** | ${rangeCalc} m |`);
+      lines.push(`| **\u0632\u0645\u0646 \u0627\u0644\u062a\u062d\u0644\u064a\u0642** | ${timeOfFlight} s |`);
+      lines.push(`| **\u0645\u0642\u0627\u0648\u0645\u0629 \u0627\u0644\u0647\u0648\u0627\u0621** | ${dragLabel} |`);
+      lines.push(`| **\u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629** | ${confidence}% |`);
       lines.push("");
 
-      lines.push(`---`);
-      lines.push("");
-      lines.push(`## المعادلات`);
-      lines.push("");
-      lines.push(`> **معادلة المسار**`);
-      lines.push(`> y = x * tan(theta) - g * x^2 / (2 * v0^2 * cos^2(theta))`);
-      lines.push("");
-      lines.push(`> **مركبات السرعة**`);
-      lines.push(`> vx = ${finalVelocity} * cos(${finalAngle}) = ${vx} m/s`);
-      lines.push(`> vy = ${finalVelocity} * sin(${finalAngle}) = ${vy} m/s`);
-      lines.push("");
-      if (curveFitInfo) {
-        lines.push(`> **جودة المطابقة:** ${curveFitInfo}`);
+      // Detailed AI report section
+      if (detailedReport) {
+        lines.push(`---`);
+        lines.push("");
+        lines.push(detailedReport);
         lines.push("");
       }
 
-      if (aiPositions.length > 0 && aiPositions.length <= 20) {
+      lines.push(`---`);
+      lines.push("");
+      lines.push(`## \u0627\u0644\u0645\u0639\u0627\u062f\u0644\u0627\u062a \u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0629`);
+      lines.push("");
+      lines.push(`> **\u0645\u0639\u0627\u062f\u0644\u0629 \u0627\u0644\u0645\u0633\u0627\u0631**`);
+      lines.push(`> y = x \u00b7 tan(\u03b8) \u2212 g \u00b7 x\u00b2 / (2 \u00b7 v\u2080\u00b2 \u00b7 cos\u00b2(\u03b8))`);
+      lines.push("");
+      lines.push(`> **\u0645\u0631\u0643\u0628\u0627\u062a \u0627\u0644\u0633\u0631\u0639\u0629**`);
+      lines.push(`> v\u2093 = ${finalVelocity} \u00b7 cos(${finalAngle}\u00b0) = **${vx} m/s**`);
+      lines.push(`> v\u1d67 = ${finalVelocity} \u00b7 sin(${finalAngle}\u00b0) = **${vy} m/s**`);
+      lines.push("");
+      lines.push(`> **\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639**`);
+      lines.push(`> H = h\u2080 + v\u1d67\u00b2 / (2g) = ${finalResult.height} + ${vy}\u00b2 / (2 \u00d7 ${g}) = **${maxHeightCalc} m**`);
+      lines.push("");
+      lines.push(`> **\u0627\u0644\u0645\u062f\u0649 \u0627\u0644\u0623\u0641\u0642\u064a**`);
+      lines.push(`> R = v\u2093 \u00b7 T = ${vx} \u00d7 ${timeOfFlight} = **${rangeCalc} m**`);
+      lines.push("");
+      if (curveFitInfo) {
+        lines.push(`> **\u062c\u0648\u062f\u0629 \u0627\u0644\u0645\u0637\u0627\u0628\u0642\u0629:** ${curveFitInfo}`);
+        lines.push("");
+      }
+
+      if (aiPositions.length > 0 && aiPositions.length <= 25) {
         lines.push(`---`);
         lines.push("");
-        lines.push(`## مسار الحركة`);
+        lines.push(`## \u0645\u0633\u0627\u0631 \u0627\u0644\u062d\u0631\u0643\u0629 (\u0627\u0644\u0625\u062d\u062f\u0627\u062b\u064a\u0627\u062a)`);
         lines.push("");
+        lines.push(`| # | x (px) | y (px) | t (s) |`);
+        lines.push(`|---|--------|--------|-------|`);
         for (let i = 0; i < aiPositions.length; i++) {
           const p = aiPositions[i];
           const t = typeof p.t === "number" ? p.t.toFixed(2) : (i * 0.1).toFixed(2);
-          lines.push(`- **${i + 1}.** x=${Math.round(p.x)} , y=${Math.round(p.y)} , t=${t}s`);
+          lines.push(`| ${i + 1} | ${Math.round(p.x)} | ${Math.round(p.y)} | ${t} |`);
         }
         lines.push("");
       }
 
       lines.push(`---`);
       lines.push("");
-      lines.push(`## المنهجية`);
+      lines.push(`## \u0627\u0644\u0645\u0646\u0647\u062c\u064a\u0629`);
       lines.push("");
-      lines.push(`تحليل الفيديو مباشرة عبر APAS AI مع تتبع ${aiPositions.length} موقع ومطابقة منحنى قطعي ثم تصفية القيم الشاذة.`);
+      lines.push(`\u062a\u0645 \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 \u0639\u0628\u0631 \u0645\u0631\u062d\u0644\u062a\u064a\u0646:`);
+      lines.push(`1. **\u0627\u0644\u062a\u062a\u0628\u0639 \u0627\u0644\u0647\u0646\u062f\u0633\u064a:** \u0627\u0633\u062a\u062e\u0631\u0627\u062c ${aiPositions.length} \u0645\u0648\u0642\u0639 \u0645\u0639 \u0645\u0637\u0627\u0628\u0642\u0629 \u0645\u0646\u062d\u0646\u0649 \u0642\u0637\u0639\u064a \u0648\u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0634\u0627\u0630\u0629`);
+      lines.push(`2. **\u0627\u0644\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0648\u0635\u0641\u064a:** \u062a\u0642\u0631\u064a\u0631 \u0641\u064a\u0632\u064a\u0627\u0626\u064a \u0645\u0641\u0635\u0644 \u0645\u0639 \u0645\u0644\u0627\u062d\u0638\u0627\u062a \u0628\u0635\u0631\u064a\u0629 \u0648\u062a\u062d\u0644\u064a\u0644 \u0639\u0644\u0645\u064a`);
       lines.push("");
-      lines.push(`*APAS AI*`);
+      lines.push(`*APAS AI \u2014 Advanced Physics Analysis System*`);
     } else {
-      // ── English beautiful output ──
-      lines.push(`## Projectile Motion Analysis`);
+      // ── English comprehensive output ──
+      lines.push(`# Comprehensive Physics Analysis Report - APAS AI`);
       lines.push("");
-      lines.push(`**Object:** ${finalResult.objectType}`);
-      lines.push(`**Motion type:** ${motionTypeLabel}`);
-      lines.push(`**Frames analyzed:** ${aiPositions.length}`);
-      lines.push(`**Air resistance:** ${dragLabel}`);
+
+      // Summary table
+      lines.push(`## Analysis Summary`);
       lines.push("");
+      lines.push(`| Parameter | Value |`);
+      lines.push(`|---|---|`);
+      lines.push(`| **Object Type** | ${finalResult.objectType} |`);
+      lines.push(`| **Motion Type** | ${motionTypeLabel} |`);
+      lines.push(`| **Launch Angle** | ${finalAngle}\u00b0 |`);
+      lines.push(`| **Initial Velocity** | ${finalVelocity} m/s |`);
+      lines.push(`| **Launch Height** | ${finalResult.height} m |`);
+      lines.push(`| **Estimated Mass** | ${finalResult.mass} kg |`);
+      lines.push(`| **Maximum Height** | ${maxHeightCalc} m |`);
+      lines.push(`| **Horizontal Range** | ${rangeCalc} m |`);
+      lines.push(`| **Time of Flight** | ${timeOfFlight} s |`);
+      lines.push(`| **Air Resistance** | ${dragLabel} |`);
+      lines.push(`| **Confidence** | ${confidence}% |`);
+      lines.push("");
+
+      // Detailed AI report section
+      if (detailedReport) {
+        lines.push(`---`);
+        lines.push("");
+        lines.push(detailedReport);
+        lines.push("");
+      }
 
       lines.push(`---`);
       lines.push("");
-      lines.push(`## Physics Results`);
-      lines.push("");
-      lines.push(`- **Launch angle:** ${finalAngle}°`);
-      lines.push(`- **Initial velocity:** ${finalVelocity} m/s`);
-      lines.push(`- **Launch height:** ${finalResult.height} m`);
-      lines.push(`- **Mass:** ${finalResult.mass} kg`);
-      lines.push(`- **Confidence:** ${confidence}%`);
-      lines.push("");
-
-      lines.push(`---`);
-      lines.push("");
-      lines.push(`## Equations`);
+      lines.push(`## Physics Equations`);
       lines.push("");
       lines.push(`> **Trajectory equation**`);
-      lines.push(`> y = x * tan(theta) - g * x^2 / (2 * v0^2 * cos^2(theta))`);
+      lines.push(`> y = x \u00b7 tan(\u03b8) \u2212 g \u00b7 x\u00b2 / (2 \u00b7 v\u2080\u00b2 \u00b7 cos\u00b2(\u03b8))`);
       lines.push("");
       lines.push(`> **Velocity components**`);
-      lines.push(`> vx = ${finalVelocity} * cos(${finalAngle}) = ${vx} m/s`);
-      lines.push(`> vy = ${finalVelocity} * sin(${finalAngle}) = ${vy} m/s`);
+      lines.push(`> v\u2093 = ${finalVelocity} \u00b7 cos(${finalAngle}\u00b0) = **${vx} m/s**`);
+      lines.push(`> v\u1d67 = ${finalVelocity} \u00b7 sin(${finalAngle}\u00b0) = **${vy} m/s**`);
+      lines.push("");
+      lines.push(`> **Maximum height**`);
+      lines.push(`> H = h\u2080 + v\u1d67\u00b2 / (2g) = ${finalResult.height} + ${vy}\u00b2 / (2 \u00d7 ${g}) = **${maxHeightCalc} m**`);
+      lines.push("");
+      lines.push(`> **Horizontal range**`);
+      lines.push(`> R = v\u2093 \u00b7 T = ${vx} \u00d7 ${timeOfFlight} = **${rangeCalc} m**`);
       lines.push("");
       if (curveFitInfo) {
         lines.push(`> **Curve fit quality:** ${curveFitInfo}`);
         lines.push("");
       }
 
-      if (aiPositions.length > 0 && aiPositions.length <= 20) {
+      if (aiPositions.length > 0 && aiPositions.length <= 25) {
         lines.push(`---`);
         lines.push("");
-        lines.push(`## Trajectory Points`);
+        lines.push(`## Trajectory Coordinates`);
         lines.push("");
+        lines.push(`| # | x (px) | y (px) | t (s) |`);
+        lines.push(`|---|--------|--------|-------|`);
         for (let i = 0; i < aiPositions.length; i++) {
           const p = aiPositions[i];
           const t = typeof p.t === "number" ? p.t.toFixed(2) : (i * 0.1).toFixed(2);
-          lines.push(`- **${i + 1}.** x=${Math.round(p.x)} , y=${Math.round(p.y)} , t=${t}s`);
+          lines.push(`| ${i + 1} | ${Math.round(p.x)} | ${Math.round(p.y)} | ${t} |`);
         }
         lines.push("");
       }
@@ -866,9 +995,11 @@ If NO moving object is found at all:
       lines.push("");
       lines.push(`## Methodology`);
       lines.push("");
-      lines.push(`Native video analysis via APAS AI with ${aiPositions.length} tracked positions, parabolic curve fitting, and outlier filtering.`);
+      lines.push(`Analysis performed in two passes:`);
+      lines.push(`1. **Geometric tracking:** Extracted ${aiPositions.length} positions with parabolic curve fitting and outlier filtering`);
+      lines.push(`2. **Descriptive analysis:** Detailed physics report with visual observations and scientific analysis`);
       lines.push("");
-      lines.push(`*APAS AI*`);
+      lines.push(`*APAS AI \u2014 Advanced Physics Analysis System*`);
     }
 
     const finalText = lines.join("\n");
