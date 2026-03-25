@@ -1575,9 +1575,9 @@ const Index = () => {
                           );
                         })()}
                       >
-                        <div className="space-y-4">
-                          <div className="space-y-3">
-                            <p className="text-xs font-medium text-muted-foreground">{lang === 'ar' ? '\u0646\u0638\u0631\u064a / \u0645\u062d\u0627\u0643\u0627\u0629' : 'Theoretical / Simulated'}</p>
+                        <div className="space-y-5">
+                          <div className="space-y-4">
+                            <p className="text-sm font-semibold text-muted-foreground">{lang === 'ar' ? '\u0646\u0638\u0631\u064a / \u0645\u062d\u0627\u0643\u0627\u0629' : 'Theoretical / Simulated'}</p>
                             {[
                               { label: T.range, theo: sim.prediction!.rangeTheoretical ?? 0, exp: sim.prediction!.range ?? 0, err: sim.prediction!.rangeError ?? 0, unit: T.u_m_s },
                               { label: T.maxHeight, theo: sim.prediction!.maxHeightTheoretical ?? 0, exp: sim.prediction!.maxHeight ?? 0, err: sim.prediction!.maxHeightError ?? 0, unit: T.u_m_s },
@@ -1585,15 +1585,37 @@ const Index = () => {
                             ].map(({ label, theo, exp, err }) => {
                               const absErr = Math.abs(exp - theo);
                               const accuracy = err < 5 ? T.errHigh : err < 15 ? T.errMed : T.errLow;
+                              const accColor = err < 5 ? 'text-green-600 dark:text-green-400' : err < 15 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-500';
+                              const accBg = err < 5 ? 'bg-green-500' : err < 15 ? 'bg-yellow-500' : 'bg-red-500';
                               return (
-                                <div key={label} className="bg-secondary/30 rounded-md p-3">
-                                  <p className="text-xs font-medium text-foreground mb-2">{label}</p>
-                                  <div className="grid grid-cols-3 gap-2 text-[10px]">
-                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryLabel}</p><p className="font-mono font-semibold text-foreground">{safeFixed(theo, 3)}</p></div>
-                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryExp}</p><p className="font-mono font-semibold text-foreground">{safeFixed(exp, 3)}</p></div>
-                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryErrPct}</p><p className="font-mono font-semibold text-foreground">{safeFixed(err, 2)}%</p></div>
+                                <div key={label} className="bg-secondary/30 rounded-lg p-4 space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-sm font-bold text-foreground">{label}</p>
+                                    <span className={`text-xs font-semibold ${accColor}`}>{accuracy}</span>
                                   </div>
-                                  <div className="mt-1.5 text-[9px] text-muted-foreground">|&Delta;| = {safeFixed(absErr, 4)} &mdash; {accuracy}</div>
+                                  <div className="grid grid-cols-3 gap-3">
+                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30">
+                                      <p className="text-[11px] text-muted-foreground mb-1">{T.theoryLabel}</p>
+                                      <p className="text-sm font-mono font-bold text-foreground">{safeFixed(theo, 3)}</p>
+                                    </div>
+                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30">
+                                      <p className="text-[11px] text-muted-foreground mb-1">{T.theoryExp}</p>
+                                      <p className="text-sm font-mono font-bold text-foreground">{safeFixed(exp, 3)}</p>
+                                    </div>
+                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30">
+                                      <p className="text-[11px] text-muted-foreground mb-1">{T.theoryErrPct}</p>
+                                      <p className="text-sm font-mono font-bold text-foreground">{safeFixed(err, 2)}%</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                                    <span>|&Delta;| = {safeFixed(absErr, 4)}</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
+                                        <div className={`h-full rounded-full ${accBg}`} style={{ width: `${Math.max(0, 100 - (isFinite(err) ? err : 0))}%` }} />
+                                      </div>
+                                      <span className="font-mono font-semibold">{safeFixed(Math.max(0, 100 - (isFinite(err) ? err : 0)), 1)}%</span>
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             })}

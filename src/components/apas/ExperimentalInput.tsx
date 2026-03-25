@@ -77,29 +77,29 @@ export default function ExperimentalInput({ lang, prediction, onAnalyzed }: Prop
   };
 
   return (
-    <div className="border border-border rounded-lg p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+    <div className="border-2 border-border/40 rounded-xl p-5 space-y-4 bg-card/50">
+      <h3 className="text-base font-bold text-foreground flex items-center gap-2">
         🧪 {lang === 'ar' ? 'القيم التجريبية' : 'Experimental Values'}
       </h3>
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         {lang === 'ar' ? 'أدخل القيم المقاسة تجريبياً لحساب نسبة الخطأ' : 'Enter measured values to calculate error percentage'}
       </p>
 
-      <div className="grid grid-cols-1 xs:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 xs:grid-cols-3 gap-3">
         {[
           { key: 'range' as const, label: lang === 'ar' ? 'المدى (م)' : 'Range (m)' },
           { key: 'maxHeight' as const, label: lang === 'ar' ? 'أقصى ارتفاع (م)' : 'Max Height (m)' },
           { key: 'flightTime' as const, label: lang === 'ar' ? 'زمن الطيران (ث)' : 'Flight Time (s)' },
         ].map(({ key, label }) => (
           <div key={key}>
-            <label className="text-[10px] text-muted-foreground block mb-1">{label}</label>
+            <label className="text-xs font-medium text-muted-foreground block mb-1.5">{label}</label>
             <input
               type="number"
               step="any"
               value={values[key]}
               onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))}
               placeholder="—"
-              className="w-full !text-xs !py-1.5"
+              className="w-full !text-sm !py-2 rounded-lg border-border/50"
               dir="ltr"
             />
           </div>
@@ -109,47 +109,47 @@ export default function ExperimentalInput({ lang, prediction, onAnalyzed }: Prop
       <button
         onClick={analyze}
         disabled={!values.range && !values.maxHeight && !values.flightTime}
-        className="group w-full text-xs font-medium py-2 px-3 rounded-md bg-foreground text-background hover:bg-foreground/90 border border-foreground hover:shadow-md transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2"
+        className="group w-full text-sm font-semibold py-3 px-4 rounded-xl bg-foreground text-background hover:bg-foreground/90 border border-foreground hover:shadow-lg transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2"
       >
-        <CheckCircle className="w-3.5 h-3.5" />
+        <CheckCircle className="w-4 h-4" />
         {lang === 'ar' ? 'تحليل' : 'Analyze'}
       </button>
 
       {results && results.length > 0 && (
-        <div className="space-y-2 animate-slideDown">
+        <div className="space-y-3 animate-slideDown">
           {results.map((r, i) => {
             const accTheo = getAccuracyLabel(r.errVsTheo);
             const accSim = getAccuracyLabel(r.errVsSim);
             return (
-              <div key={i} className="bg-secondary/50 rounded-md p-3 space-y-2">
-                <p className="text-xs font-semibold text-foreground">{r.label}</p>
-                <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                  <div className="bg-background rounded p-1.5 text-center">
-                    <p className="text-muted-foreground">{lang === 'ar' ? 'نظري' : 'Theoretical'}</p>
-                    <p className="font-mono font-semibold text-foreground">{r.theoretical.toFixed(3)}</p>
+              <div key={i} className="bg-secondary/50 rounded-lg p-4 space-y-3">
+                <p className="text-sm font-bold text-foreground">{r.label}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-background rounded-lg p-2.5 text-center border border-border/30">
+                    <p className="text-[11px] text-muted-foreground mb-1">{lang === 'ar' ? 'نظري' : 'Theoretical'}</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{r.theoretical.toFixed(3)}</p>
                   </div>
-                  <div className="bg-background rounded p-1.5 text-center">
-                    <p className="text-muted-foreground">{lang === 'ar' ? 'محاكاة' : 'Simulated'}</p>
-                    <p className="font-mono font-semibold text-foreground">{r.simulated.toFixed(3)}</p>
+                  <div className="bg-background rounded-lg p-2.5 text-center border border-border/30">
+                    <p className="text-[11px] text-muted-foreground mb-1">{lang === 'ar' ? 'محاكاة' : 'Simulated'}</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{r.simulated.toFixed(3)}</p>
                   </div>
-                  <div className="bg-background rounded p-1.5 text-center border border-foreground/20">
-                    <p className="text-muted-foreground">{lang === 'ar' ? 'تجريبي' : 'Experimental'}</p>
-                    <p className="font-mono font-semibold text-foreground">{r.experimental.toFixed(3)}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                  <div className="bg-background rounded p-1.5">
-                    <p className="text-muted-foreground">{lang === 'ar' ? 'خطأ vs نظري' : 'Error vs Theory'}</p>
-                    <p className="font-mono font-semibold text-foreground">{r.errVsTheo.toFixed(2)}%</p>
-                    <p className={`text-[9px] ${accTheo.color}`}>{accTheo.text}</p>
-                  </div>
-                  <div className="bg-background rounded p-1.5">
-                    <p className="text-muted-foreground">{lang === 'ar' ? 'خطأ vs محاكاة' : 'Error vs Simulation'}</p>
-                    <p className="font-mono font-semibold text-foreground">{r.errVsSim.toFixed(2)}%</p>
-                    <p className={`text-[9px] ${accSim.color}`}>{accSim.text}</p>
+                  <div className="bg-background rounded-lg p-2.5 text-center border-2 border-primary/30">
+                    <p className="text-[11px] text-muted-foreground mb-1">{lang === 'ar' ? 'تجريبي' : 'Experimental'}</p>
+                    <p className="text-sm font-mono font-bold text-primary">{r.experimental.toFixed(3)}</p>
                   </div>
                 </div>
-                <div className="text-[9px] text-muted-foreground">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-background rounded-lg p-2.5 border border-border/30">
+                    <p className="text-[11px] text-muted-foreground mb-1">{lang === 'ar' ? 'خطأ vs نظري' : 'Error vs Theory'}</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{r.errVsTheo.toFixed(2)}%</p>
+                    <p className={`text-xs mt-0.5 ${accTheo.color}`}>{accTheo.text}</p>
+                  </div>
+                  <div className="bg-background rounded-lg p-2.5 border border-border/30">
+                    <p className="text-[11px] text-muted-foreground mb-1">{lang === 'ar' ? 'خطأ vs محاكاة' : 'Error vs Simulation'}</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{r.errVsSim.toFixed(2)}%</p>
+                    <p className={`text-xs mt-0.5 ${accSim.color}`}>{accSim.text}</p>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground border-t border-border/30 pt-2">
                   {lang === 'ar' ? 'الخطأ المطلق:' : 'Absolute error:'} |Δ| = {r.absErrTheo.toFixed(4)} ({lang === 'ar' ? 'نظري' : 'theo'}), {r.absErrSim.toFixed(4)} ({lang === 'ar' ? 'محاكاة' : 'sim'})
                 </div>
               </div>
