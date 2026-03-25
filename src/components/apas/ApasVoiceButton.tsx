@@ -230,6 +230,23 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     recognition.maxAlternatives = 1;
 
     let finalTranscript = '';
+    let lastInterim = '';
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Clean up repeated/broken characters common in Arabic speech recognition
+    const cleanTranscript = (text: string): string => {
+      if (!text) return text;
+      // Remove consecutive duplicate words
+      const words = text.split(/\s+/);
+      const cleaned: string[] = [];
+      for (let i = 0; i < words.length; i++) {
+        if (i === 0 || words[i] !== words[i - 1]) {
+          cleaned.push(words[i]);
+        }
+      }
+      // Remove consecutive duplicate characters (more than 2)
+      return cleaned.join(' ').replace(/(.)\1{2,}/g, '$1$1');
+    };
 
     recognition.onstart = () => setIsListening(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -244,7 +261,25 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
           interim += result[0].transcript;
         }
       }
-      setTranscript(finalTranscript + interim);
+
+      // Apply cleaning to both final and interim transcripts
+      const cleanedFinal = cleanTranscript(finalTranscript);
+      const cleanedInterim = cleanTranscript(interim);
+
+      // Debounce interim updates to avoid rapid flickering
+      if (cleanedInterim !== lastInterim) {
+        lastInterim = cleanedInterim;
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          setTranscript(cleanedFinal + (cleanedInterim ? ' ' + cleanedInterim : ''));
+        }, 150);
+      }
+
+      // Always update immediately when we get final results
+      if (finalTranscript) {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        setTranscript(cleanedFinal + (cleanedInterim ? ' ' + cleanedInterim : ''));
+      }
     };
     recognition.onerror = (e: Event & { error?: string }) => {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
@@ -255,8 +290,10 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     recognition.onend = () => {
       setIsListening(false);
       recognitionRef.current = null;
-      if (finalTranscript.trim()) {
-        processVoiceInput(finalTranscript.trim());
+      if (debounceTimer) clearTimeout(debounceTimer);
+      const cleaned = cleanTranscript(finalTranscript).trim();
+      if (cleaned) {
+        processVoiceInput(cleaned);
       }
     };
 

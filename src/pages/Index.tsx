@@ -678,10 +678,43 @@ const Index = () => {
                   </button>
                   {showMobileDisplayOptions && (
                     <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-2">
-                      {/* Switches group */}
+                      {/* Force Vectors — first */}
+                      <ForceVectorsSection
+                        lang={lang}
+                        showExternalForces={sim.showExternalForces}
+                        onToggle={() => { sim.setShowExternalForces(!sim.showExternalForces); playClick(sim.isMuted); }}
+                        vectorVisibility={vectorVisibility}
+                        onVectorToggle={(key) => { setVectorVisibility(prev => ({ ...prev, [key]: !prev[key] })); playClick(sim.isMuted); }}
+                        isWaterEnvironment={currentEnvId === 'underwater'}
+                        hydrodynamicEnabled={advancedPhysics.enableHydrodynamicDrag || advancedPhysics.isUnderwater}
+                      />
+
+                      {/* Environment */}
+                      <button
+                        onClick={() => { setShowEnvSelector(true); playClick(sim.isMuted); }}
+                        className="group w-full text-[11px] font-medium py-2.5 px-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                      >
+                        <Globe2 className="w-3.5 h-3.5" />
+                        {lang === 'ar' ? 'اختيار البيئة' : 'Environment'}
+                        <span className="text-[10px] text-muted-foreground">
+                          {ENVIRONMENTS.find(e => e.id === currentEnvId)?.emoji} {ENVIRONMENTS.find(e => e.id === currentEnvId)?.name[lang as 'ar' | 'en' | 'fr']}
+                        </span>
+                      </button>
+
+                      {/* Stroboscopic */}
+                      <button
+                        onClick={() => { setShowStroboscopicModal(true); playClick(sim.isMuted); }}
+                        className={`group w-full text-[11px] font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] ${stroboscopicSettings.enabled ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md' : 'text-foreground border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md'}`}
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        {lang === 'ar' ? 'التصوير المتعاقب' : 'Stroboscopic'}
+                        {stroboscopicSettings.enabled && (
+                          <span className="text-[10px] opacity-80">&Delta;t={stroboscopicSettings.deltaT}s</span>
+                        )}
+                      </button>
+
+                      {/* Critical Points */}
                       <div className="space-y-1 p-2 rounded-xl bg-secondary/20 border border-border/20">
-                        <p className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-wider mb-1.5 px-1">{lang === 'ar' ? 'التبديلات' : 'Toggles'}</p>
-                        {/* Critical Points */}
                         <div className="flex items-center justify-between py-1.5 px-1">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
                             <Crosshair className="w-3.5 h-3.5 text-primary/70" />
@@ -689,7 +722,10 @@ const Index = () => {
                           </span>
                           <Switch checked={sim.showCriticalPoints} onCheckedChange={() => { sim.setShowCriticalPoints(!sim.showCriticalPoints); playToggle(sim.isMuted, !sim.showCriticalPoints); }} />
                         </div>
-                        {/* Bouncing */}
+                      </div>
+
+                      {/* Bouncing / Rebounds */}
+                      <div className="space-y-1 p-2 rounded-xl bg-secondary/20 border border-border/20">
                         <div className="flex items-center justify-between py-1.5 px-1">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
                             <ArrowDownUp className="w-3.5 h-3.5 text-primary/70" />
@@ -707,44 +743,6 @@ const Index = () => {
                               onValueChange={([v]) => { sim.setBounceCoefficient(v); playSliderChange(sim.isMuted); }} />
                           </div>
                         )}
-                      </div>
-
-                      {/* Force Vectors — button only (switch removed per user request) */}
-                      <ForceVectorsSection
-                        lang={lang}
-                        showExternalForces={sim.showExternalForces}
-                        onToggle={() => { sim.setShowExternalForces(!sim.showExternalForces); playClick(sim.isMuted); }}
-                        vectorVisibility={vectorVisibility}
-                        onVectorToggle={(key) => { setVectorVisibility(prev => ({ ...prev, [key]: !prev[key] })); playClick(sim.isMuted); }}
-                        isWaterEnvironment={currentEnvId === 'underwater'}
-                        hydrodynamicEnabled={advancedPhysics.enableHydrodynamicDrag || advancedPhysics.isUnderwater}
-                      />
-
-                      {/* Buttons group */}
-                      <div className="space-y-1.5">
-                        <p className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-wider px-1">{lang === 'ar' ? 'الإجراءات' : 'Actions'}</p>
-                        {/* Environment */}
-                        <button
-                          onClick={() => { setShowEnvSelector(true); playClick(sim.isMuted); }}
-                          className="group w-full text-[11px] font-medium py-2.5 px-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5 active:scale-[0.98]"
-                        >
-                          <Globe2 className="w-3.5 h-3.5" />
-                          {lang === 'ar' ? 'اختيار البيئة' : 'Environment'}
-                          <span className="text-[10px] text-muted-foreground">
-                            {ENVIRONMENTS.find(e => e.id === currentEnvId)?.emoji} {ENVIRONMENTS.find(e => e.id === currentEnvId)?.name[lang as 'ar' | 'en' | 'fr']}
-                          </span>
-                        </button>
-                        {/* Stroboscopic */}
-                        <button
-                          onClick={() => { setShowStroboscopicModal(true); playClick(sim.isMuted); }}
-                          className={`group w-full text-[11px] font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] ${stroboscopicSettings.enabled ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md' : 'text-foreground border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md'}`}
-                        >
-                          <Clock className="w-3.5 h-3.5" />
-                          {lang === 'ar' ? 'التصوير المتعاقب' : 'Stroboscopic'}
-                          {stroboscopicSettings.enabled && (
-                            <span className="text-[10px] opacity-80">&Delta;t={stroboscopicSettings.deltaT}s</span>
-                          )}
-                        </button>
                       </div>
                     </div>
                   )}
@@ -854,26 +852,8 @@ const Index = () => {
                   </button>
                   {showMobileExportCompare && (
                     <div className="px-3 pb-3 space-y-2 border-t border-border/30 pt-2">
-                      {/* Export sub-section */}
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{lang === 'ar' ? 'التصدير' : 'Export'}</p>
-                      <ExportSection
-                        lang={lang}
-                        trajectoryData={sim.trajectoryData}
-                        prediction={sim.prediction}
-                        velocity={sim.velocity}
-                        angle={sim.angle}
-                        height={sim.height}
-                        gravity={sim.gravity}
-                        airResistance={sim.airResistance}
-                        mass={sim.mass}
-                        onExportPNG={exportSimulationPNG}
-                        muted={sim.isMuted}
-                        windSpeed={sim.windSpeed}
-                        integrationMethod={sim.selectedIntegrationMethod}
-                      />
-
-                      {/* Comparison sub-section */}
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-3">{lang === 'ar' ? 'المقارنة' : 'Comparison'}</p>
+                      {/* Comparison sub-section — first */}
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{lang === 'ar' ? 'المقارنة' : 'Comparison'}</p>
                       {!sim.comparisonMode ? (
                         <div className="space-y-1.5">
                           <button onClick={() => {
@@ -933,6 +913,24 @@ const Index = () => {
                           )}
                         </div>
                       )}
+
+                      {/* Export sub-section — below comparison */}
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-3">{lang === 'ar' ? 'التصدير' : 'Export'}</p>
+                      <ExportSection
+                        lang={lang}
+                        trajectoryData={sim.trajectoryData}
+                        prediction={sim.prediction}
+                        velocity={sim.velocity}
+                        angle={sim.angle}
+                        height={sim.height}
+                        gravity={sim.gravity}
+                        airResistance={sim.airResistance}
+                        mass={sim.mass}
+                        onExportPNG={exportSimulationPNG}
+                        muted={sim.isMuted}
+                        windSpeed={sim.windSpeed}
+                        integrationMethod={sim.selectedIntegrationMethod}
+                      />
                     </div>
                   )}
                 </div>
@@ -952,9 +950,9 @@ const Index = () => {
                     <Activity className="w-6 h-6 text-primary mx-auto mb-2" />
                     <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'بدء المحاكاة' : 'Start Simulation'}</span>
                   </button>
-                  <button onClick={() => { setMobileActiveTab('simulation'); setShowMobileBottomSheet(true); }} className="p-4 rounded-xl bg-secondary/50 border border-border/30 text-center active:scale-95 transition-all">
-                    <Gauge className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
-                    <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'تعديل المتغيرات' : 'Edit Variables'}</span>
+                  <button onClick={() => setShowComprehensiveGuide(true)} className="p-4 rounded-xl bg-secondary/50 border border-border/30 text-center active:scale-95 transition-all">
+                    <Info className="w-6 h-6 text-blue-500 mx-auto mb-2" />
+                    <span className="text-xs font-semibold text-foreground">{lang === 'ar' ? 'الدليل الشامل' : 'App Guide'}</span>
                   </button>
                   <button onClick={() => setShowMobileAI(true)} className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center active:scale-95 transition-all">
                     <Eye className="w-6 h-6 text-purple-500 mx-auto mb-2" />
@@ -1006,7 +1004,7 @@ const Index = () => {
                       </button>
                       {showMobileAnalyticsErrors && (
                         <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-2">
-                          {/* Error Analysis Summary - static data only */}
+                          {/* Error Analysis Summary */}
                           <div className="p-3 rounded-xl bg-card/60 border border-border/30">
                             <p className="text-[11px] font-semibold text-foreground flex items-center gap-1.5 mb-2">
                               <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
@@ -1035,6 +1033,184 @@ const Index = () => {
                               </div>
                             </div>
                           </div>
+
+                          {/* Absolute & Relative Errors for Each Coefficient */}
+                          {sim.prediction && (() => {
+                            const v0 = sim.velocity;
+                            const theta = sim.angle * Math.PI / 180;
+                            const g = sim.gravity;
+                            const h0 = sim.height;
+                            const analyticalRange = sim.airResistance === 0
+                              ? (v0 * Math.cos(theta) / g) * (v0 * Math.sin(theta) + Math.sqrt(v0 * v0 * Math.sin(theta) * Math.sin(theta) + 2 * g * h0))
+                              : 0;
+                            const analyticalMaxH = h0 + (v0 * Math.sin(theta)) * (v0 * Math.sin(theta)) / (2 * g);
+                            const analyticalTime = sim.airResistance === 0
+                              ? (v0 * Math.sin(theta) + Math.sqrt(v0 * v0 * Math.sin(theta) * Math.sin(theta) + 2 * g * h0)) / g
+                              : 0;
+                            const simRange = sim.prediction.range;
+                            const simMaxH = sim.prediction.maxHeight;
+                            const simTime = sim.prediction.timeOfFlight;
+                            const absErrRange = Math.abs(simRange - analyticalRange);
+                            const absErrMaxH = Math.abs(simMaxH - analyticalMaxH);
+                            const absErrTime = Math.abs(simTime - analyticalTime);
+                            const relErrRange = analyticalRange > 0 ? (absErrRange / analyticalRange) * 100 : 0;
+                            const relErrMaxH = analyticalMaxH > 0 ? (absErrMaxH / analyticalMaxH) * 100 : 0;
+                            const relErrTime = analyticalTime > 0 ? (absErrTime / analyticalTime) * 100 : 0;
+                            const hasAnalytical = sim.airResistance === 0;
+                            return (
+                              <div className="p-3 rounded-xl bg-card/60 border border-border/30">
+                                <p className="text-[11px] font-semibold text-foreground flex items-center gap-1.5 mb-2">
+                                  <BarChart3 className="w-3.5 h-3.5 text-blue-500" />
+                                  {lang === 'ar' ? 'الخطأ المطلق والنسبي' : lang === 'fr' ? 'Erreurs absolues et relatives' : 'Absolute & Relative Errors'}
+                                </p>
+                                {hasAnalytical ? (
+                                  <div className="space-y-2">
+                                    <div className="grid grid-cols-4 gap-1 text-[9px]">
+                                      <div className="font-semibold text-muted-foreground">{lang === 'ar' ? 'المعامل' : 'Param'}</div>
+                                      <div className="font-semibold text-muted-foreground text-center">{lang === 'ar' ? 'تحليلي' : 'Analytical'}</div>
+                                      <div className="font-semibold text-muted-foreground text-center">{lang === 'ar' ? 'خطأ مطلق' : 'Abs Err'}</div>
+                                      <div className="font-semibold text-muted-foreground text-center">{lang === 'ar' ? 'خطأ نسبي' : 'Rel Err'}</div>
+                                    </div>
+                                    {/* Range */}
+                                    <div className="grid grid-cols-4 gap-1 text-[9px] items-center py-1 border-t border-border/20">
+                                      <div className="font-medium text-foreground">{lang === 'ar' ? 'المدى' : 'Range'}</div>
+                                      <div className="font-mono text-center text-foreground">{analyticalRange.toFixed(2)}m</div>
+                                      <div className="font-mono text-center text-amber-500">{absErrRange.toFixed(4)}m</div>
+                                      <div className={`font-mono text-center font-semibold ${relErrRange < 1 ? 'text-green-500' : relErrRange < 5 ? 'text-amber-500' : 'text-red-500'}`}>{relErrRange.toFixed(3)}%</div>
+                                    </div>
+                                    {/* Max Height */}
+                                    <div className="grid grid-cols-4 gap-1 text-[9px] items-center py-1 border-t border-border/20">
+                                      <div className="font-medium text-foreground">{lang === 'ar' ? 'أقصى ارتفاع' : 'Max H'}</div>
+                                      <div className="font-mono text-center text-foreground">{analyticalMaxH.toFixed(2)}m</div>
+                                      <div className="font-mono text-center text-amber-500">{absErrMaxH.toFixed(4)}m</div>
+                                      <div className={`font-mono text-center font-semibold ${relErrMaxH < 1 ? 'text-green-500' : relErrMaxH < 5 ? 'text-amber-500' : 'text-red-500'}`}>{relErrMaxH.toFixed(3)}%</div>
+                                    </div>
+                                    {/* Flight Time */}
+                                    <div className="grid grid-cols-4 gap-1 text-[9px] items-center py-1 border-t border-border/20">
+                                      <div className="font-medium text-foreground">{lang === 'ar' ? 'زمن الطيران' : 'Time'}</div>
+                                      <div className="font-mono text-center text-foreground">{analyticalTime.toFixed(3)}s</div>
+                                      <div className="font-mono text-center text-amber-500">{absErrTime.toFixed(5)}s</div>
+                                      <div className={`font-mono text-center font-semibold ${relErrTime < 1 ? 'text-green-500' : relErrTime < 5 ? 'text-amber-500' : 'text-red-500'}`}>{relErrTime.toFixed(3)}%</div>
+                                    </div>
+                                    <p className="text-[8px] text-muted-foreground mt-1 italic">
+                                      {lang === 'ar' ? `طريقة التكامل: ${sim.selectedIntegrationMethod.toUpperCase()}` : `Integration: ${sim.selectedIntegrationMethod.toUpperCase()}`}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <p className="text-[9px] text-muted-foreground italic">
+                                    {lang === 'ar' ? 'الحل التحليلي غير متاح مع مقاومة الهواء — مقارنة عددية فقط' : 'Analytical solution unavailable with air resistance — numerical only'}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Energy Analysis Section */}
+                          {sim.trajectoryData.length > 0 && (() => {
+                            const tData = sim.trajectoryData;
+                            const first = tData[0];
+                            const last = tData[tData.length - 1];
+                            const peakPt = tData.reduce((a, b) => (b.potentialEnergy ?? 0) > (a.potentialEnergy ?? 0) ? b : a, tData[0]);
+                            const totalInitial = (first.kineticEnergy ?? 0) + (first.potentialEnergy ?? 0);
+                            const totalFinal = (last.kineticEnergy ?? 0) + (last.potentialEnergy ?? 0);
+                            const totalLoss = Math.max(0, totalInitial - totalFinal);
+                            const efficiency = (first.kineticEnergy ?? 0) > 0 ? ((last.kineticEnergy ?? 0) / (first.kineticEnergy ?? 1)) * 100 : 100;
+                            const keTopeConversion = totalInitial > 0 ? ((peakPt.potentialEnergy ?? 0) / totalInitial) * 100 : 0;
+                            const kePercentInit = totalInitial > 0 ? ((first.kineticEnergy ?? 0) / totalInitial) * 100 : 0;
+                            const pePercentInit = totalInitial > 0 ? ((first.potentialEnergy ?? 0) / totalInitial) * 100 : 0;
+                            const fmtE = (v: number) => {
+                              if (v == null || isNaN(v)) return '0';
+                              if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+                              if (v >= 1000) return `${(v / 1000).toFixed(2)}k`;
+                              return v.toFixed(1);
+                            };
+                            return (
+                              <div className="p-3 rounded-xl bg-card/60 border border-border/30">
+                                <p className="text-[11px] font-semibold text-foreground flex items-center gap-1.5 mb-3">
+                                  <span className="text-sm">⚡</span>
+                                  {lang === 'ar' ? 'تحليل الطاقة' : lang === 'fr' ? 'Analyse d\'énergie' : 'Energy Analysis'}
+                                </p>
+
+                                {/* Energy Distribution Bar */}
+                                <div className="mb-3">
+                                  <p className="text-[9px] text-muted-foreground mb-1.5 font-medium">
+                                    {lang === 'ar' ? 'توزيع الطاقة الابتدائية' : 'Initial Energy Distribution'}
+                                  </p>
+                                  <div className="h-2.5 rounded-full overflow-hidden flex bg-secondary">
+                                    <div className="h-full transition-all duration-300" style={{ width: `${kePercentInit}%`, backgroundColor: '#ef4444' }} />
+                                    <div className="h-full transition-all duration-300" style={{ width: `${pePercentInit}%`, backgroundColor: '#3b82f6' }} />
+                                  </div>
+                                  <div className="flex justify-between mt-1 text-[8px] text-muted-foreground">
+                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />{lang === 'ar' ? 'حركية' : 'KE'}: {kePercentInit.toFixed(1)}%</span>
+                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" />{lang === 'ar' ? 'وضع' : 'PE'}: {pePercentInit.toFixed(1)}%</span>
+                                  </div>
+                                </div>
+
+                                {/* Energy Values Grid */}
+                                <div className="grid grid-cols-3 gap-1.5 mb-3">
+                                  <div className="bg-secondary/30 rounded-lg p-2 text-center border border-border/20">
+                                    <div className="w-2 h-2 rounded-full bg-red-500 mx-auto mb-1" />
+                                    <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'الطاقة الحركية' : 'KE'}</p>
+                                    <p className="text-[11px] font-bold font-mono text-foreground">{fmtE(first.kineticEnergy ?? 0)}</p>
+                                    <p className="text-[8px] text-muted-foreground">J</p>
+                                  </div>
+                                  <div className="bg-secondary/30 rounded-lg p-2 text-center border border-border/20">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500 mx-auto mb-1" />
+                                    <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'طاقة الوضع' : 'PE'}</p>
+                                    <p className="text-[11px] font-bold font-mono text-foreground">{fmtE(first.potentialEnergy ?? 0)}</p>
+                                    <p className="text-[8px] text-muted-foreground">J</p>
+                                  </div>
+                                  <div className="bg-secondary/30 rounded-lg p-2 text-center border border-border/20">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 mx-auto mb-1" />
+                                    <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'الكلية' : 'Total'}</p>
+                                    <p className="text-[11px] font-bold font-mono text-foreground">{fmtE(totalInitial)}</p>
+                                    <p className="text-[8px] text-muted-foreground">J</p>
+                                  </div>
+                                </div>
+
+                                {/* Detailed Energy Cards */}
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  <div className="bg-background/60 rounded-lg p-2 text-center border border-border/20">
+                                    <p className="text-[9px] mb-0.5">🔋</p>
+                                    <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'الطاقة الابتدائية' : 'Initial Energy'}</p>
+                                    <p className="text-[10px] font-bold font-mono text-foreground">{fmtE(totalInitial)} J</p>
+                                  </div>
+                                  <div className="bg-background/60 rounded-lg p-2 text-center border border-border/20">
+                                    <p className="text-[9px] mb-0.5">⛰️</p>
+                                    <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'أقصى طاقة وضع' : 'Peak PE'}</p>
+                                    <p className="text-[10px] font-bold font-mono text-foreground">{fmtE(peakPt.potentialEnergy ?? 0)} J</p>
+                                    <p className="text-[7px] text-muted-foreground">h = {(peakPt.y ?? 0).toFixed(1)} m</p>
+                                  </div>
+                                  <div className="bg-background/60 rounded-lg p-2 text-center border border-border/20">
+                                    <p className="text-[9px] mb-0.5">💥</p>
+                                    <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'طاقة الاصطدام' : 'Impact KE'}</p>
+                                    <p className="text-[10px] font-bold font-mono text-foreground">{fmtE(last.kineticEnergy ?? 0)} J</p>
+                                    <p className="text-[7px] text-muted-foreground">v = {(last.speed ?? 0).toFixed(1)} m/s</p>
+                                  </div>
+                                  <div className="bg-background/60 rounded-lg p-2 text-center border border-border/20">
+                                    <p className="text-[9px] mb-0.5">🔄</p>
+                                    <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'تحويل KE→PE' : 'KE→PE'}</p>
+                                    <p className="text-[10px] font-bold font-mono text-foreground">{keTopeConversion.toFixed(1)}%</p>
+                                    <p className="text-[7px] text-muted-foreground">{lang === 'ar' ? 'عند الذروة' : 'At peak'}</p>
+                                  </div>
+                                  <div className="bg-background/60 rounded-lg p-2 text-center border border-border/20">
+                                    <p className="text-[9px] mb-0.5">📊</p>
+                                    <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'كفاءة الطاقة' : 'Efficiency'}</p>
+                                    <p className={`text-[10px] font-bold font-mono ${Math.min(100, efficiency) >= 95 ? 'text-green-500' : 'text-amber-500'}`}>{Math.min(100, efficiency).toFixed(1)}%</p>
+                                    <p className="text-[7px] text-muted-foreground">{sim.airResistance > 0 ? (lang === 'ar' ? 'مع مقاومة' : 'With drag') : (lang === 'ar' ? 'بدون مقاومة' : 'No drag')}</p>
+                                  </div>
+                                  {sim.airResistance > 0 && (
+                                    <div className="bg-background/60 rounded-lg p-2 text-center border border-border/20">
+                                      <p className="text-[9px] mb-0.5">🌬️</p>
+                                      <p className="text-[8px] text-muted-foreground">{lang === 'ar' ? 'إجمالي المفقود' : 'Total Loss'}</p>
+                                      <p className="text-[10px] font-bold font-mono text-red-500">{fmtE(totalLoss)} J</p>
+                                      <p className="text-[7px] text-muted-foreground">{totalInitial > 0 ? ((totalLoss / totalInitial) * 100).toFixed(1) : 0}%</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bookmark, Trash2, GitCompare, Clock, ChevronRight, X } from 'lucide-react';
+import { Bookmark, Trash2, GitCompare, Clock, ChevronRight, X, Aperture, Eye } from 'lucide-react';
 
 export interface SavedExperiment {
   id: string;
@@ -14,6 +14,20 @@ export interface SavedExperiment {
   maxHeight: number;
   flightTime: number;
   integrationMethod: string;
+}
+
+export interface VisionHistoryEntry {
+  id: number;
+  timestamp: number;
+  thumbnailName: string;
+  thumbnailData?: string;
+  detected: boolean;
+  confidence?: number;
+  velocity?: number;
+  angle?: number;
+  height?: number;
+  mass?: number;
+  objectType?: string;
 }
 
 interface MobileSavedExperimentsProps {
@@ -33,9 +47,11 @@ interface MobileSavedExperimentsProps {
   } | null;
   integrationMethod: string;
   onLoadExperiment?: (exp: SavedExperiment) => void;
+  onLoadVisionEntry?: (entry: VisionHistoryEntry) => void;
 }
 
 const STORAGE_KEY = 'apas_saved_experiments';
+const VISION_STORAGE_KEY = 'apas_vision_history';
 
 const MobileSavedExperiments: React.FC<MobileSavedExperimentsProps> = ({
   lang,
@@ -43,16 +59,23 @@ const MobileSavedExperiments: React.FC<MobileSavedExperimentsProps> = ({
   prediction,
   integrationMethod,
   onLoadExperiment,
+  onLoadVisionEntry,
 }) => {
   const [experiments, setExperiments] = useState<SavedExperiment[]>([]);
+  const [visionHistory, setVisionHistory] = useState<VisionHistoryEntry[]>([]);
   const [compareMode, setCompareMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [showVisionHistory, setShowVisionHistory] = useState(false);
 
   // Load from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) setExperiments(JSON.parse(stored));
+    } catch { /* silent */ }
+    try {
+      const vStored = localStorage.getItem(VISION_STORAGE_KEY);
+      if (vStored) setVisionHistory(JSON.parse(vStored));
     } catch { /* silent */ }
   }, []);
 
@@ -248,6 +271,102 @@ const MobileSavedExperiments: React.FC<MobileSavedExperimentsProps> = ({
           </div>
         </div>
       )}
+
+      {/* AI Vision History Section */}
+      <div className="mt-4 pt-4 border-t border-border/30">
+        <button
+          onClick={() => setShowVisionHistory(!showVisionHistory)}
+          className="w-full flex items-center justify-between mb-2"
+        >
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <Aperture className="w-4 h-4 text-purple-500" />
+            {lang === 'ar' ? 'سجل الرؤية الذكية' : lang === 'fr' ? 'Historique Vision IA' : 'AI Vision History'}
+          </h3>
+          <div className="flex items-center gap-1.5">
+            {visionHistory.length > 0 && (
+              <span className="text-[10px] font-mono text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded">
+                {visionHistory.length}
+              </span>
+            )}
+            <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showVisionHistory ? 'rotate-90' : ''}`} />
+          </div>
+        </button>
+
+        {showVisionHistory && (
+          <div className="space-y-2">
+            {visionHistory.length === 0 ? (
+              <div className="py-6 text-center">
+                <Eye className="w-7 h-7 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">
+                  {lang === 'ar' ? 'لا يوجد سجل — حلّل صورة باستخدام الرؤية الذكية' : 'No history — analyze an image with AI Vision'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[30vh] overflow-y-auto overscroll-contain">
+                {visionHistory.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="p-3 rounded-xl bg-secondary/30 border border-border/30 hover:border-border/60 transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {entry.thumbnailData && (
+                          <img src={entry.thumbnailData} alt="" className="w-8 h-8 rounded object-cover border border-border/30" />
+                        )}
+                        <div>
+                          <p className="text-[10px] font-medium text-foreground truncate max-w-[120px]">{entry.thumbnailName}</p>
+                          <p className="text-[9px] text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {new Date(entry.timestamp).toLocaleString(lang === 'ar' ? 'ar-SA' : lang === 'fr' ? 'fr-FR' : 'en-US', {
+                              month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {entry.detected && entry.confidence && entry.confidence >= 60 && onLoadVisionEntry && (
+                          <button
+                            onClick={() => onLoadVisionEntry(entry)}
+                            className="text-[9px] font-medium px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-all touch-manipulation"
+                          >
+                            {lang === 'ar' ? 'تحميل' : 'Load'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            const updated = visionHistory.filter(h => h.id !== entry.id);
+                            setVisionHistory(updated);
+                            try { localStorage.setItem(VISION_STORAGE_KEY, JSON.stringify(updated)); } catch { /* silent */ }
+                          }}
+                          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all touch-manipulation"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    {entry.detected && (
+                      <div className="grid grid-cols-4 gap-1.5 text-[9px] mt-1">
+                        {entry.velocity != null && <div><span className="text-muted-foreground">V</span><p className="font-mono font-semibold text-foreground">{entry.velocity}m/s</p></div>}
+                        {entry.angle != null && <div><span className="text-muted-foreground">θ</span><p className="font-mono font-semibold text-foreground">{entry.angle}°</p></div>}
+                        {entry.height != null && <div><span className="text-muted-foreground">h</span><p className="font-mono font-semibold text-foreground">{entry.height}m</p></div>}
+                        {entry.confidence != null && (
+                          <div>
+                            <span className="text-muted-foreground">{lang === 'ar' ? 'الثقة' : 'Conf'}</span>
+                            <p className={`font-mono font-semibold ${entry.confidence >= 60 ? 'text-green-500' : 'text-amber-500'}`}>{entry.confidence}%</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {!entry.detected && (
+                      <p className="text-[9px] text-muted-foreground italic">{lang === 'ar' ? 'لم يتم اكتشاف مقذوف' : 'No projectile detected'}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

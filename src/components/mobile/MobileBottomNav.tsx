@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Activity, BarChart3, Bookmark, Wrench } from 'lucide-react';
+import { Home, Activity, BarChart3, Bookmark, Blocks } from 'lucide-react';
 import { playNav } from '@/utils/sound';
 
 type Tab = 'home' | 'simulation' | 'analysis' | 'saved' | 'settings';
@@ -19,7 +19,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
     { id: 'simulation', icon: Activity, labelAr: 'المحاكاة', labelEn: 'Simulate', labelFr: 'Simuler' },
     { id: 'analysis', icon: BarChart3, labelAr: 'التحليل', labelEn: 'Analysis', labelFr: 'Analyse' },
     { id: 'saved', icon: Bookmark, labelAr: 'المحفوظات', labelEn: 'Saved', labelFr: 'Sauvé' },
-    { id: 'settings', icon: Wrench, labelAr: 'الأدوات', labelEn: 'Tools', labelFr: 'Outils' },
+    { id: 'settings', icon: Blocks, labelAr: 'الإضافات', labelEn: 'Extensions', labelFr: 'Extensions' },
   ];
 
   const getLabel = (tab: typeof tabs[0]) => {

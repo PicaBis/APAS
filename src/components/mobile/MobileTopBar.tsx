@@ -19,11 +19,12 @@ interface MobileTopBarProps {
 }
 
 const MobileTopBar: React.FC<MobileTopBarProps> = ({ lang, onOpenAI, onOpenVision, onOpenVideo, onOpenSubject, onOpenVoice, onOpenCalculations, onOpenSettings, onOpenComprehensiveGuide, hasAnalyzedMedia }) => {
-  const isCalcActive = !!hasAnalyzedMedia;
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const navigate = useNavigate();
   const { isAdmin, isApproved, isRestricted, user, isGuest, signOut } = useAuth();
   const canAccessRestrictedFeature = isAdmin || (user && isApproved && !isRestricted);
+  // Calculations are fully unlocked when media is analyzed; partially available with dev privileges
+  const isCalcActive = !!hasAnalyzedMedia || isAdmin;
 
   return (
     <>
@@ -52,7 +53,7 @@ const MobileTopBar: React.FC<MobileTopBarProps> = ({ lang, onOpenAI, onOpenVisio
             }`}
             title={isCalcActive 
               ? (lang === 'ar' ? 'حسابات APAS' : 'APAS Calculations')
-              : (lang === 'ar' ? 'حلّل صورة أو فيديو أولاً' : 'Analyze an image or video first')
+              : (lang === 'ar' ? 'حلّل صورة أو فيديو أولاً أو فعّل صلاحيات المطور' : 'Analyze media or enable dev privileges')
             }
           >
             {isCalcActive ? (

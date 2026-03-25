@@ -7,4 +7,4 @@ export { default as MobileAnalysisDashboard } from './MobileAnalysisDashboard';
 export { default as MobileSavedExperiments } from './MobileSavedExperiments';
 export { default as PWAInstallPrompt } from './PWAInstallPrompt';
 export { DownloadSection } from './PWAInstallPrompt';
-export type { SavedExperiment } from './MobileSavedExperiments';
+export type { SavedExperiment, VisionHistoryEntry } from './MobileSavedExperiments';
