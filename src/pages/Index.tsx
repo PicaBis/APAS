@@ -77,8 +77,6 @@ const EnergyAnalysis = lazy(() => import('@/components/apas/EnergyAnalysis'));
 const MonteCarloPanel = lazy(() => import('@/components/apas/MonteCarloPanel'));
 const SimulationRecorder = lazy(() => import('@/components/apas/SimulationRecorder'));
 const EquationEngine = lazy(() => import('@/components/apas/EquationEngine'));
-const ExplainableAI = lazy(() => import('@/components/apas/ExplainableAI'));
-const CrowdsourcedAccuracy = lazy(() => import('@/components/apas/CrowdsourcedAccuracy'));
 const AccessibilitySonification = lazy(() => import('@/components/apas/AccessibilitySonification'));
 const DevOpsTesting = lazy(() => import('@/components/apas/DevOpsTesting'));
 
@@ -1586,7 +1584,6 @@ const Index = () => {
                       </CollapsibleSection>
                       <Suspense fallback={null}><EnergyAnalysis lang={lang} trajectoryData={sim.trajectoryData} currentTime={sim.currentTime} mass={sim.mass} airResistance={sim.airResistance} gravity={sim.gravity} velocity={sim.velocity} angle={sim.angle} height={sim.height} spinRate={sim.spinRate} projectileRadius={sim.projectileRadius} /></Suspense>
                       <Suspense fallback={null}><MonteCarloPanel lang={lang} muted={sim.isMuted} velocity={sim.velocity} angle={sim.angle} height={sim.height} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} /></Suspense>
-                      <Suspense fallback={null}><CrowdsourcedAccuracy lang={lang} velocity={sim.velocity} angle={sim.angle} height={sim.height} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} prediction={sim.prediction} muted={sim.isMuted} /></Suspense>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -1628,7 +1625,6 @@ const Index = () => {
                             </table>
                           </div>
                         </CollapsibleSection>
-                        <Suspense fallback={null}><ExplainableAI lang={lang} trajectoryData={sim.trajectoryData} velocity={sim.velocity} angle={sim.angle} gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass} muted={sim.isMuted} /></Suspense>
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
