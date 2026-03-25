@@ -58,8 +58,6 @@ import FooterRobot from '@/components/apas/LightModeDecorations';
 const IdlePhysicsTips = lazy(() => import('@/components/apas/IdlePhysicsTips'));
 import SensorLab from '@/components/apas/SensorLab';
 import VideoOverlay from '@/components/apas/VideoOverlay';
-import QuickStartTips from '@/components/apas/QuickStartTips';
-import WelcomeDialog from '@/components/apas/WelcomeDialog';
 import CalculationsSection from '@/components/apas/CalculationsSection';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -147,15 +145,15 @@ const Index = () => {
   const [showNoiseFilter, setShowNoiseFilter] = useState(false);
   const [showLiveCalibration, setShowLiveCalibration] = useState(false);
   const [showSecurityPrivacy, setShowSecurityPrivacy] = useState(false);
-  const [showComprehensiveGuide, setShowComprehensiveGuide] = useState(false);
   const [calibrationScale, setCalibrationScale] = useState<number | null>(null);
   const [lastAnalyzedMediaSrc, setLastAnalyzedMediaSrc] = useState<string | null>(null);
   const [lastAnalyzedMediaType, setLastAnalyzedMediaType] = useState<'video' | 'image'>('video');
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const [showDynamicDashboard, setShowDynamicDashboard] = useState(false);
   const [showTheoreticalComparison, setShowTheoreticalComparison] = useState(false);
-  const [showQuickTips, setShowQuickTips] = useState(false);
-  const [showWelcomeDialog, setShowWelcomeDialog] = useState(true);
+  const [showComprehensiveGuide, setShowComprehensiveGuide] = useState(() => {
+    try { return localStorage.getItem('apas_guideDismissed') !== 'true'; } catch { return true; }
+  });
   const [showComparisonSection, setShowComparisonSection] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
@@ -1215,18 +1213,23 @@ const Index = () => {
                       <span className="font-extrabold">APAS</span>
                     </span>
                   </button>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => { setCanvasZoom(z => Math.max(0.5, z - 0.25)); playZoomSound(sim.isMuted, false); }}
-                      className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
-                      title={lang === 'ar' ? '\u062a\u0635\u063a\u064a\u0631' : 'Zoom Out'}>
-                      <ZoomOut className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
-                    </button>
-                    <span className="text-[10px] font-mono text-muted-foreground w-8 text-center">{Math.round(canvasZoom * 100)}%</span>
-                    <button onClick={() => { setCanvasZoom(z => Math.min(3, z + 0.25)); playZoomSound(sim.isMuted, true); }}
-                      className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
-                      title={lang === 'ar' ? '\u062a\u0643\u0628\u064a\u0631' : 'Zoom In'}>
-                      <ZoomIn className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
-                    </button>
+                  <div className="flex items-center gap-0.5 bg-secondary/40 backdrop-blur-sm rounded-xl px-1.5 py-1 border border-border/30">
+                    {/* Zoom group */}
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => { setCanvasZoom(z => Math.max(0.5, z - 0.25)); playZoomSound(sim.isMuted, false); }}
+                        className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
+                        title={lang === 'ar' ? '\u062a\u0635\u063a\u064a\u0631' : 'Zoom Out'}>
+                        <ZoomOut className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
+                      </button>
+                      <span className="text-[10px] font-mono text-muted-foreground w-8 text-center">{Math.round(canvasZoom * 100)}%</span>
+                      <button onClick={() => { setCanvasZoom(z => Math.min(3, z + 0.25)); playZoomSound(sim.isMuted, true); }}
+                        className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
+                        title={lang === 'ar' ? '\u062a\u0643\u0628\u064a\u0631' : 'Zoom In'}>
+                        <ZoomIn className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
+                      </button>
+                    </div>
+                    <div className="w-px h-5 bg-border/50 mx-0.5" />
+                    {/* 2D/3D toggle */}
                     <button onClick={() => {
                         if (is3DMode) { setIs3DMode(false); playModeSwitch(sim.isMuted, false); }
                         else if (!webglError) { setIs3DMode(true); playModeSwitch(sim.isMuted, true); }
@@ -1235,34 +1238,42 @@ const Index = () => {
                       title={lang === 'ar' ? '\u0648\u0636\u0639 \u062b\u0644\u0627\u062b\u064a \u0627\u0644\u0623\u0628\u0639\u0627\u062f' : '3D Mode'}>
                       <Box className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
                     </button>
-                    <button onClick={exportSimulationPNG}
-                      className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
-                      title={lang === 'ar' ? '\u062a\u0635\u0648\u064a\u0631' : 'Screenshot'}>
-                      <Camera className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
-                    </button>
-                    <button onClick={() => { setShowLiveData(v => !v); playUIClick(sim.isMuted); }}
-                      className={showLiveData ? 'group p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary hover:shadow-md transition-all duration-300' : 'group p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300'}
-                      title={lang === 'ar' ? '\u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u062d\u064a\u0629' : 'Live Data'}>
-                      {showLiveData ? <Eye className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" /> : <EyeOff className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />}
-                    </button>
-                    <button onClick={toggleFullscreen}
-                      className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
-                      title={lang === 'ar' ? '\u0645\u0644\u0621 \u0627\u0644\u0634\u0627\u0634\u0629' : 'Fullscreen'}>
-                      {isFullscreen ? <Minimize className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" /> : <Maximize className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />}
-                    </button>
-                    <button onClick={() => { setShowGrid(g => !g); playUIClick(sim.isMuted); }}
-                      className={showGrid ? 'group p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary hover:shadow-md transition-all duration-300' : 'group p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300'}
-                      title={lang === 'ar' ? '\u0627\u0644\u0634\u0628\u0643\u0629' : 'Grid'}>
-                      <Grid3x3 className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
-                    </button>
-                    <button onClick={() => { setIsFocusMode(f => !f); playUIClick(sim.isMuted); }}
-                      className={isFocusMode ? 'group p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary hover:shadow-md transition-all duration-300' : 'group p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300'}
-                      title={lang === 'ar' ? '\u0648\u0636\u0639 \u0627\u0644\u062a\u0631\u0643\u064a\u0632' : 'Focus Mode'}>
-                      <Focus className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
-                    </button>
-                    <Suspense fallback={null}>
-                      <SimulationRecorder lang={lang} muted={sim.isMuted} canvasContainerRef={canvasContainerRef} onStartAnimation={sim.startAnimation} />
-                    </Suspense>
+                    <div className="w-px h-5 bg-border/50 mx-0.5" />
+                    {/* Capture group */}
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={exportSimulationPNG}
+                        className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
+                        title={lang === 'ar' ? '\u062a\u0635\u0648\u064a\u0631' : 'Screenshot'}>
+                        <Camera className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
+                      </button>
+                      <Suspense fallback={null}>
+                        <SimulationRecorder lang={lang} muted={sim.isMuted} canvasContainerRef={canvasContainerRef} onStartAnimation={sim.startAnimation} />
+                      </Suspense>
+                    </div>
+                    <div className="w-px h-5 bg-border/50 mx-0.5" />
+                    {/* View controls group */}
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => { setShowLiveData(v => !v); playUIClick(sim.isMuted); }}
+                        className={showLiveData ? 'group p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary hover:shadow-md transition-all duration-300' : 'group p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300'}
+                        title={lang === 'ar' ? '\u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u062d\u064a\u0629' : 'Live Data'}>
+                        {showLiveData ? <Eye className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" /> : <EyeOff className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />}
+                      </button>
+                      <button onClick={() => { setShowGrid(g => !g); playUIClick(sim.isMuted); }}
+                        className={showGrid ? 'group p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary hover:shadow-md transition-all duration-300' : 'group p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300'}
+                        title={lang === 'ar' ? '\u0627\u0644\u0634\u0628\u0643\u0629' : 'Grid'}>
+                        <Grid3x3 className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
+                      </button>
+                      <button onClick={() => { setIsFocusMode(f => !f); playUIClick(sim.isMuted); }}
+                        className={isFocusMode ? 'group p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary hover:shadow-md transition-all duration-300' : 'group p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300'}
+                        title={lang === 'ar' ? '\u0648\u0636\u0639 \u0627\u0644\u062a\u0631\u0643\u064a\u0632' : 'Focus Mode'}>
+                        <Focus className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
+                      </button>
+                      <button onClick={toggleFullscreen}
+                        className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
+                        title={lang === 'ar' ? '\u0645\u0644\u0621 \u0627\u0644\u0634\u0627\u0634\u0629' : 'Fullscreen'}>
+                        {isFullscreen ? <Minimize className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" /> : <Maximize className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1350,25 +1361,6 @@ const Index = () => {
 
               {/* ── Below-canvas sections (hidden in focus mode) ── */}
               {!isFocusMode && <>
-                {/* Quick Start Tips */}
-                {showQuickTips && (
-                  <QuickStartTips
-                    lang={lang}
-                    hasTrajectory={sim.trajectoryData.length > 0}
-                    hasMediaAnalysis={!!lastAnalyzedMediaSrc}
-                    onDismiss={() => setShowQuickTips(false)}
-                  />
-                )}
-
-                {/* Welcome / Onboarding Dialog */}
-                <WelcomeDialog
-                  open={showWelcomeDialog}
-                  lang={lang}
-                  onOpenGuide={() => { setShowWelcomeDialog(false); setShowComprehensiveGuide(true); }}
-                  onStartQuickTips={() => { setShowWelcomeDialog(false); setShowQuickTips(true); }}
-                  onSkip={() => setShowWelcomeDialog(false)}
-                />
-
                 {/* ── Results ── */}
                 {sim.prediction && (
                   <ResultsSection

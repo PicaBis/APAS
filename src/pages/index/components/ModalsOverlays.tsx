@@ -208,7 +208,10 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
       <Suspense fallback={null}>
         <ComprehensiveGuideModal
           open={showComprehensiveGuide}
-          onClose={() => setShowComprehensiveGuide(false)}
+          onClose={() => {
+            setShowComprehensiveGuide(false);
+            try { localStorage.setItem('apas_guideDismissed', 'true'); } catch { /* localStorage unavailable */ }
+          }}
           lang={lang}
         />
       </Suspense>

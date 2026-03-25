@@ -71,7 +71,7 @@ const ComprehensiveGuideModal: React.FC<ComprehensiveGuideModalProps> = ({ open,
 
           {/* Content */}
           <ScrollArea className="flex-1">
-            <div className="p-6 text-start">
+            <div className={`p-6 ${isRTL ? 'text-right' : 'text-start'}`}>
               {activeSection === 'overview' && <OverviewSection lang={lang} />}
               {activeSection === 'interface' && <InterfaceSection lang={lang} />}
               {activeSection === 'simulation' && <SimulationSection lang={lang} />}
@@ -94,7 +94,7 @@ const ComprehensiveGuideModal: React.FC<ComprehensiveGuideModalProps> = ({ open,
 
 function SectionTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <h3 className="text-base font-bold text-foreground flex items-center gap-2 mb-4 pb-2 border-b border-border">
+    <h3 className="text-base font-bold text-foreground flex items-center gap-2 mb-4 pb-2 border-b border-border justify-start">
       <span className="text-primary">{icon}</span>
       {children}
     </h3>
@@ -104,8 +104,8 @@ function SectionTitle({ icon, children }: { icon: React.ReactNode; children: Rea
 function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-5">
-      <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+      <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2 justify-start">
+        <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block shrink-0" />
         {title}
       </h4>
       <div className="text-xs text-muted-foreground leading-relaxed space-y-2 ps-4">{children}</div>
@@ -117,7 +117,7 @@ function GuideItem({ label, desc }: { label: string; desc: string }) {
   return (
     <div className="flex gap-3 items-start py-2 border-b border-border/20 last:border-0">
       <span className="text-primary font-bold text-[10px] bg-primary/10 px-1.5 py-0.5 rounded shrink-0 mt-0.5">{label}</span>
-      <p className="text-[11px] text-muted-foreground leading-relaxed text-start">{desc}</p>
+      <p className="text-[11px] text-muted-foreground leading-relaxed">{desc}</p>
     </div>
   );
 }

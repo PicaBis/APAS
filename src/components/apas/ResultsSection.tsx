@@ -37,16 +37,18 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 stagger-children">
             {[
-              { label: T.range, value: prediction.range, unit: T.u_m_s, icon: '📏' },
-              { label: T.maxHeight, value: prediction.maxHeight, unit: T.u_m_s, icon: '📐' },
-              { label: T.flightTime, value: prediction.timeOfFlight, unit: T.u_s, icon: '⏱️' },
-              { label: T.finalVel, value: prediction.finalVelocity, unit: T.u_ms, icon: '💨' },
-            ].map(({ label, value, unit, icon }) => (
-              <div key={label} className="text-center p-3 bg-card/60 rounded-xl border border-border/30 transition-all duration-300 hover:bg-card/80 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 group">
-                <div className="text-base mb-1 transition-transform duration-300 group-hover:scale-110">{icon}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-medium">{label}</div>
-                <AnimatedValue value={value} className="text-lg font-bold font-mono text-primary" />
-                <div className="text-xs text-muted-foreground mt-0.5">{unit}</div>
+              { label: T.range, value: prediction.range, unit: T.u_m_s, icon: '📏', color: 'from-blue-500/15 to-blue-600/5 border-blue-500/30 hover:border-blue-500/50', iconBg: 'bg-blue-500/15', textColor: 'text-blue-600 dark:text-blue-400' },
+              { label: T.maxHeight, value: prediction.maxHeight, unit: T.u_m_s, icon: '📐', color: 'from-emerald-500/15 to-emerald-600/5 border-emerald-500/30 hover:border-emerald-500/50', iconBg: 'bg-emerald-500/15', textColor: 'text-emerald-600 dark:text-emerald-400' },
+              { label: T.flightTime, value: prediction.timeOfFlight, unit: T.u_s, icon: '⏱️', color: 'from-amber-500/15 to-amber-600/5 border-amber-500/30 hover:border-amber-500/50', iconBg: 'bg-amber-500/15', textColor: 'text-amber-600 dark:text-amber-400' },
+              { label: T.finalVel, value: prediction.finalVelocity, unit: T.u_ms, icon: '💨', color: 'from-purple-500/15 to-purple-600/5 border-purple-500/30 hover:border-purple-500/50', iconBg: 'bg-purple-500/15', textColor: 'text-purple-600 dark:text-purple-400' },
+            ].map(({ label, value, unit, icon, color, iconBg, textColor }) => (
+              <div key={label} className={`text-center p-3.5 bg-gradient-to-br ${color} rounded-xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group`}>
+                <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center mx-auto mb-2 transition-transform duration-300 group-hover:scale-110`}>
+                  <span className="text-lg">{icon}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold">{label}</div>
+                <AnimatedValue value={value} className={`text-xl font-bold font-mono ${textColor}`} />
+                <div className="text-[10px] text-muted-foreground mt-0.5 font-medium">{unit}</div>
               </div>
             ))}
           </div>
