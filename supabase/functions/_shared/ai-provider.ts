@@ -1,17 +1,11 @@
 /**
- * Shared AI Provider with automatic fallback.
- * Supports Gemini (native API), Groq, and Mistral (OpenAI-compatible).
+ * Shared AI Provider — Devin AI API only.
+ * Uses Devin session-based API for all AI completions.
  */
 
-type ModelType = "chat" | "vision";
+const DEVIN_API_BASE = "https://api.devin.ai";
 
-interface ProviderConfig {
-  name: string;
-  apiUrl: string;
-  apiKey: string;
-  models: Record<ModelType, string>;
-  type: "openai" | "gemini";
-}
+type ModelType = "chat" | "vision";
 
 interface ChatMessage {
   role: string;
@@ -24,258 +18,155 @@ interface AIRequestOptions {
   max_tokens?: number;
 }
 
-function getProviders(): ProviderConfig[] {
-  const providers: ProviderConfig[] = [];
-
-  // Gemini — best for vision (native multimodal with high accuracy)
-  const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  if (geminiKey) {
-    providers.push({
-      name: "Gemini",
-      apiUrl: "https://generativelanguage.googleapis.com",
-      apiKey: geminiKey,
-      models: {
-        chat: "gemini-2.5-flash",
-        vision: "gemini-2.5-flash",
-      },
-      type: "gemini",
-    });
+/**
+ * Upload a base64 image to Devin attachments API.
+ */
+async function uploadBase64Image(base64Data: string, mimeType: string, apiKey: string): Promise<string> {
+  // Convert base64 to binary
+  const binaryStr = atob(base64Data);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
   }
 
-  const groqKey = Deno.env.get("GROQ_API_KEY");
-  if (groqKey) {
-    providers.push({
-      name: "Groq",
-      apiUrl: "https://api.groq.com/openai/v1/chat/completions",
-      apiKey: groqKey,
-      models: {
-        chat: "llama-3.3-70b-versatile",
-        vision: "meta-llama/llama-4-scout-17b-16e-instruct",
-      },
-      type: "openai",
-    });
-  }
+  const formData = new FormData();
+  const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
+  formData.append("file", new Blob([bytes], { type: mimeType }), "image." + ext);
 
-  const mistralKey = Deno.env.get("MISTRAL_API_KEY");
-  if (mistralKey) {
-    providers.push({
-      name: "Mistral",
-      apiUrl: "https://api.mistral.ai/v1/chat/completions",
-      apiKey: mistralKey,
-      models: {
-        chat: "mistral-large-latest",
-        vision: "pixtral-large-latest",
-      },
-      type: "openai",
-    });
-  }
+  const res = await fetch(DEVIN_API_BASE + "/v1/attachments", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + apiKey },
+    body: formData,
+  });
 
-  return providers;
+  if (!res.ok) {
+    throw new Error("Devin attachment upload failed (" + res.status + "): " + (await res.text()));
+  }
+  return (await res.text()).trim().replace(/^"|"$/g, "");
 }
 
 /**
- * Call Gemini's native generateContent API.
- * Converts OpenAI-style messages to Gemini format.
+ * Build a text prompt from OpenAI-style messages, uploading any images.
  */
-async function callGemini(
-  provider: ProviderConfig,
-  model: string,
-  messages: ChatMessage[],
-  temperature: number,
-  maxTokens: number,
-): Promise<string> {
-  const systemParts: string[] = [];
-  // deno-lint-ignore no-explicit-any
-  const contentParts: Array<Record<string, any>> = [];
+async function buildPromptFromMessages(messages: ChatMessage[], apiKey: string): Promise<string> {
+  const parts: string[] = [];
 
   for (const msg of messages) {
-    if (msg.role === "system") {
-      systemParts.push(typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content));
-      continue;
-    }
-
     if (typeof msg.content === "string") {
-      contentParts.push({ text: msg.content });
+      if (msg.role === "system") {
+        parts.push("SYSTEM INSTRUCTIONS:\n" + msg.content);
+      } else {
+        parts.push(msg.content);
+      }
     } else if (Array.isArray(msg.content)) {
       for (const part of msg.content) {
         if (part.type === "text" && part.text) {
-          contentParts.push({ text: part.text });
+          parts.push(part.text);
         } else if (part.type === "image_url" && part.image_url?.url) {
           const url = part.image_url.url;
           const dataMatch = url.match(/^data:([^;]+);base64,(.+)$/);
           if (dataMatch) {
-            contentParts.push({
-              inline_data: {
-                mime_type: dataMatch[1],
-                data: dataMatch[2],
-              },
-            });
+            try {
+              const attachmentUrl = await uploadBase64Image(dataMatch[2], dataMatch[1], apiKey);
+              parts.push('ATTACHMENT:"' + attachmentUrl + '"');
+            } catch (err) {
+              console.error("[AI] Failed to upload image attachment:", err);
+              parts.push("[Image could not be uploaded]");
+            }
           } else {
-            contentParts.push({ text: `[Image URL: ${url}]` });
+            parts.push('ATTACHMENT:"' + url + '"');
           }
         }
       }
     }
   }
 
-  // deno-lint-ignore no-explicit-any
-  const requestBody: Record<string, any> = {
-    contents: [{ parts: contentParts }],
-    generationConfig: {
-      temperature,
-      maxOutputTokens: maxTokens,
-    },
-  };
-
-  if (systemParts.length > 0) {
-    requestBody.systemInstruction = {
-      parts: [{ text: systemParts.join("\n\n") }],
-    };
-  }
-
-  const response = await fetch(
-    `${provider.apiUrl}/v1beta/models/${model}:generateContent?key=${provider.apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-    },
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${errorText}`);
-  }
-
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  if (!text) {
-    throw new Error("Gemini returned empty response");
-  }
-  return text;
+  return parts.join("\n\n");
 }
 
 /**
- * Non-streaming AI completion with automatic fallback.
- * Tries each configured provider in order until one succeeds.
+ * Create a Devin session and poll until completion.
+ */
+async function callDevinSession(prompt: string, apiKey: string, maxWaitMs = 300000): Promise<string> {
+  // Create session
+  const createRes = await fetch(DEVIN_API_BASE + "/v1/sessions", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, idempotent: false }),
+  });
+  if (!createRes.ok) {
+    throw new Error("Devin session creation failed (" + createRes.status + "): " + (await createRes.text()));
+  }
+  const sessionId = (await createRes.json()).session_id;
+  console.log("[AI] Devin session created: " + sessionId);
+
+  // Poll until complete
+  const startTime = Date.now();
+  while (Date.now() - startTime < maxWaitMs) {
+    const pollRes = await fetch(DEVIN_API_BASE + "/v1/sessions/" + sessionId, {
+      headers: { Authorization: "Bearer " + apiKey },
+    });
+    if (!pollRes.ok) {
+      throw new Error("Devin session poll failed (" + pollRes.status + "): " + (await pollRes.text()));
+    }
+    const data = await pollRes.json();
+    const status = data.status_enum || data.status;
+    console.log("[AI] Devin session " + sessionId + " status: " + status);
+
+    if (status === "finished" || status === "stopped" || status === "failed") {
+      // Extract text from messages
+      const messages = data.messages || [];
+      let responseText = "";
+      for (const m of messages) {
+        if ((m.role === "devin" || m.role === "assistant") && m.content && m.content.length > responseText.length) {
+          responseText = m.content;
+        }
+      }
+      if (!responseText && data.structured_output) {
+        responseText = JSON.stringify(data.structured_output);
+      }
+      if (!responseText) {
+        throw new Error("Devin session completed but returned no output");
+      }
+      return responseText;
+    }
+
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+
+  throw new Error("Devin session timed out after " + (maxWaitMs / 1000) + " seconds");
+}
+
+/**
+ * Non-streaming AI completion using Devin API.
  */
 export async function aiComplete(
   options: AIRequestOptions & { modelType: ModelType }
 ): Promise<{ text: string; provider: string }> {
-  const providers = getProviders();
-  if (providers.length === 0) throw new Error("No AI providers configured (set GEMINI_API_KEY, GROQ_API_KEY, and/or MISTRAL_API_KEY)");
+  const apiKey = Deno.env.get("DEVIN_API_KEY");
+  if (!apiKey) throw new Error("DEVIN_API_KEY is not configured");
 
-  for (const provider of providers) {
-    try {
-      const model = provider.models[options.modelType];
-      console.log(`[AI] Trying ${provider.name} (${model})...`);
-
-      if (provider.type === "gemini") {
-        const text = await callGemini(
-          provider,
-          model,
-          options.messages,
-          options.temperature ?? 0.4,
-          options.max_tokens ?? 2000,
-        );
-        console.log(`[AI] ${provider.name} succeeded`);
-        return { text, provider: provider.name };
-      }
-
-      // OpenAI-compatible providers (Groq, Mistral)
-      const response = await fetch(provider.apiUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: options.messages,
-          temperature: options.temperature ?? 0.4,
-          max_tokens: options.max_tokens ?? 2000,
-          stream: false,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[AI] ${provider.name} error ${response.status}: ${errorText}`);
-        continue;
-      }
-
-      const data = await response.json();
-      const text = data?.choices?.[0]?.message?.content || "";
-
-      if (!text) {
-        console.warn(`[AI] ${provider.name} returned empty response, trying next provider`);
-        continue;
-      }
-
-      console.log(`[AI] ${provider.name} succeeded`);
-      return { text, provider: provider.name };
-    } catch (err) {
-      console.error(`[AI] ${provider.name} request failed:`, err);
-      continue;
-    }
-  }
-
-  throw new Error("All AI providers failed");
+  console.log("[AI] Using Devin AI API...");
+  const prompt = await buildPromptFromMessages(options.messages, apiKey);
+  const text = await callDevinSession(prompt, apiKey);
+  console.log("[AI] Devin AI succeeded, response length: " + text.length);
+  return { text, provider: "Devin AI" };
 }
 
 /**
- * Streaming AI completion with automatic fallback.
- * Tries each configured provider in order until one succeeds.
- * Returns the raw Response body stream (SSE format).
- * Note: Gemini is skipped for streaming as it uses a different protocol.
+ * Streaming AI completion — Devin API does not support streaming,
+ * so this creates a single-chunk readable stream from the full response.
  */
 export async function aiStream(
   options: AIRequestOptions & { modelType: ModelType }
 ): Promise<{ body: ReadableStream<Uint8Array>; provider: string }> {
-  const providers = getProviders();
-  if (providers.length === 0) throw new Error("No AI providers configured (set GEMINI_API_KEY, GROQ_API_KEY, and/or MISTRAL_API_KEY)");
-
-  for (const provider of providers) {
-    // Skip Gemini for streaming — uses a different protocol
-    if (provider.type === "gemini") continue;
-
-    try {
-      const model = provider.models[options.modelType];
-      console.log(`[AI] Streaming: trying ${provider.name} (${model})...`);
-
-      const response = await fetch(provider.apiUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: options.messages,
-          temperature: options.temperature ?? 0.4,
-          max_tokens: options.max_tokens ?? 2000,
-          stream: true,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[AI] ${provider.name} streaming error ${response.status}: ${errorText}`);
-        continue;
-      }
-
-      if (!response.body) {
-        console.warn(`[AI] ${provider.name} returned no body, trying next provider`);
-        continue;
-      }
-
-      console.log(`[AI] ${provider.name} streaming started`);
-      return { body: response.body, provider: provider.name };
-    } catch (err) {
-      console.error(`[AI] ${provider.name} streaming request failed:`, err);
-      continue;
-    }
-  }
-
-  throw new Error("All AI providers failed");
+  const { text, provider } = await aiComplete(options);
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+  return { body, provider };
 }
