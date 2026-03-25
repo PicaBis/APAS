@@ -58,7 +58,7 @@ import FooterRobot from '@/components/apas/LightModeDecorations';
 const IdlePhysicsTips = lazy(() => import('@/components/apas/IdlePhysicsTips'));
 import SensorLab from '@/components/apas/SensorLab';
 import VideoOverlay from '@/components/apas/VideoOverlay';
-import CalculationsSection from '@/components/apas/CalculationsSection';
+import CalculationsSection, { type DetectedMediaData } from '@/components/apas/CalculationsSection';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   MobileBottomNav,
@@ -154,6 +154,7 @@ const Index = () => {
   const [calibrationScale, setCalibrationScale] = useState<number | null>(null);
   const [lastAnalyzedMediaSrc, setLastAnalyzedMediaSrc] = useState<string | null>(null);
   const [lastAnalyzedMediaType, setLastAnalyzedMediaType] = useState<'video' | 'image'>('video');
+  const [detectedMedia, setDetectedMedia] = useState<DetectedMediaData | null>(null);
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const [showDynamicDashboard, setShowDynamicDashboard] = useState(false);
   const [showTheoreticalComparison, setShowTheoreticalComparison] = useState(false);
@@ -206,6 +207,10 @@ const Index = () => {
       setTimeout(() => sim.startAnimation(), 100);
     }
   }, [sim]);
+
+  const handleDetectedMedia = useCallback((data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => {
+    setDetectedMedia(data);
+  }, []);
 
   const handleMobileVoiceParams = useCallback((p: { velocity?: number; angle?: number; height?: number; mass?: number; gravity?: number }) => {
     if (p.velocity !== undefined) sim.setVelocity(p.velocity);
@@ -1387,12 +1392,12 @@ const Index = () => {
           {/* Mobile APAS Feature Components — direct access via autoOpen (no intermediate bottom sheet) */}
           {showMobileVision && (
             <div className="hidden">
-              <ApasVisionButton lang={lang} onUpdateParams={handleMobileVisionParams} onAutoRun={handleAutoRunSimulation} autoOpen onDismiss={() => setShowMobileVision(false)} />
+              <ApasVisionButton lang={lang} onUpdateParams={handleMobileVisionParams} onAutoRun={handleAutoRunSimulation} onDetectedMedia={handleDetectedMedia} autoOpen onDismiss={() => setShowMobileVision(false)} />
             </div>
           )}
           {showMobileVideo && (
             <div className="hidden">
-              <ApasVideoButton lang={lang} onUpdateParams={handleMobileVisionParams} onAutoRun={handleAutoRunSimulation} autoOpen onDismiss={() => setShowMobileVideo(false)} />
+              <ApasVideoButton lang={lang} onUpdateParams={handleMobileVisionParams} onAutoRun={handleAutoRunSimulation} onDetectedMedia={handleDetectedMedia} autoOpen onDismiss={() => setShowMobileVideo(false)} />
             </div>
           )}
           {showMobileSubject && (
@@ -1481,6 +1486,7 @@ const Index = () => {
                   mass={sim.mass}
                   windSpeed={sim.windSpeed}
                   prediction={sim.prediction}
+                  detectedMedia={detectedMedia ?? undefined}
                 />
               </div>
             </div>,
@@ -2580,6 +2586,7 @@ const Index = () => {
               setActivePresetEmoji={setActivePresetEmoji}
               onSessionLoad={handleSessionLoad} onShowRestrictionOverlay={setShowRestrictionOverlay}
               onAutoRun={handleAutoRunSimulation}
+              onDetectedMedia={handleDetectedMedia}
               onMediaAnalyzed={(src: string) => {
                 setLastAnalyzedMediaSrc(src || null);
                 if (src) {
@@ -2667,6 +2674,7 @@ const Index = () => {
                 mass={sim.mass}
                 windSpeed={sim.windSpeed}
                 prediction={sim.prediction}
+                detectedMedia={detectedMedia ?? undefined}
               />
             </div>
           </div>

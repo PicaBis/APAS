@@ -20,6 +20,7 @@ interface Props {
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
   onAutoRun?: () => void;
+  onDetectedMedia?: (data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => void;
   autoOpen?: boolean;
   onDismiss?: () => void;
 }
@@ -101,7 +102,7 @@ function formatImageReport(data: AnalysisData, lang: string): string {
   ].join('\n');
 }
 
-export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, autoOpen, onDismiss }: Props) {
+export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, autoOpen, onDismiss }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
@@ -273,6 +274,17 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
             height: result.height,
             objectType: result.objectType,
           });
+          // Propagate detected media data to APAS calculations
+          if (onDetectedMedia) {
+            onDetectedMedia({
+              source: 'image',
+              detectedAngle: result.angle,
+              detectedVelocity: result.velocity,
+              detectedHeight: result.height,
+              confidence: result.confidence,
+              objectType: result.objectType,
+            });
+          }
           // Auto-run simulation with extracted parameters
           if (onAutoRun) {
             setTimeout(() => onAutoRun(), 150);
@@ -433,6 +445,17 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
         mass: entry.data.mass,
         height: entry.data.height,
       });
+      // Propagate detected media data to APAS calculations from history
+      if (onDetectedMedia) {
+        onDetectedMedia({
+          source: 'image',
+          detectedAngle: entry.data.angle,
+          detectedVelocity: entry.data.velocity,
+          detectedHeight: entry.data.height,
+          confidence: entry.data.confidence,
+          objectType: entry.data.objectType,
+        });
+      }
       // Auto-run simulation with loaded history params
       if (onAutoRun) {
         setTimeout(() => onAutoRun(), 150);
