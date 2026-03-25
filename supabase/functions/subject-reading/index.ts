@@ -251,8 +251,61 @@ IMPORTANT RULES:
 
     console.log(`subject-reading completed via ${usedProvider}`);
 
+    // ── Physics Sanity Check: verify extracted values against kinematics equations ──
+    let finalText = text;
+    try {
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[1].trim());
+        if (parsed.recognized && parsed.isProjectileMotion && parsed.extractedData) {
+          const ed = parsed.extractedData;
+          const v0 = ed.velocity;
+          const angle = ed.angle;
+          const h = ed.height ?? 0;
+          const g = ed.gravity ?? 9.81;
+          const givenRange = ed.range;
+
+          // If we have v0 and angle, compute derived values and cross-check with given range
+          if (v0 != null && angle != null && v0 > 0) {
+            const aRad = angle * Math.PI / 180;
+            const v0x = v0 * Math.cos(aRad);
+            const v0y = v0 * Math.sin(aRad);
+            const maxHeight = h + (v0y * v0y) / (2 * g);
+            const tApex = v0y / g;
+            const tFall = Math.sqrt(2 * maxHeight / g);
+            const totalTime = tApex + tFall;
+            const computedRange = Math.round(v0x * totalTime * 100) / 100;
+
+            // Add computed values to extracted data
+            parsed.extractedData.computedRange = computedRange;
+            parsed.extractedData.computedMaxHeight = Math.round(maxHeight * 100) / 100;
+            parsed.extractedData.computedTotalTime = Math.round(totalTime * 100) / 100;
+
+            // Sanity check: if given range exists, compare with computed range
+            if (givenRange != null && givenRange > 0) {
+              const rangeError = Math.abs(computedRange - givenRange) / givenRange;
+              parsed.extractedData.rangeConsistency = rangeError < 0.1 ? "consistent" : rangeError < 0.3 ? "approximate" : "inconsistent";
+              if (rangeError > 0.3) {
+                console.warn(`[subject-reading] Physics inconsistency: computed range ${computedRange} vs given range ${givenRange}`);
+                parsed.extractedData.sanityWarning = `Computed range (${computedRange} m) differs significantly from given range (${givenRange} m). Check if values are correct.`;
+              }
+            }
+
+            parsed.sanityChecked = true;
+
+            // Rebuild text with updated JSON
+            const newJson = "```json\n" + JSON.stringify(parsed, null, 2) + "\n```";
+            const afterJson = text.replace(/```json[\s\S]*?```/, "").trim();
+            finalText = newJson + "\n\n" + afterJson;
+          }
+        }
+      }
+    } catch {
+      // If sanity check fails, use original text
+    }
+
     return new Response(
-      JSON.stringify({ text }),
+      JSON.stringify({ text: finalText }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
