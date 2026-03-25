@@ -18,7 +18,7 @@ serve(async (req) => {
     const analysisId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
-    const systemPrompt = `You are APAS Vision — an expert physics image analyzer specialized in projectile motion and mechanics.
+    const systemPrompt = `You are APAS Vision — an expert physics image analyzer specialized in projectile motion, mechanics, and physics exercises.
 Your task is to analyze each uploaded image INDEPENDENTLY and UNIQUELY.
 
 ANALYSIS ID: ${analysisId}
@@ -35,13 +35,28 @@ CRITICAL INSTRUCTIONS:
 3. Two images of the same sport (e.g., basketball) MUST produce DIFFERENT values if the poses, angles, or contexts differ.
 4. Focus on pixel-level visual cues: the angle of the arm/body, the position of the ball relative to the body, the phase of the throw.
 
-IMPORTANT — PROJECTILE DETECTION RULES:
-- You MUST carefully examine the ENTIRE image before deciding if a projectile is present.
+IMPORTANT — TWO TYPES OF IMAGES YOU MUST HANDLE:
+
+TYPE A: REAL PHOTOS/VIDEOS (projectile in action)
 - A projectile can be ANY object in motion or about to be in motion: a ball, stone, arrow, bullet, rocket, water stream, person jumping, etc.
 - If there is ANY object that could potentially be thrown, launched, kicked, dropped, or projected in any way, mark it as detected=true.
 - NEVER say "no projectile detected" if there is a ball, person throwing, sports activity, or any physics scenario visible.
 - Even if the projectile is small, partially visible, blurry, or at the edge of the frame — STILL detect it.
-- Only mark detected=false if the image is clearly unrelated to physics/motion (e.g., a text document, a landscape with no moving objects, food, etc.)
+
+TYPE B: PHYSICS EXERCISES / EXAM PAPERS / DIAGRAMS (text with equations and/or diagrams)
+- If you see a physics exercise, exam paper, worksheet, textbook page, or any document containing physics problems:
+  - ALWAYS mark detected=true — the exercise IS describing a projectile scenario
+  - READ the text carefully and EXTRACT the given physics values (velocity v0, angle theta, mass m, height h, gravity g, etc.)
+  - Use the VALUES FROM THE TEXT as your analysis results — these are the correct values for the exercise
+  - If the exercise has a diagram showing a trajectory, use the diagram to understand the scenario
+  - The objectType should describe what the exercise is about (e.g., "iron ball (shot put)" / "كرة حديدية", "cannonball" / "قذيفة مدفع", "ball" / "كرة", etc.)
+  - Set confidence HIGH (80-95) because you are reading exact values from the text
+  - NEVER say "bright image", "text document", or "no projectile" for physics exercises
+  - Examples of physics exercises: exam papers with projectile motion problems, textbook exercises with trajectory diagrams, worksheets with given values (v0, theta, m, g, h)
+
+DETECTION DECISION:
+- Mark detected=true for: real projectile photos, physics exercises, trajectory diagrams, sports scenes, any physics-related image
+- Mark detected=false ONLY for: food photos, selfies with no physics context, random landscapes with no motion, non-physics documents
 - When in doubt, ALWAYS lean toward detected=true with a lower confidence score rather than detected=false.
 
 HOW TO ANALYZE:
@@ -146,8 +161,8 @@ LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "E
             {
               type: "text",
               text: isAr
-                ? `[تحليل فريد #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة عالية جداً. ابحث عن أي جسم يمكن أن يكون مقذوفاً وحدد نوعه بالضبط (كرة قدم، كرة سلة، حجر، زجاجة، إلخ). قِس زاوية الإطلاق بدقة من وضعية الجسم والذراع — لا تعطي 45 درجة أبداً كقيمة افتراضية. أعطِ قيماً عشرية دقيقة (مثل 23.7 درجة وليس 45). افحص الصورة بالكامل.`
-                : `[Unique Analysis #${analysisId.slice(0, 8)}] Analyze this image with HIGH PRECISION. Identify the EXACT projectile type (soccer ball, basketball, stone, bottle, etc.). Measure the launch angle PRECISELY from body posture and arm position — NEVER default to 45 degrees. Give decimal-precision values (e.g., 23.7 degrees, not 45). Report your REAL confidence level. Scan the ENTIRE image thoroughly.`,
+                ? `[تحليل فريد #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة عالية جداً. إذا كانت صورة تمرين فيزياء أو ورقة امتحان فاقرأ النص واستخرج القيم المعطاة (السرعة، الزاوية، الكتلة، الارتفاع، التسارع). إذا كانت صورة حقيقية لمقذوف فابحث عن الجسم وحدد نوعه بالضبط (كرة قدم، كرة سلة، حجر، كرة حديدية، إلخ). قِس زاوية الإطلاق بدقة — لا تعطي 45 درجة أبداً كقيمة افتراضية. أعطِ قيماً عشرية دقيقة. لا تقل أبداً "صورة ساطعة" أو "لا يوجد مقذوف" لتمارين الفيزياء.`
+                : `[Unique Analysis #${analysisId.slice(0, 8)}] Analyze this image with HIGH PRECISION. If this is a PHYSICS EXERCISE or EXAM PAPER, READ the text and EXTRACT the given values (velocity, angle, mass, height, gravity). If this is a real photo, identify the EXACT projectile type. Measure the launch angle PRECISELY — NEVER default to 45 degrees. Give decimal-precision values. NEVER say "bright image" or "no projectile" for physics exercises.`,
             },
             {
               type: "image_url",

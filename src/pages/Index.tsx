@@ -276,10 +276,10 @@ const Index = () => {
     return sim.trajectoryData.map((p) => ({
       xVal: (p as unknown as Record<string, unknown>)[chartAxisX] as number,
       yVal: (p as unknown as Record<string, unknown>)[chartAxisY] as number,
-    })).filter((d) => d.xVal !== undefined && d.yVal !== undefined);
+    })).filter((d) => d.xVal != null && d.yVal != null && typeof d.xVal === 'number' && typeof d.yVal === 'number' && !isNaN(d.xVal) && !isNaN(d.yVal));
   }, [chartAxisX, chartAxisY, sim.trajectoryData]);
 
-  const fmtTick = (v: number) => (typeof v === 'number' && v !== null) ? Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1) : String(v ?? '');
+  const fmtTick = (v: number) => (typeof v === 'number' && v != null && !isNaN(v) && isFinite(v)) ? Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1) : '';
 
   // ── Derived state ──
   const lastPt = sim.trajectoryData[sim.trajectoryData.length - 1];

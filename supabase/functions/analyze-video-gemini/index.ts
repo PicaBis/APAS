@@ -58,17 +58,11 @@ function computeLaunchAngle(positions: Position[]): number {
     return Math.max(0, Math.min(90, Math.round(Math.atan2(dy, dx) * (180 / Math.PI) * 10) / 10));
   }
 
-  // Nearly vertical: Vx ~ 0
-  if (absVx < absVy * 0.05 && absVy > 5) return 89.5;
-
-  // Nearly horizontal: Vy ~ 0
-  if (absVy < absVx * 0.05 && absVx > 5) return 0.5;
-
   // General case: arctan(Vy / Vx)
   const angle = Math.atan2(absVy, absVx) * (180 / Math.PI);
 
   // Return precise angle with 1 decimal place
-  return Math.max(0, Math.min(90, Math.round(angle * 10) / 10));
+  return Math.max(0.5, Math.min(89.5, Math.round(angle * 10) / 10));
 }
 
 /**
@@ -424,25 +418,37 @@ TRACKING RULES:
 - Locate the exact CENTER of the object at each time point.
 - The trajectory should follow smooth physics (parabolic arc or linear path).
 - A projectile can be ANY moving object: ball, stone, bottle, person jumping, water jet, rocket, etc.
+- Report at least 8-15 positions if the motion spans enough frames. More positions = better accuracy.
 
 PHYSICAL CONSTRAINTS (use these to validate your tracking):
 - Gravity causes downward acceleration: vertical speed should increase over time when falling.
 - Horizontal velocity should remain approximately constant (no air resistance).
 - The trajectory should form a smooth parabola (or straight line for vertical/horizontal throws).
+- SELF-CHECK: After tracking, verify that your positions form a physically plausible curve. If the path looks jagged or jumpy, re-examine and correct the positions.
 
 ABSOLUTELY FORBIDDEN DEFAULT VALUES — DO NOT USE THESE:
 - objectType: "unknown object" or "unknown" — ALWAYS identify the specific object (ball, stone, bottle, etc.)
 - estimatedMass: 0.5 — only use if the object genuinely weighs ~500g
 - launchHeight: 1 — measure from the actual visual context
 - Using the same positions for different videos — each video is UNIQUE
+- aiAngle: 89.5 or 90 — NEVER default to near-vertical unless the throw is genuinely straight up
 
 IMPORTANT — OBJECT IDENTIFICATION:
 - You MUST identify the projectile specifically: "soccer ball", "basketball", "tennis ball", "stone", "bottle", "javelin", "arrow", "frisbee", etc.
 - NEVER return "unknown object" or "unknown" — if unsure, describe what you see (e.g., "small round object", "dark spherical ball")
+- If you see a ball being thrown/kicked, ALWAYS identify it even if it's small or partially visible
+- A moving object does NOT need to be in the air to be a projectile — it could be rolling, bouncing, or about to be launched
 
-ANGLE PRECISION:
-- The launch angle will be computed from your positions, so position accuracy is CRITICAL
-- Also provide your own angle estimate in aiAngle field for cross-validation
+ANGLE PRECISION (CRITICAL — YOUR ANGLE ESTIMATE IS VERY IMPORTANT):
+- The launch angle will be computed from your positions AND cross-validated with your aiAngle estimate
+- Your aiAngle MUST reflect the ACTUAL angle you observe in the video, NOT a default value
+- Measure the angle from HORIZONTAL (0° = flat throw, 45° = diagonal, 90° = straight up)
+- Most real-world throws are between 20° and 70°. Angles near 89-90° are EXTREMELY rare
+- Use the initial direction of motion of the projectile to determine the angle
+- If the projectile moves mostly horizontally with slight upward arc: angle is 10-30°
+- If the projectile moves at ~equal horizontal and vertical: angle is 40-50°
+- If the projectile moves mostly upward: angle is 60-80°
+- ONLY report 85-90° if the object goes nearly straight up (like tossing a ball directly overhead)
 
 RESPOND WITH ONLY THIS JSON (no other text, no markdown fences):
 {
@@ -628,11 +634,15 @@ If NO moving object is found at all:
       const hasVelocityAngle = velocityAngle >= 0;
 
       // Cross-validate and select best values
+      // Prefer AI-reported angle for vertical/horizontal as geometric computation
+      // from pixel positions is unreliable for near-axis motion
       if (motionType === "vertical") {
-        finalAngle = 89.5;
+        finalAngle = (typeof aiResult.aiAngle === 'number' && aiResult.aiAngle > 0 && aiResult.aiAngle < 90)
+          ? aiResult.aiAngle : 85;
         finalVelocity = linearVelocity;
       } else if (motionType === "horizontal") {
-        finalAngle = 0.5;
+        finalAngle = (typeof aiResult.aiAngle === 'number' && aiResult.aiAngle > 0 && aiResult.aiAngle < 90)
+          ? aiResult.aiAngle : 5;
         finalVelocity = linearVelocity;
       } else {
         let geoAngle = -1;
@@ -661,9 +671,19 @@ If NO moving object is found at all:
           geoVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
         }
 
-        // Use geometric results if available, otherwise fall back to AI-reported values
+        // Use geometric results if available, blended with AI-reported values
         if (geoAngle >= 0) {
-          finalAngle = geoAngle;
+          // Cross-validate with AI angle: if they disagree significantly, blend them
+          const aiAngle = typeof aiResult.aiAngle === 'number' && aiResult.aiAngle > 0 ? aiResult.aiAngle : -1;
+          if (aiAngle > 0 && Math.abs(geoAngle - aiAngle) > 20) {
+            // Large disagreement: prefer AI angle with moderate geometric influence
+            finalAngle = Math.round((aiAngle * 0.6 + geoAngle * 0.4) * 10) / 10;
+          } else if (aiAngle > 0 && Math.abs(geoAngle - aiAngle) > 10) {
+            // Moderate disagreement: average them
+            finalAngle = Math.round((aiAngle * 0.4 + geoAngle * 0.6) * 10) / 10;
+          } else {
+            finalAngle = geoAngle;
+          }
           finalVelocity = geoVelocity;
         } else if (finalAngle < 0) {
           finalAngle = hasVelocityAngle ? velocityAngle : 30;
