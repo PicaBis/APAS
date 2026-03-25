@@ -1017,10 +1017,13 @@ const Index = () => {
                             <EnergyAnalysis
                               lang={lang}
                               trajectoryData={sim.trajectoryData}
+                              currentTime={sim.currentTime}
                               mass={sim.mass}
+                              airResistance={sim.airResistance}
                               gravity={sim.gravity}
-                              height={sim.height}
                               velocity={sim.velocity}
+                              angle={sim.angle}
+                              height={sim.height}
                             />
                           </Suspense>
 

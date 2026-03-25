@@ -34,16 +34,18 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
     return trajectoryData
       .filter((_, i) => i % step === 0 || i === trajectoryData.length - 1)
       .map(p => {
-        const translationalKE = p.kineticEnergy;
+        if (!p) return null;
+        const translationalKE = p.kineticEnergy ?? 0;
+        const pe = p.potentialEnergy ?? 0;
         const totalKE = translationalKE + rotationalKE;
         return {
-          time: Number(p.time.toFixed(3)),
+          time: Number((p.time ?? 0).toFixed(3)),
           KE: Number(totalKE.toFixed(2)),
-          PE: Number(p.potentialEnergy.toFixed(2)),
-          Total: Number((totalKE + p.potentialEnergy).toFixed(2)),
+          PE: Number(pe.toFixed(2)),
+          Total: Number((totalKE + pe).toFixed(2)),
           ...(rotationalKE > 0 ? { RotKE: Number(rotationalKE.toFixed(2)) } : {}),
         };
-      });
+      }).filter((d): d is NonNullable<typeof d> => d != null);
   }, [trajectoryData, rotationalKE]);
 
   const analysis = useMemo(() => {
@@ -53,9 +55,9 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
     const first = trajectoryData[0];
     const last = trajectoryData[trajectoryData.length - 1];
 
-    const totalInitial = first.kineticEnergy + first.potentialEnergy + rotationalKE;
-    const totalCurrent = pt.kineticEnergy + pt.potentialEnergy + rotationalKE;
-    const totalFinal = last.kineticEnergy + last.potentialEnergy + rotationalKE;
+    const totalInitial = (first.kineticEnergy ?? 0) + (first.potentialEnergy ?? 0) + rotationalKE;
+    const totalCurrent = (pt.kineticEnergy ?? 0) + (pt.potentialEnergy ?? 0) + rotationalKE;
+    const totalFinal = (last.kineticEnergy ?? 0) + (last.potentialEnergy ?? 0) + rotationalKE;
     const loss = Math.max(0, totalInitial - totalCurrent);
     const totalLoss = Math.max(0, totalInitial - totalFinal);
 
@@ -63,18 +65,18 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
     const peakPt = trajectoryData.reduce((a, b) => b.potentialEnergy > a.potentialEnergy ? b : a, trajectoryData[0]);
 
     // Energy efficiency: KE at end / KE at start
-    const efficiency = first.kineticEnergy > 0 ? (last.kineticEnergy / first.kineticEnergy) * 100 : 100;
+    const efficiency = (first.kineticEnergy ?? 0) > 0 ? ((last.kineticEnergy ?? 0) / (first.kineticEnergy ?? 1)) * 100 : 100;
 
     // KE to PE conversion at peak
-    const keTopeConversion = totalInitial > 0 ? (peakPt.potentialEnergy / totalInitial) * 100 : 0;
+    const keTopeConversion = totalInitial > 0 ? ((peakPt.potentialEnergy ?? 0) / totalInitial) * 100 : 0;
 
     // Current percentages
-    const kePercent = totalCurrent > 0 ? (pt.kineticEnergy / totalCurrent) * 100 : 0;
-    const pePercent = totalCurrent > 0 ? (pt.potentialEnergy / totalCurrent) * 100 : 0;
+    const kePercent = totalCurrent > 0 ? ((pt.kineticEnergy ?? 0) / totalCurrent) * 100 : 0;
+    const pePercent = totalCurrent > 0 ? ((pt.potentialEnergy ?? 0) / totalCurrent) * 100 : 0;
 
     return {
-      ke: pt.kineticEnergy,
-      pe: pt.potentialEnergy,
+      ke: pt.kineticEnergy ?? 0,
+      pe: pt.potentialEnergy ?? 0,
       total: totalCurrent,
       totalInitial,
       loss,
@@ -83,10 +85,10 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
       keTopeConversion,
       kePercent,
       pePercent,
-      peakPE: peakPt.potentialEnergy,
-      peakHeight: peakPt.y,
-      impactKE: last.kineticEnergy,
-      impactSpeed: last.speed,
+      peakPE: peakPt.potentialEnergy ?? 0,
+      peakHeight: peakPt.y ?? 0,
+      impactKE: last.kineticEnergy ?? 0,
+      impactSpeed: last.speed ?? 0,
     };
   }, [trajectoryData, currentTime, rotationalKE]);
 
@@ -161,7 +163,7 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
                   stroke="hsl(var(--muted-foreground))"
                   tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                   width={50}
-                  tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)}
+                  tickFormatter={(v: number) => v != null && typeof v === 'number' && !isNaN(v) ? (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)) : '0'}
                 />
                 <Tooltip
                   contentStyle={{
@@ -173,7 +175,7 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
                   }}
                   formatter={(value: number, name: string) => {
                     const label = name === 'KE' ? labels.ke : name === 'PE' ? labels.pe : labels.total;
-                    return [`${value.toFixed(1)} J`, label];
+                    return [`${value != null && typeof value === 'number' && !isNaN(value) ? value.toFixed(1) : '0'} J`, label];
                   }}
                 />
                 <Legend
@@ -183,7 +185,7 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
                   wrapperStyle={{ fontSize: 11 }}
                 />
                 {/* Current time indicator */}
-                <ReferenceLine x={Number(currentTime.toFixed(3))} stroke="hsl(var(--foreground))" strokeDasharray="3 3" strokeWidth={1} />
+                <ReferenceLine x={Number((currentTime ?? 0).toFixed(3))} stroke="hsl(var(--foreground))" strokeDasharray="3 3" strokeWidth={1} />
                 <Area type="monotone" dataKey="KE" stroke="#ef4444" strokeWidth={2} fill="url(#keGrad)" dot={false} isAnimationActive={false} />
                 <Area type="monotone" dataKey="PE" stroke="#3b82f6" strokeWidth={2} fill="url(#peGrad)" dot={false} isAnimationActive={false} />
                 <Area type="monotone" dataKey="Total" stroke="#22c55e" strokeWidth={1.5} strokeDasharray="5 3" fill="url(#totalGrad)" dot={false} isAnimationActive={false} />
@@ -269,6 +271,7 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
 }
 
 function fmtE(v: number): string {
+  if (v == null || typeof v !== 'number' || isNaN(v)) return '0';
   if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
   if (v >= 1000) return `${(v / 1000).toFixed(2)}k`;
   return v.toFixed(1);
