@@ -94,7 +94,7 @@ export async function decryptData(encryptedBase64: string): Promise<string> {
     ciphertext = combined.slice(1 + SALT_LENGTH + IV_LENGTH);
   } else {
     // Legacy fallback: hardcoded salt
-    salt = new TextEncoder().encode('apas-salt-v1\0\0\0\0');
+    salt = new TextEncoder().encode('apas-salt-v1');
     iv = combined.slice(0, IV_LENGTH);
     ciphertext = combined.slice(IV_LENGTH);
   }
