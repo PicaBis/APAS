@@ -359,18 +359,19 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
                 ? 'Simulation physique avancée du mouvement des projectiles avec analyse IA, vision par ordinateur et gestion de classe'
                 : 'Advanced physics simulation of projectile motion with AI analysis, computer vision, and classroom management'}
           </div>
-          <div className="flex items-center justify-center gap-4 mt-3">
+          <div className="flex items-center justify-center gap-3 sm:gap-4 mt-4 flex-wrap">
             {(lang === 'ar'
               ? ['محاكي ثنائي وثلاثي الأبعاد', 'تحليل ذكي', 'فصل دراسي']
               : lang === 'fr'
                 ? ['Simulateur 2D/3D', 'Analyse IA', 'Classe']
                 : ['2D/3D Simulator', 'AI Analysis', 'Classroom']
             ).map((tag, i) => (
-              <span key={i} className="text-[9px] sm:text-[10px] font-mono tracking-wider px-2 py-0.5 rounded-full"
+              <span key={i} className="text-[10px] sm:text-xs font-semibold tracking-wider px-3 sm:px-4 py-1 sm:py-1.5 rounded-full"
                 style={{
-                  color: '#c9a84c',
-                  background: 'rgba(201,168,76,0.12)',
-                  border: '1px solid rgba(201,168,76,0.25)',
+                  color: '#e8d48b',
+                  background: 'rgba(201,168,76,0.15)',
+                  border: '1px solid rgba(201,168,76,0.35)',
+                  backdropFilter: 'blur(4px)',
                   opacity: phase >= 2 ? 1 : 0,
                   transform: phase >= 2 ? 'translateY(0)' : 'translateY(8px)',
                   transition: 'all 0.5s ease ' + (0.4 + i * 0.1) + 's',
@@ -379,7 +380,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
               </span>
             ))}
           </div>
-          <div className="text-xs font-mono tracking-wider mt-3" style={{ color: '#6b7db5' }}>
+          <div className="text-xs sm:text-sm font-mono tracking-wider mt-3 font-medium" style={{ color: '#8090c0' }}>
             v1.1
           </div>
         </div>
@@ -392,20 +393,28 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
           marginTop: '32px',
         }}>
           <div className="w-64 sm:w-80 mx-auto relative">
-            <div className="h-[3px] rounded-full overflow-hidden relative" style={{ background: 'rgba(107,125,181,0.15)' }}>
+            <div className="h-[4px] rounded-full overflow-hidden relative" style={{ background: 'rgba(107,125,181,0.2)' }}>
               <div className="h-full rounded-full transition-all duration-200 ease-out"
                 style={{
                   width: Math.min(loadingProgress, 100) + '%',
                   background: 'linear-gradient(90deg, rgba(45,58,110,0.7), rgba(201,168,76,0.9), rgba(107,125,181,0.7))',
                 }} />
             </div>
-            <div className="flex justify-between mt-3">
-              <span className="text-[10px] font-mono tracking-[0.3em] uppercase font-semibold" style={{ color: '#8890b0' }}>
+            <div className="flex justify-between items-center mt-3">
+              <span className="text-xs sm:text-sm font-bold tracking-[0.2em] uppercase" style={{ 
+                color: loadingProgress >= 100 ? '#c9a84c' : '#b0b8d0',
+                textShadow: loadingProgress >= 100 ? '0 0 12px rgba(201,168,76,0.4)' : 'none',
+                transition: 'all 0.5s ease',
+              }}>
                 {loadingProgress >= 100
-                  ? (lang === 'ar' ? '▸ جاهز' : '▸ READY')
-                  : (lang === 'ar' ? '▸ تحميل...' : '▸ LOADING...')}
+                  ? (lang === 'ar' ? '✦ جاهز' : '✦ READY')
+                  : (lang === 'ar' ? '⟳ تحميل...' : '⟳ LOADING...')}
               </span>
-              <span className="text-[10px] font-mono tabular-nums font-semibold" style={{ color: '#8890b0' }}>
+              <span className="text-xs sm:text-sm font-bold font-mono tabular-nums" style={{ 
+                color: loadingProgress >= 100 ? '#c9a84c' : '#b0b8d0',
+                textShadow: loadingProgress >= 100 ? '0 0 12px rgba(201,168,76,0.4)' : 'none',
+                transition: 'all 0.5s ease',
+              }}>
                 {Math.min(Math.round(loadingProgress), 100)}%
               </span>
             </div>
@@ -421,25 +430,32 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
           pointerEvents: loadingProgress >= 100 && phase >= 3 ? 'auto' : 'none',
         }}>
           <button onClick={handleEnterSystem}
-            className="group relative px-12 py-3.5 font-mono tracking-[0.3em] text-xs uppercase overflow-hidden transition-all duration-300 hover:shadow-lg"
+            className="group relative px-14 sm:px-16 py-4 sm:py-5 font-bold tracking-[0.25em] text-sm sm:text-base uppercase overflow-hidden transition-all duration-400 hover:shadow-2xl"
             style={{
-              color: '#c9a84c',
-              background: 'transparent',
-              border: '2px solid rgba(201,168,76,0.4)',
-              borderRadius: '4px',
+              color: '#f0e6c0',
+              background: 'linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.08))',
+              border: '2px solid rgba(201,168,76,0.5)',
+              borderRadius: '8px',
+              boxShadow: '0 0 20px rgba(201,168,76,0.15), inset 0 1px 0 rgba(255,255,255,0.05)',
+              letterSpacing: '0.25em',
+              textShadow: '0 1px 8px rgba(201,168,76,0.3)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(201,168,76,0.8)';
-              e.currentTarget.style.background = 'rgba(201,168,76,0.1)';
-              e.currentTarget.style.color = '#e8c85a';
+              e.currentTarget.style.borderColor = 'rgba(201,168,76,0.9)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(201,168,76,0.35), rgba(201,168,76,0.15))';
+              e.currentTarget.style.color = '#fff5d4';
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(201,168,76,0.3), inset 0 1px 0 rgba(255,255,255,0.1)';
+              e.currentTarget.style.transform = 'scale(1.03)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)';
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = '#c9a84c';
+              e.currentTarget.style.borderColor = 'rgba(201,168,76,0.5)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.08))';
+              e.currentTarget.style.color = '#f0e6c0';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(201,168,76,0.15), inset 0 1px 0 rgba(255,255,255,0.05)';
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            {lang === 'ar' ? '◆ دخول النظام ◆' : lang === 'fr' ? '◆ ENTRER ◆' : '◆ ENTER SYSTEM ◆'}
+            {'◆  ENTER  SYSTEM  ◆'}
           </button>
           <div className="flex items-center justify-center gap-1.5 mt-5">
             {[0, 1, 2].map((i) => (
