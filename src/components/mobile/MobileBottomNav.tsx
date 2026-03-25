@@ -1,5 +1,6 @@
 import React from 'react';
 import { Home, Activity, BarChart3, Bookmark, Wrench } from 'lucide-react';
+import { playNav } from '@/utils/sound';
 
 type Tab = 'home' | 'simulation' | 'analysis' | 'saved' | 'settings';
 
@@ -7,9 +8,10 @@ interface MobileBottomNavProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   lang: string;
+  isMuted?: boolean;
 }
 
-const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange, lang }) => {
+const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange, lang, isMuted = false }) => {
   const isRTL = lang === 'ar';
 
   const tabs: { id: Tab; icon: React.FC<{ className?: string }>; labelAr: string; labelEn: string; labelFr: string }[] = [
@@ -32,10 +34,10 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* Glass background */}
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-xl border-t border-border/50" />
+      <div className="absolute inset-0 bg-background/85 backdrop-blur-xl border-t border-border/40 shadow-[0_-2px_20px_rgba(0,0,0,0.08)]" />
       
       {/* Safe area padding for notched phones */}
-      <div className="relative flex items-center justify-around px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+      <div className="relative flex items-center justify-around px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -43,21 +45,22 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
             <button
               key={tab.id}
               onClick={() => {
+                playNav(isMuted);
                 onTabChange(tab.id);
               }}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-300 min-w-[3.5rem] touch-manipulation ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 px-2.5 rounded-2xl transition-all duration-300 min-w-[3.5rem] touch-manipulation select-none ${
                 isActive
-                  ? 'text-primary scale-105'
-                  : 'text-muted-foreground active:scale-95'
+                  ? 'text-primary scale-[1.08]'
+                  : 'text-muted-foreground active:scale-90 hover:text-foreground/70'
               }`}
             >
-              <div className={`relative p-1 rounded-lg transition-all duration-300 ${isActive ? 'bg-primary/15' : ''}`}>
-                <Icon className={`w-5 h-5 transition-all duration-300 ${isActive ? 'text-primary' : ''}`} />
+              <div className={`relative p-1.5 rounded-xl transition-all duration-300 ${isActive ? 'bg-primary/15 shadow-sm shadow-primary/10' : ''}`}>
+                <Icon className={`w-[18px] h-[18px] transition-all duration-300 ${isActive ? 'text-primary drop-shadow-sm' : ''}`} />
                 {isActive && (
-                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-primary" />
                 )}
               </div>
-              <span className={`text-[10px] font-medium transition-all duration-300 ${isActive ? 'text-primary font-semibold' : ''}`}>
+              <span className={`text-[9px] font-medium transition-all duration-300 leading-tight ${isActive ? 'text-primary font-bold' : ''}`}>
                 {getLabel(tab)}
               </span>
             </button>

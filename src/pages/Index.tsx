@@ -488,6 +488,8 @@ const Index = () => {
             onOpenSubject={() => setShowMobileSubject(true)}
             onOpenVoice={() => setShowMobileVoice(true)}
             onOpenCalculations={() => setShowMobileCalculationsModal(true)}
+            onOpenSettings={() => setShowSettingsPanel(true)}
+            hasAnalyzedMedia={!!lastAnalyzedMediaSrc}
           />
 
           {/* Mobile Main Content */}
@@ -497,33 +499,55 @@ const Index = () => {
               <div className="px-3 py-3 space-y-3">
                 {/* Canvas */}
                 <div ref={canvasContainerRef} className="relative rounded-xl overflow-hidden border border-border/30 bg-card/30">
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <h2 className="text-xs font-semibold text-foreground flex items-center gap-2">
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <h2 className="text-xs font-semibold text-foreground flex items-center gap-1.5 shrink-0">
                       <span className={pathDotClass} />
-                      {lang === 'ar' ? 'مسار المقذوف' : 'Projectile Path'}
+                      {lang === 'ar' ? 'المسار' : 'Path'}
                     </h2>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setCanvasZoom(z => Math.max(0.5, z - 0.25))}
-                        className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground">
-                        <ZoomOut className="w-3.5 h-3.5" />
+                    {/* Canvas toolbar - matching desktop design */}
+                    <div className="flex items-center gap-0.5 bg-secondary/40 backdrop-blur-sm rounded-xl px-1 py-0.5 border border-border/30">
+                      {/* Zoom group */}
+                      <button onClick={() => { setCanvasZoom(z => Math.max(0.5, z - 0.25)); playClick(sim.isMuted); }}
+                        className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200 active:scale-90">
+                        <ZoomOut className="w-3 h-3" />
                       </button>
-                      <span className="text-[9px] font-mono text-muted-foreground w-7 text-center">{Math.round(canvasZoom * 100)}%</span>
-                      <button onClick={() => setCanvasZoom(z => Math.min(3, z + 0.25))}
-                        className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground">
-                        <ZoomIn className="w-3.5 h-3.5" />
+                      <span className="text-[8px] font-mono text-muted-foreground w-6 text-center">{Math.round(canvasZoom * 100)}%</span>
+                      <button onClick={() => { setCanvasZoom(z => Math.min(3, z + 0.25)); playClick(sim.isMuted); }}
+                        className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200 active:scale-90">
+                        <ZoomIn className="w-3 h-3" />
                       </button>
-                      <button onClick={() => { if (!webglError) setIs3DMode(!is3DMode); }}
-                        className={is3DMode ? 'p-1.5 rounded-lg bg-primary text-primary-foreground' : 'p-1.5 rounded-lg text-muted-foreground hover:bg-primary/10'}>
-                        <Box className="w-3.5 h-3.5" />
+                      <div className="w-px h-4 bg-border/50 mx-0.5" />
+                      {/* 3D toggle */}
+                      <button onClick={() => { if (!webglError) { setIs3DMode(!is3DMode); playClick(sim.isMuted); } }}
+                        className={`p-1 rounded-md transition-all duration-200 active:scale-90 ${is3DMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
+                        <Box className="w-3 h-3" />
                       </button>
-                      <button onClick={() => setShowGrid(g => !g)}
-                        className={showGrid ? 'p-1.5 rounded-lg bg-primary text-primary-foreground' : 'p-1.5 rounded-lg text-muted-foreground hover:bg-primary/10'}>
-                        <Grid3x3 className="w-3.5 h-3.5" />
+                      <div className="w-px h-4 bg-border/50 mx-0.5" />
+                      {/* Screenshot */}
+                      <button onClick={() => { exportSimulationPNG(); playClick(sim.isMuted); }}
+                        className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200 active:scale-90">
+                        <Camera className="w-3 h-3" />
                       </button>
-                      {/* Fullscreen button */}
+                      <div className="w-px h-4 bg-border/50 mx-0.5" />
+                      {/* Live Data (Eye) */}
+                      <button onClick={() => { setShowLiveData(v => !v); playClick(sim.isMuted); }}
+                        className={`p-1 rounded-md transition-all duration-200 active:scale-90 ${showLiveData ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
+                        {showLiveData ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                      </button>
+                      {/* Grid */}
+                      <button onClick={() => { setShowGrid(g => !g); playClick(sim.isMuted); }}
+                        className={`p-1 rounded-md transition-all duration-200 active:scale-90 ${showGrid ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
+                        <Grid3x3 className="w-3 h-3" />
+                      </button>
+                      {/* Focus Mode */}
+                      <button onClick={() => { setIsFocusMode(f => !f); playClick(sim.isMuted); }}
+                        className={`p-1 rounded-md transition-all duration-200 active:scale-90 ${isFocusMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
+                        <Focus className="w-3 h-3" />
+                      </button>
+                      {/* Fullscreen */}
                       <button onClick={() => setMobileFullscreen(true)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:bg-primary/10">
-                        <Maximize className="w-3.5 h-3.5" />
+                        className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200 active:scale-90">
+                        <Maximize className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
@@ -653,34 +677,46 @@ const Index = () => {
                     <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showMobileDisplayOptions ? 'rotate-180' : ''}`} />
                   </button>
                   {showMobileDisplayOptions && (
-                    <div className="px-3 pb-3 space-y-2 border-t border-border/30 pt-2">
-                      {/* Environment */}
-                      <button
-                        onClick={() => { setShowEnvSelector(true); playClick(sim.isMuted); }}
-                        className="group w-full text-[11px] font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
-                      >
-                        <Globe2 className="w-3.5 h-3.5" />
-                        {lang === 'ar' ? 'اختيار البيئة' : 'Environment'}
-                        <span className="text-[10px] text-muted-foreground">
-                          {ENVIRONMENTS.find(e => e.id === currentEnvId)?.emoji} {ENVIRONMENTS.find(e => e.id === currentEnvId)?.name[lang as 'ar' | 'en' | 'fr']}
-                        </span>
-                      </button>
-                      {/* Critical Points */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                          <Crosshair className="w-3.5 h-3.5" />
-                          {lang === 'ar' ? 'النقاط الحرجة' : 'Critical Points'}
-                        </span>
-                        <Switch checked={sim.showCriticalPoints} onCheckedChange={() => sim.setShowCriticalPoints(!sim.showCriticalPoints)} />
+                    <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-2">
+                      {/* Switches group */}
+                      <div className="space-y-1 p-2 rounded-xl bg-secondary/20 border border-border/20">
+                        <p className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-wider mb-1.5 px-1">{lang === 'ar' ? 'التبديلات' : 'Toggles'}</p>
+                        {/* Critical Points */}
+                        <div className="flex items-center justify-between py-1.5 px-1">
+                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
+                            <Crosshair className="w-3.5 h-3.5 text-primary/70" />
+                            {lang === 'ar' ? 'النقاط الحرجة' : 'Critical Points'}
+                          </span>
+                          <Switch checked={sim.showCriticalPoints} onCheckedChange={() => { sim.setShowCriticalPoints(!sim.showCriticalPoints); playToggle(sim.isMuted, !sim.showCriticalPoints); }} />
+                        </div>
+                        {/* External Forces */}
+                        <div className="flex items-center justify-between py-1.5 px-1">
+                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
+                            <Activity className="w-3.5 h-3.5 text-primary/70" />
+                            {lang === 'ar' ? 'القوى الخارجية' : 'External Forces'}
+                          </span>
+                          <Switch checked={sim.showExternalForces} onCheckedChange={() => { sim.setShowExternalForces(!sim.showExternalForces); playToggle(sim.isMuted, !sim.showExternalForces); }} />
+                        </div>
+                        {/* Bouncing */}
+                        <div className="flex items-center justify-between py-1.5 px-1">
+                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
+                            <ArrowDownUp className="w-3.5 h-3.5 text-primary/70" />
+                            {lang === 'ar' ? 'ارتداد المقذوف' : 'Bouncing'}
+                          </span>
+                          <Switch checked={sim.enableBounce} onCheckedChange={(checked) => { sim.setEnableBounce(checked); playToggle(sim.isMuted, checked); }} />
+                        </div>
+                        {sim.enableBounce && (
+                          <div className="px-1 pb-1">
+                            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                              <span>{lang === 'ar' ? 'معامل الارتداد' : 'COR'}</span>
+                              <span className="font-mono">{sim.bounceCoefficient.toFixed(2)}</span>
+                            </div>
+                            <Slider value={[sim.bounceCoefficient]} min={0.1} max={0.95} step={0.05}
+                              onValueChange={([v]) => { sim.setBounceCoefficient(v); playSliderChange(sim.isMuted); }} />
+                          </div>
+                        )}
                       </div>
-                      {/* External Forces */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                          <Activity className="w-3.5 h-3.5" />
-                          {lang === 'ar' ? 'القوى الخارجية' : 'External Forces'}
-                        </span>
-                        <Switch checked={sim.showExternalForces} onCheckedChange={() => sim.setShowExternalForces(!sim.showExternalForces)} />
-                      </div>
+
                       {/* Force Vectors */}
                       <ForceVectorsSection
                         lang={lang}
@@ -691,51 +727,33 @@ const Index = () => {
                         isWaterEnvironment={currentEnvId === 'underwater'}
                         hydrodynamicEnabled={advancedPhysics.enableHydrodynamicDrag || advancedPhysics.isUnderwater}
                       />
-                      {/* Live Data */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                          <Eye className="w-3.5 h-3.5" />
-                          {lang === 'ar' ? 'البيانات الحية' : 'Live Data'}
-                        </span>
-                        <Switch checked={showLiveData} onCheckedChange={() => setShowLiveData(!showLiveData)} />
+
+                      {/* Buttons group */}
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-wider px-1">{lang === 'ar' ? 'الإجراءات' : 'Actions'}</p>
+                        {/* Environment */}
+                        <button
+                          onClick={() => { setShowEnvSelector(true); playClick(sim.isMuted); }}
+                          className="group w-full text-[11px] font-medium py-2.5 px-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                        >
+                          <Globe2 className="w-3.5 h-3.5" />
+                          {lang === 'ar' ? 'اختيار البيئة' : 'Environment'}
+                          <span className="text-[10px] text-muted-foreground">
+                            {ENVIRONMENTS.find(e => e.id === currentEnvId)?.emoji} {ENVIRONMENTS.find(e => e.id === currentEnvId)?.name[lang as 'ar' | 'en' | 'fr']}
+                          </span>
+                        </button>
+                        {/* Stroboscopic */}
+                        <button
+                          onClick={() => { setShowStroboscopicModal(true); playClick(sim.isMuted); }}
+                          className={`group w-full text-[11px] font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] ${stroboscopicSettings.enabled ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md' : 'text-foreground border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md'}`}
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          {lang === 'ar' ? 'التصوير المتعاقب' : 'Stroboscopic'}
+                          {stroboscopicSettings.enabled && (
+                            <span className="text-[10px] opacity-80">&Delta;t={stroboscopicSettings.deltaT}s</span>
+                          )}
+                        </button>
                       </div>
-                      {/* Grid */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                          <Grid3x3 className="w-3.5 h-3.5" />
-                          {lang === 'ar' ? 'الشبكة' : 'Grid'}
-                        </span>
-                        <Switch checked={showGrid} onCheckedChange={() => setShowGrid(!showGrid)} />
-                      </div>
-                      {/* Stroboscopic */}
-                      <button
-                        onClick={() => { setShowStroboscopicModal(true); playClick(sim.isMuted); }}
-                        className={`group w-full text-[11px] font-medium py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-all duration-200 ${stroboscopicSettings.enabled ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md' : 'text-foreground border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md'}`}
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        {lang === 'ar' ? 'التصوير المتعاقب' : 'Stroboscopic'}
-                        {stroboscopicSettings.enabled && (
-                          <span className="text-[10px] opacity-80">&Delta;t={stroboscopicSettings.deltaT}s</span>
-                        )}
-                      </button>
-                      {/* Bouncing */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                          <ArrowDownUp className="w-3.5 h-3.5" />
-                          {lang === 'ar' ? 'ارتداد المقذوف' : 'Bouncing'}
-                        </span>
-                        <Switch checked={sim.enableBounce} onCheckedChange={(checked) => { sim.setEnableBounce(checked); playToggle(sim.isMuted, checked); }} />
-                      </div>
-                      {sim.enableBounce && (
-                        <div className="px-1 pb-1">
-                          <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                            <span>{lang === 'ar' ? 'معامل الارتداد' : 'COR'}</span>
-                            <span className="font-mono">{sim.bounceCoefficient.toFixed(2)}</span>
-                          </div>
-                          <Slider value={[sim.bounceCoefficient]} min={0.1} max={0.95} step={0.05}
-                            onValueChange={([v]) => { sim.setBounceCoefficient(v); playSliderChange(sim.isMuted); }} />
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -996,51 +1014,7 @@ const Index = () => {
                       </button>
                       {showMobileAnalyticsErrors && (
                         <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-2">
-                          {/* Dynamic Analytics Dashboard */}
-                          <Suspense fallback={<div className="flex items-center justify-center py-4"><AnimatedLoadingSpinner /></div>}>
-                            <DynamicAnalyticsDashboard
-                              lang={lang}
-                              trajectoryData={sim.trajectoryData}
-                              prediction={sim.prediction}
-                              velocity={sim.velocity}
-                              angle={sim.angle}
-                              height={sim.height}
-                              gravity={sim.gravity}
-                              airResistance={sim.airResistance}
-                              mass={sim.mass}
-                              integrationMethod={sim.selectedIntegrationMethod}
-                            />
-                          </Suspense>
-
-                          {/* Energy Analysis */}
-                          <Suspense fallback={<div className="flex items-center justify-center py-4"><AnimatedLoadingSpinner /></div>}>
-                            <EnergyAnalysis
-                              lang={lang}
-                              trajectoryData={sim.trajectoryData}
-                              currentTime={sim.currentTime}
-                              mass={sim.mass}
-                              airResistance={sim.airResistance}
-                              gravity={sim.gravity}
-                              velocity={sim.velocity}
-                              angle={sim.angle}
-                              height={sim.height}
-                            />
-                          </Suspense>
-
-                          {/* Monte Carlo Panel */}
-                          <Suspense fallback={<div className="flex items-center justify-center py-4"><AnimatedLoadingSpinner /></div>}>
-                            <MonteCarloPanel
-                              lang={lang}
-                              velocity={sim.velocity}
-                              angle={sim.angle}
-                              height={sim.height}
-                              gravity={sim.gravity}
-                              mass={sim.mass}
-                              airResistance={sim.airResistance}
-                            />
-                          </Suspense>
-
-                          {/* Error Analysis Summary */}
+                          {/* Error Analysis Summary - static data only */}
                           <div className="p-3 rounded-xl bg-card/60 border border-border/30">
                             <p className="text-[11px] font-semibold text-foreground flex items-center gap-1.5 mb-2">
                               <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
@@ -1205,17 +1179,6 @@ const Index = () => {
                   </div>
                 </div>
 
-                {/* Sound Toggle */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
-                  <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'الصوت' : lang === 'fr' ? 'Son' : 'Sound'}</span>
-                  <Switch checked={!sim.isMuted} onCheckedChange={(checked) => { sim.setIsMuted(!checked); playToggle(sim.isMuted, checked); }} />
-                </div>
-
-                {/* Night Mode */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
-                  <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'الوضع الليلي' : lang === 'fr' ? 'Mode nuit' : 'Night Mode'}</span>
-                  <Switch checked={sim.nightMode} onCheckedChange={(checked) => { sim.setNightMode(checked); playToggle(sim.isMuted, checked); }} />
-                </div>
               </div>
             )}
           </div>
@@ -1243,6 +1206,7 @@ const Index = () => {
             activeTab={mobileActiveTab}
             onTabChange={setMobileActiveTab}
             lang={lang}
+            isMuted={sim.isMuted}
           />
 
           {/* Mobile APAS Feature Components — direct access via autoOpen (no intermediate bottom sheet) */}
