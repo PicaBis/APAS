@@ -236,7 +236,7 @@ const ScientificCalculator: React.FC<ScientificCalculatorProps> = ({ open, onClo
   const btnBase = 'text-xs font-medium py-2 px-1 rounded-lg transition-all duration-150 active:scale-95 select-none';
   const btnNum = `${btnBase} bg-secondary/80 hover:bg-secondary text-foreground border border-border/30`;
   const btnOp = `${btnBase} bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20`;
-  const btnFn = `${btnBase} bg-card hover:bg-primary/10 text-muted-foreground hover:text-foreground border border-border/30 text-[10px]`;
+  const btnFn = `${btnBase} bg-card hover:bg-primary/10 text-muted-foreground hover:text-foreground border border-border/30 text-xs`;
   const btnEq = `${btnBase} bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border border-primary/50 shadow-md shadow-primary/20 col-span-2`;
 
   return (
@@ -282,7 +282,7 @@ const ScientificCalculator: React.FC<ScientificCalculatorProps> = ({ open, onClo
 
         {/* Display */}
         <div className="px-3 py-2 bg-secondary/30">
-          <div className="text-[9px] text-muted-foreground h-4 text-right font-mono truncate" dir="ltr">
+          <div className="text-xs text-muted-foreground h-4 text-right font-mono truncate" dir="ltr">
             {history}
           </div>
           <div className="text-right text-xl font-mono font-bold text-foreground truncate min-h-[32px] leading-8" dir="ltr">
@@ -292,22 +292,22 @@ const ScientificCalculator: React.FC<ScientificCalculatorProps> = ({ open, onClo
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsRadians(!isRadians)}
-                className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium"
+                className="text-[10px] px-2 py-1 rounded bg-primary/10 text-primary font-medium"
               >
                 {isRadians ? 'RAD' : 'DEG'}
               </button>
               <button
                 onClick={() => setIsSecondFn(!isSecondFn)}
-                className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${isSecondFn ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}
+                className={`text-[10px] px-2 py-1 rounded font-medium ${isSecondFn ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}
               >
                 2nd
               </button>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={() => { setMemory(memory + parseFloat(display)); }} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">M+</button>
-              <button onClick={() => { setMemory(memory - parseFloat(display)); }} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">M−</button>
-              <button onClick={() => { setDisplay(String(memory)); setResetNext(true); }} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">MR</button>
-              <button onClick={() => setMemory(0)} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">MC</button>
+              <button onClick={() => { setMemory(memory + parseFloat(display)); }} className="text-[10px] px-2 py-1 rounded bg-secondary text-muted-foreground">M+</button>
+              <button onClick={() => { setMemory(memory - parseFloat(display)); }} className="text-[10px] px-2 py-1 rounded bg-secondary text-muted-foreground">M−</button>
+              <button onClick={() => { setDisplay(String(memory)); setResetNext(true); }} className="text-[10px] px-2 py-1 rounded bg-secondary text-muted-foreground">MR</button>
+              <button onClick={() => setMemory(0)} className="text-[10px] px-2 py-1 rounded bg-secondary text-muted-foreground">MC</button>
             </div>
           </div>
         </div>

@@ -43,16 +43,16 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
   };
 
   const StatRow = ({ label, stat }: { label: string; stat: { mean: number; stdDev: number; ci95Low: number; ci95High: number } }) => (
-    <div className="bg-secondary/30 rounded-lg p-2.5 space-y-1">
-      <p className="text-[10px] font-semibold text-foreground">{label}</p>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px] font-mono text-muted-foreground">
+    <div className="bg-secondary/30 rounded-lg p-3.5 space-y-2">
+      <p className="text-sm font-bold text-foreground">{label}</p>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs font-mono text-muted-foreground">
         <span>{t('المتوسط', 'Mean', 'Moyenne')}: <strong className="text-foreground">{stat.mean.toFixed(3)}</strong></span>
         <span>σ: <strong className="text-foreground">{stat.stdDev.toFixed(3)}</strong></span>
         <span>CI 2.5%: <strong className="text-foreground">{stat.ci95Low.toFixed(3)}</strong></span>
         <span>CI 97.5%: <strong className="text-foreground">{stat.ci95High.toFixed(3)}</strong></span>
       </div>
       {/* Simple visual bar showing CI range */}
-      <div className="relative h-2 bg-secondary rounded-full overflow-hidden mt-1">
+      <div className="relative h-2.5 bg-secondary rounded-full overflow-hidden mt-1.5">
         {(() => {
           const range = stat.ci95High - stat.ci95Low;
           const fullRange = stat.mean * 2 || 1;
@@ -80,12 +80,12 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
         </h3>
         <div className="flex items-center gap-2">
           {!expanded && (
-            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono animate-slideDown">
-              <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono animate-slideDown">
+              <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
                 {iterations.toLocaleString()} {t('تكرار', 'runs', 'sim.')}
               </span>
               {result && (
-                <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400">
+                <span className="px-2 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400">
                   ±{uncertainty}%
                 </span>
               )}
@@ -98,8 +98,8 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
       </button>
 
       {expanded && (
-        <div className="px-3 pb-3 border-t border-border space-y-2 pt-2 animate-slideDown">
-          <p className="text-[10px] text-muted-foreground leading-relaxed">
+        <div className="px-4 pb-4 border-t border-border space-y-3 pt-3 animate-slideDown">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             {t(
               'تحليل تأثير عدم الدقة في القياسات على النتائج بتشغيل آلاف المحاكاة بقيم عشوائية ضمن نطاق الشك.',
               'Analyze how measurement uncertainty affects results by running thousands of simulations with randomized parameters.',
@@ -108,15 +108,15 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
           </p>
 
           {/* Controls */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-muted-foreground block mb-1">
+              <label className="text-xs font-medium text-muted-foreground block mb-1.5">
                 {t('عدد التكرارات', 'Iterations', 'Itérations')}
               </label>
               <select
                 value={iterations}
                 onChange={(e) => setIterations(Number(e.target.value))}
-                className="w-full text-xs px-2 py-1.5 rounded border border-border bg-secondary/30 text-foreground"
+                className="w-full text-sm px-2.5 py-2 rounded-lg border border-border bg-secondary/30 text-foreground"
               >
                 <option value={100}>100</option>
                 <option value={500}>500</option>
@@ -126,16 +126,16 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-muted-foreground block mb-1">
+              <label className="text-xs font-medium text-muted-foreground block mb-1.5">
                 {t('نسبة الشك ±', 'Uncertainty ±', 'Incertitude ±')}
               </label>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="number"
                   value={uncertainty}
                   onChange={(e) => setUncertainty(Math.max(1, Math.min(50, Number(e.target.value))))}
                   min={1} max={50} step={1}
-                  className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-secondary/30 text-foreground"
+                  className="flex-1 text-sm px-2.5 py-2 rounded-lg border border-border bg-secondary/30 text-foreground"
                   dir="ltr"
                 />
                 <span className="text-xs text-muted-foreground">%</span>
@@ -146,7 +146,7 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
           <button
             onClick={handleRun}
             disabled={running}
-            className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-3 text-sm font-semibold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 hover:shadow-lg"
           >
             {running ? (
               <>
@@ -163,8 +163,8 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
 
           {/* Results */}
           {result && (
-            <div className="space-y-1.5 animate-slideDown">
-              <p className="text-[10px] font-semibold text-primary">
+            <div className="space-y-2.5 animate-slideDown">
+              <p className="text-xs font-bold text-primary">
                 {t(`النتائج (${iterations} تكرار, ±${uncertainty}%)`, `Results (${iterations} runs, ±${uncertainty}%)`, `Résultats (${iterations} sim., ±${uncertainty}%)`)}
               </p>
               <StatRow label={t('المدى (m)', 'Range (m)', 'Portée (m)')} stat={result.range} />

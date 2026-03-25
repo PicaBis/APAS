@@ -44,9 +44,9 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
             ].map(({ label, value, unit, icon }) => (
               <div key={label} className="text-center p-3 bg-card/60 rounded-xl border border-border/30 transition-all duration-300 hover:bg-card/80 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 group">
                 <div className="text-base mb-1 transition-transform duration-300 group-hover:scale-110">{icon}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-medium">{label}</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-medium">{label}</div>
                 <AnimatedValue value={value} className="text-lg font-bold font-mono text-primary" />
-                <div className="text-[9px] text-muted-foreground mt-0.5">{unit}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{unit}</div>
               </div>
             ))}
           </div>
@@ -78,10 +78,10 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
                   { label: lang === 'ar' ? 'متوسط السرعة' : lang === 'fr' ? 'Vitesse Moyenne' : 'Avg Speed', val: `${prediction.averageSpeed.toFixed(2)} ${T.u_ms}`, icon: '⚡' },
                   { label: lang === 'ar' ? 'الشغل المبذول' : lang === 'fr' ? 'Travail Effectué' : 'Work Done', val: `${prediction.workDone.toFixed(2)} ${T.u_J}`, icon: '⚙️' },
                 ].map(({ label, val, icon }) => (
-                  <div key={label} className="bg-background/60 rounded-md p-2 text-center border border-border/30">
-                    <div className="text-xs mb-0.5">{icon}</div>
-                    <div className="text-[9px] text-muted-foreground mb-0.5">{label}</div>
-                    <div className="text-xs font-semibold font-mono text-foreground">{val}</div>
+                  <div key={label} className="bg-background/60 rounded-lg p-3 text-center border border-border/30">
+                    <div className="text-sm mb-1">{icon}</div>
+                    <div className="text-[11px] text-muted-foreground mb-1">{label}</div>
+                    <div className="text-sm font-bold font-mono text-foreground">{val}</div>
                   </div>
                 ))}
               </div>

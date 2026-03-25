@@ -108,7 +108,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 setSelectedIntegrationMethod(method.id);
                 playClick(isMuted);
               }}
-              className={`px-2 py-2 text-[10px] rounded-lg transition-all duration-300 font-medium ${
+              className={`px-2 py-2.5 text-xs rounded-lg transition-all duration-300 font-semibold ${
                 selectedIntegrationMethod === method.id
                   ? `bg-gradient-to-r ${method.color} text-white shadow-md border border-transparent`
                   : 'bg-secondary/50 hover:bg-primary/10 text-foreground border border-border/50 hover:border-primary/20'
@@ -118,7 +118,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             </button>
           ))}
         </div>
-        <p className="text-[9px] text-muted-foreground text-center mt-2.5">
+        <p className="text-xs text-muted-foreground text-center mt-2.5">
           {selectedIntegrationMethod === 'ai-apas' 
             ? (lang === 'ar' ? '🤖 دقة فائقة 99.7%' : '🤖 Ultra-accurate 99.7%')
             : selectedIntegrationMethod === 'rk4'

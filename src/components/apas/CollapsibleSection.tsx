@@ -16,12 +16,12 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, open, to
     <div className="border border-border/40 rounded-xl overflow-hidden bg-card/50 backdrop-blur-sm transition-all duration-300 hover:border-border/60">
       <button onClick={() => { toggle(); playSectionToggle(false); }}
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group">
-        <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+        <span className="text-sm font-bold text-foreground flex items-center gap-2">
           {title}
         </span>
         <div className="flex items-center gap-2">
           {!open && miniPreview && (
-            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono animate-slideDown">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono animate-slideDown">
               {miniPreview}
             </span>
           )}

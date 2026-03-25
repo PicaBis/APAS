@@ -116,10 +116,10 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
         </h3>
         <div className="flex items-center gap-2">
           {!isOpen && (
-            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono animate-slideDown">
-              <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400">KE</span>
-              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">PE</span>
-              <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono animate-slideDown">
+              <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400">KE</span>
+              <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">PE</span>
+              <span className="px-2 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400">
                 {t('الكلية', 'Totale', 'Total')}
               </span>
             </span>
@@ -203,7 +203,7 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
 
           {/* Energy Bar */}
           <div className="bg-secondary/30 rounded-lg p-3 border border-border/30">
-            <p className="text-[10px] text-muted-foreground mb-2 font-medium">
+            <p className="text-xs text-muted-foreground mb-2 font-medium">
               {t('توزيع الطاقة الحالي', 'Distribution actuelle', 'Current Energy Distribution')}
             </p>
             <div className="h-3 rounded-full overflow-hidden flex bg-secondary">
@@ -216,7 +216,7 @@ export default function EnergyAnalysis({ lang, trajectoryData, currentTime, mass
                 style={{ width: `${analysis.pePercent}%`, backgroundColor: '#3b82f6' }}
               />
             </div>
-            <div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground">
+            <div className="flex justify-between mt-2 text-xs text-muted-foreground">
               <span>{labels.ke}: {analysis.kePercent.toFixed(1)}%</span>
               <span>{labels.pe}: {analysis.pePercent.toFixed(1)}%</span>
             </div>
@@ -276,13 +276,13 @@ function fmtE(v: number): string {
 
 function InfoCard({ color, label, value, unit, percent }: { color: string; label: string; value: number; unit: string; percent?: number }) {
   return (
-    <div className="bg-secondary/30 rounded-lg p-2.5 text-center border border-border/30">
-      <div className="w-2.5 h-2.5 rounded-full mx-auto mb-1.5" style={{ backgroundColor: color }} />
-      <div className="text-[10px] text-muted-foreground mb-1 font-medium leading-tight">{label}</div>
-      <div className="text-sm font-bold font-mono text-foreground">{fmtE(value)}</div>
-      <div className="text-[9px] text-muted-foreground">{unit}</div>
+    <div className="bg-secondary/30 rounded-lg p-3.5 text-center border border-border/30">
+      <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ backgroundColor: color }} />
+      <div className="text-xs text-muted-foreground mb-1 font-medium leading-tight">{label}</div>
+      <div className="text-base font-bold font-mono text-foreground">{fmtE(value)}</div>
+      <div className="text-xs text-muted-foreground mt-0.5">{unit}</div>
       {percent !== undefined && (
-        <div className="text-[9px] font-mono text-muted-foreground mt-0.5">{percent.toFixed(1)}%</div>
+        <div className="text-xs font-mono text-muted-foreground mt-0.5">{percent.toFixed(1)}%</div>
       )}
     </div>
   );
@@ -290,11 +290,11 @@ function InfoCard({ color, label, value, unit, percent }: { color: string; label
 
 function DetailCard({ icon, label, value, sub }: { icon: string; label: string; value: string; sub?: string }) {
   return (
-    <div className="bg-background/60 rounded-md p-2 text-center border border-border/30">
-      <div className="text-xs mb-0.5">{icon}</div>
-      <div className="text-[9px] text-muted-foreground mb-0.5">{label}</div>
-      <div className="text-xs font-semibold font-mono text-foreground">{value}</div>
-      {sub && <div className="text-[8px] text-muted-foreground mt-0.5">{sub}</div>}
+    <div className="bg-background/60 rounded-lg p-3 text-center border border-border/30">
+      <div className="text-sm mb-1">{icon}</div>
+      <div className="text-[11px] text-muted-foreground mb-1">{label}</div>
+      <div className="text-sm font-bold font-mono text-foreground">{value}</div>
+      {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
     </div>
   );
 }
