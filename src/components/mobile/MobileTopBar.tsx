@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Aperture, Video, BookOpen, Mic } from 'lucide-react';
+import { Bot, Aperture, Video, BookOpen, Mic, Calculator } from 'lucide-react';
 import ApasLogo from '@/components/apas/ApasLogo';
 
 interface MobileTopBarProps {
@@ -9,9 +9,10 @@ interface MobileTopBarProps {
   onOpenVideo: () => void;
   onOpenSubject: () => void;
   onOpenVoice: () => void;
+  onOpenCalculations?: () => void;
 }
 
-const MobileTopBar: React.FC<MobileTopBarProps> = ({ lang, onOpenAI, onOpenVision, onOpenVideo, onOpenSubject, onOpenVoice }) => {
+const MobileTopBar: React.FC<MobileTopBarProps> = ({ lang, onOpenAI, onOpenVision, onOpenVideo, onOpenSubject, onOpenVoice, onOpenCalculations }) => {
   return (
     <header className="mobile-top-bar fixed top-0 left-0 right-0 z-[55] md:hidden">
       {/* Glass background */}
@@ -29,6 +30,21 @@ const MobileTopBar: React.FC<MobileTopBarProps> = ({ lang, onOpenAI, onOpenVisio
             v1.1
           </span>
         </div>
+
+        {/* Center - APAS Calculations button */}
+        {onOpenCalculations && (
+          <button
+            onClick={onOpenCalculations}
+            className="relative px-3 py-1.5 rounded-xl bg-gradient-to-r from-primary/15 via-primary/10 to-primary/15 border border-primary/30 text-primary hover:bg-primary/20 active:scale-95 transition-all duration-300 touch-manipulation flex items-center gap-1.5 group"
+            title={lang === 'ar' ? 'حسابات APAS' : 'APAS Calculations'}
+          >
+            <Calculator className="w-3.5 h-3.5 group-hover:animate-spin" style={{ animationDuration: '2s' }} />
+            <span className="text-[10px] font-bold tracking-wide">
+              {lang === 'ar' ? 'حسابات APAS' : lang === 'fr' ? 'Calculs APAS' : 'APAS Calc'}
+            </span>
+            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          </button>
+        )}
 
         {/* Right actions - APAS buttons (icon-only) + AI bot (golden) */}
         <div className="flex items-center gap-1">
