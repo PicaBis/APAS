@@ -1760,7 +1760,17 @@ const Index = () => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              <CalculationsSection lang={lang} />
+              <CalculationsSection
+                lang={lang}
+                velocity={sim.velocity}
+                angle={sim.angle}
+                height={sim.height}
+                gravity={sim.gravity}
+                airResistance={sim.airResistance}
+                mass={sim.mass}
+                windSpeed={sim.windSpeed}
+                prediction={sim.prediction}
+              />
             </div>
           </div>
         </div>,
