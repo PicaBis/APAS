@@ -346,15 +346,21 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
     // Margins that scale with zoom so labels stay visible
     const baseML = 70, baseMR = 30, baseMT = 35, baseMB = 50;
-    const ML = Math.round(baseML / zoom), MR = Math.round(baseMR / zoom);
-    const MT = Math.round(baseMT / zoom), MB = Math.round(baseMB / zoom);
+    // For zoom > 1, scale margins inversely (canvas transform scales them back up);
+    // for zoom <= 1, use base margins since no canvas transform is applied
+    const effectiveZoom = zoom > 1 ? zoom : 1;
+    const ML = Math.round(baseML / effectiveZoom), MR = Math.round(baseMR / effectiveZoom);
+    const MT = Math.round(baseMT / effectiveZoom), MB = Math.round(baseMB / effectiveZoom);
 
-    // Apply zoom + pan
+    // Apply zoom + pan only when zoomed in (zoom > 1)
+    // When zoomed out (zoom < 1), we expand the domain instead of shrinking the canvas
     ctx.save();
     const cxC = W / 2, cyC = H / 2;
-    ctx.translate(cxC + panOffset.x, cyC + panOffset.y);
-    ctx.scale(zoom, zoom);
-    ctx.translate(-cxC, -cyC);
+    if (zoom > 1) {
+      ctx.translate(cxC + panOffset.x, cyC + panOffset.y);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-cxC, -cyC);
+    }
 
     const plotW = W - ML - MR, plotH = H - MT - MB;
 
@@ -436,10 +442,24 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     const padY = yRange * 0.12;
 
     // Support negative Y regions when trajectory goes below ground
-    const domMinX = rawMinX - padX;
-    const domMaxX = rawMaxX + padX;
-    const domMinY = rawMinY < -0.1 ? rawMinY - padY : -padY * 0.3;
-    const domMaxY = rawMaxY + padY;
+    let domMinX = rawMinX - padX;
+    let domMaxX = rawMaxX + padX;
+    let domMinY = rawMinY < -0.1 ? rawMinY - padY : -padY * 0.3;
+    let domMaxY = rawMaxY + padY;
+
+    // When zooming out (zoom < 1), expand the domain to reveal more axes/values
+    // The canvas stays full size but shows a wider coordinate range
+    if (zoom < 1) {
+      const expandFactor = 1 / zoom;
+      const centerX = (domMinX + domMaxX) / 2;
+      const centerY = (domMinY + domMaxY) / 2;
+      const halfW = (domMaxX - domMinX) / 2 * expandFactor;
+      const halfH = (domMaxY - domMinY) / 2 * expandFactor;
+      domMinX = centerX - halfW;
+      domMaxX = centerX + halfW;
+      domMinY = centerY - halfH;
+      domMaxY = centerY + halfH;
+    }
 
     const domW = domMaxX - domMinX;
     const domH = domMaxY - domMinY;
@@ -498,7 +518,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
     // ── Nice grid lines ──
     const sf = Math.max(1, W / 1200);
-    const labelScale = 1 / zoom;
+    const labelScale = zoom > 1 ? 1 / zoom : 1;
     const isNonEarth = environmentId !== 'earth';
     // Vacuum has a light background — use default dark axes like earth
     const useWhiteAxes = isNonEarth && environmentId !== 'vacuum';
@@ -1712,8 +1732,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
     // Invert zoom+pan transform to get coordinates in drawCanvas space
     const cxC = canvas.width / 2, cyC = canvas.height / 2;
-    const mx = (rawMx - cxC - panOffset.x) / zoom + cxC;
-    const my = (rawMy - cyC - panOffset.y) / zoom + cyC;
+    // Only invert canvas transform when zoom > 1 (zoom-in uses ctx.scale)
+    const mx = zoom > 1 ? (rawMx - cxC - panOffset.x) / zoom + cxC : rawMx;
+    const my = zoom > 1 ? (rawMy - cyC - panOffset.y) / zoom + cyC : rawMy;
 
     // Recalculate domain for hover (must match drawCanvas logic exactly)
     let rMinX = 0, rMaxX = 0, rMinY = 0, rMaxY = height + 1;
@@ -1758,16 +1779,31 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     const yR = rMaxY - rMinY || 10;
     const pX = xR * 0.1;
     const pY = yR * 0.12;
-    const dMinX = rMinX - pX;
-    const dMaxX = rMaxX + pX;
-    const dMinY = rMinY < -0.1 ? rMinY - pY : -pY * 0.3;
-    const dMaxY = rMaxY + pY;
+    let dMinX = rMinX - pX;
+    let dMaxX = rMaxX + pX;
+    let dMinY = rMinY < -0.1 ? rMinY - pY : -pY * 0.3;
+    let dMaxY = rMaxY + pY;
+
+    // Expand domain when zoomed out (must match drawCanvas logic)
+    if (zoom < 1) {
+      const expandFactor = 1 / zoom;
+      const centerX = (dMinX + dMaxX) / 2;
+      const centerY = (dMinY + dMaxY) / 2;
+      const halfW = (dMaxX - dMinX) / 2 * expandFactor;
+      const halfH = (dMaxY - dMinY) / 2 * expandFactor;
+      dMinX = centerX - halfW;
+      dMaxX = centerX + halfW;
+      dMinY = centerY - halfH;
+      dMaxY = centerY + halfH;
+    }
+
     const dW = dMaxX - dMinX;
     const dH = dMaxY - dMinY;
 
     // Use zoom-adjusted margins matching drawCanvas
-    const hML = Math.round(70 / zoom), hMR = Math.round(30 / zoom);
-    const hMT = Math.round(35 / zoom), hMB = Math.round(50 / zoom);
+    const hEffZoom = zoom > 1 ? zoom : 1;
+    const hML = Math.round(70 / hEffZoom), hMR = Math.round(30 / hEffZoom);
+    const hMT = Math.round(35 / hEffZoom), hMB = Math.round(50 / hEffZoom);
     const hPlotW = canvas.width - hML - hMR, hPlotH = canvas.height - hMT - hMB;
     const hSX = hPlotW / dW, hSY = hPlotH / dH;
     const physX = dMinX + (mx - hML) / hSX;
