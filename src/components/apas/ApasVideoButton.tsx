@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
-import { Video, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, VideoIcon, Square, Scissors, Play, Check } from 'lucide-react';
+import { Video, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, VideoIcon, Square, Scissors, Play, Check, Cpu } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
 import { cleanLatex } from '@/utils/cleanLatex';
 import { supabase } from '@/integrations/supabase/client';
+import { runBallisticsEngine, type BallisticsAnalysisResult } from '@/utils/ballisticsEngine';
+import BallisticsAnalysisReport from '@/components/apas/BallisticsAnalysisReport';
 
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-video-gemini`;
 
@@ -26,6 +28,7 @@ interface ProcessingStep {
 
 const PROCESSING_STEPS: ProcessingStep[] = [
   { id: 'upload', labelAr: 'جاري رفع الفيديو لـ APAS AI...', labelEn: 'Uploading Video to APAS AI...', color: '#22c55e', icon: '🟢' },
+  { id: 'ballistics', labelAr: 'محرك التحليل الباليستي (4 مراحل)...', labelEn: 'Ballistics Intelligence Engine (4 stages)...', color: '#f59e0b', icon: '🔶' },
   { id: 'analyze', labelAr: 'جاري التحليل الذكي...', labelEn: 'Smart AI Analysis...', color: '#3b82f6', icon: '🔵' },
   { id: 'results', labelAr: 'عرض النتائج...', labelEn: 'Displaying Results...', color: '#a855f7', icon: '🟣' },
 ];
@@ -234,6 +237,9 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
   const [currentStep, setCurrentStep] = useState(-1);
   // Detailed report toggle
   const [showDetailedReport, setShowDetailedReport] = useState(true);
+  // Ballistics engine result
+  const [ballisticsResult, setBallisticsResult] = useState<BallisticsAnalysisResult | null>(null);
+  const [showBallisticsReport, setShowBallisticsReport] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -419,6 +425,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     setProgress(0);
     setCurrentStep(0);
     setThumbnailUrl(null);
+    setBallisticsResult(null);
     // Revoke previous blob URL to prevent memory leak, then create new one
     if (videoUrlRef.current && videoUrlRef.current.startsWith('blob:')) URL.revokeObjectURL(videoUrlRef.current);
     const blobUrl = URL.createObjectURL(file);
@@ -562,10 +569,62 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         // Thumbnail extraction is best-effort
       }
 
-      // Step 2: APAS AI Analysis — send video URL directly (native video, no base64)
+      // Step 2: Ballistics Intelligence Engine — extract frames & run 4-stage analysis
       setCurrentStep(1);
       setStatusText(isAr ? PROCESSING_STEPS[1].labelAr : PROCESSING_STEPS[1].labelEn);
-      setProgress(40);
+      setProgress(35);
+
+      try {
+        const ballisticsFrames = await extractFramesFromVideo(
+          file,
+          30, // extract up to 30 frames for tracking
+          (pct) => setProgress(35 + pct * 0.15),
+          startTime,
+          endTime,
+        );
+
+        if (ballisticsFrames.frames.length >= 3) {
+          const frameDataUrls = ballisticsFrames.frames.map(f => f.data);
+          const frameTimestamps = ballisticsFrames.frames.map(f => f.timestamp);
+
+          const bResult = await runBallisticsEngine(
+            frameDataUrls,
+            frameTimestamps,
+            {
+              calibrationMeters: calibrationMeters && calibrationMeters > 0 ? calibrationMeters : undefined,
+              gravity: gravity && gravity > 0 ? gravity : undefined,
+              mass: undefined, // will be estimated by AI
+            },
+            (stage, pct, msg) => {
+              setProgress(50 + pct * 0.15);
+              setStatusText(`[Stage ${stage}] ${msg}`);
+            },
+          );
+
+          setBallisticsResult(bResult);
+
+          // If ballistics engine has high confidence, use its values as primary source
+          if (bResult.verification.confidenceScore >= 40) {
+            setAnalysisData(prev => ({
+              detected: true,
+              confidence: bResult.verification.confidenceScore,
+              angle: bResult.launchAngle,
+              velocity: bResult.initialVelocity,
+              mass: prev?.mass ?? bResult.estimatedMass,
+              height: bResult.maxAltitude,
+              objectType: prev?.objectType,
+            }));
+          }
+        }
+      } catch (ballisticsErr) {
+        console.warn('[APAS] Ballistics engine error (non-fatal):', ballisticsErr);
+        // Ballistics engine failure is non-fatal — AI analysis continues
+      }
+
+      // Step 3: APAS AI Analysis — send video URL directly (native video, no base64)
+      setCurrentStep(2);
+      setStatusText(isAr ? PROCESSING_STEPS[2].labelAr : PROCESSING_STEPS[2].labelEn);
+      setProgress(65);
 
       progressInterval = setInterval(() => {
         setProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 3);
@@ -596,9 +655,9 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       if (edgeResp.ok) {
         const data = await edgeResp.json();
         if (data.text) {
-          // Step 3: Display results
-          setCurrentStep(2);
-          setStatusText(isAr ? PROCESSING_STEPS[2].labelAr : PROCESSING_STEPS[2].labelEn);
+          // Step 4: Display results
+          setCurrentStep(3);
+          setStatusText(isAr ? PROCESSING_STEPS[3].labelAr : PROCESSING_STEPS[3].labelEn);
           setProgress(100);
           setStatusText(isAr ? 'اكتمل التحليل!' : 'Analysis complete!');
           await new Promise(r => setTimeout(r, 400));
@@ -1179,6 +1238,29 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                           </p>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Ballistics Intelligence Engine Report */}
+                  {ballisticsResult && (
+                    <div className="border border-border rounded-lg bg-secondary/20 overflow-hidden">
+                      <button
+                        onClick={() => setShowBallisticsReport(prev => !prev)}
+                        className="w-full flex items-center justify-between p-3 hover:bg-secondary/40 transition-all duration-200"
+                      >
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-2">
+                          <Cpu className="w-3.5 h-3.5 text-amber-500" />
+                          {isAr ? 'تقرير محرك الباليستي (4 مراحل)' : 'Ballistics Engine Report (4-Stage)'}
+                        </span>
+                        <span className={`text-xs text-muted-foreground transition-transform duration-200 ${showBallisticsReport ? 'rotate-180' : ''}`}>
+                          ▼
+                        </span>
+                      </button>
+                      {showBallisticsReport && (
+                        <div className="p-3 border-t border-border/50">
+                          <BallisticsAnalysisReport result={ballisticsResult} lang={lang} />
+                        </div>
+                      )}
                     </div>
                   )}
 
