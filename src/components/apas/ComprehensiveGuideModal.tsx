@@ -94,7 +94,7 @@ const ComprehensiveGuideModal: React.FC<ComprehensiveGuideModalProps> = ({ open,
 
 function SectionTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <h3 className="text-base font-bold text-foreground flex items-center gap-2 mb-4 pb-2 border-b border-border justify-start">
+    <h3 className="text-base font-bold text-foreground flex items-center gap-2 mb-4 pb-2 border-b border-border">
       <span className="text-primary">{icon}</span>
       {children}
     </h3>
@@ -104,7 +104,7 @@ function SectionTitle({ icon, children }: { icon: React.ReactNode; children: Rea
 function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-5">
-      <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2 justify-start">
+      <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block shrink-0" />
         {title}
       </h4>

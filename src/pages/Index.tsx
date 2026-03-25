@@ -112,6 +112,7 @@ const Index = () => {
   // ── UI State ──
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
   const [webglError, setWebglError] = useState<string | null>(null);
   const [isLangTransitioning, setIsLangTransitioning] = useState(false);
@@ -151,9 +152,7 @@ const Index = () => {
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const [showDynamicDashboard, setShowDynamicDashboard] = useState(false);
   const [showTheoreticalComparison, setShowTheoreticalComparison] = useState(false);
-  const [showComprehensiveGuide, setShowComprehensiveGuide] = useState(() => {
-    try { return localStorage.getItem('apas_guideDismissed') !== 'true'; } catch { return true; }
-  });
+  const [showComprehensiveGuide, setShowComprehensiveGuide] = useState(false);
   const [showComparisonSection, setShowComparisonSection] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
@@ -422,7 +421,10 @@ const Index = () => {
 
   // ── Splash Screen ──
   if (showSplash) {
-    return <SplashScreen lang={lang} onComplete={() => { setShowSplash(false); setShowOnboarding(true); }} />;
+    return <SplashScreen lang={lang} onComplete={() => {
+      setShowSplash(false);
+      try { if (localStorage.getItem('apas_guideDismissed') !== 'true') { setShowWelcomeDialog(true); } } catch { setShowWelcomeDialog(true); }
+    }} />;
   }
 
   // ═══════════════════════════════════════════════
@@ -723,6 +725,7 @@ const Index = () => {
           <ModalsOverlays
             lang={lang} isMuted={sim.isMuted}
             showOnboarding={showOnboarding} setShowOnboarding={setShowOnboarding}
+            showWelcomeDialog={showWelcomeDialog} setShowWelcomeDialog={setShowWelcomeDialog}
             showEnvSelector={showEnvSelector} setShowEnvSelector={setShowEnvSelector}
             currentEnvId={currentEnvId} onEnvironmentSelect={handleEnvironmentSelect}
             showDocumentation={showDocumentation} setShowDocumentation={setShowDocumentation}
@@ -801,7 +804,7 @@ const Index = () => {
           <div className={isFocusMode ? 'grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr] gap-3 sm:gap-4 md:gap-5' : 'grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr_200px] xl:grid-cols-[260px_1fr_220px] gap-3 sm:gap-4 md:gap-5'}>
 
             {/* ═══ LEFT — Parameters Panel ═══ */}
-            <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:overflow-x-hidden md:scrollbar-none md:pt-2 md:pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:pt-2 md:pb-4">
               {/* Dynamic Analytics Dashboard — collapsible, syncs only when open */}
               <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
@@ -818,7 +821,7 @@ const Index = () => {
                 </button>
 
                 {showDynamicDashboard && (
-                  <div className="border-t border-border animate-slideDown max-h-[50vh] overflow-y-auto overflow-x-hidden" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="border-t border-border animate-slideDown">
                     <Suspense fallback={<div className="p-4 flex items-center justify-center"><AnimatedLoadingSpinner /></div>}>
                       <DynamicAnalyticsDashboard
                         lang={lang}
@@ -849,7 +852,7 @@ const Index = () => {
                 </button>
 
                 {showPhysicsPanel && (
-                  <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border pt-3 animate-slideDown max-h-[50vh] overflow-y-auto overflow-x-hidden" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border pt-3 animate-slideDown">
                     <div className="grid grid-cols-2 sm:grid-cols-1 gap-x-3 gap-y-0">
                       <ParamInputWithUnit
                         label={lang === 'ar' ? '\u0627\u0644\u0633\u0631\u0639\u0629' : lang === 'fr' ? 'Vitesse' : 'Velocity'}
@@ -1760,6 +1763,7 @@ const Index = () => {
       <ModalsOverlays
         lang={lang} isMuted={sim.isMuted}
         showOnboarding={showOnboarding} setShowOnboarding={setShowOnboarding}
+        showWelcomeDialog={showWelcomeDialog} setShowWelcomeDialog={setShowWelcomeDialog}
         showEnvSelector={showEnvSelector} setShowEnvSelector={setShowEnvSelector}
         currentEnvId={currentEnvId} onEnvironmentSelect={handleEnvironmentSelect}
         showDocumentation={showDocumentation} setShowDocumentation={setShowDocumentation}

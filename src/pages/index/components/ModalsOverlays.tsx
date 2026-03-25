@@ -9,6 +9,7 @@ import KeyboardShortcutsHelp from '@/components/apas/KeyboardShortcutsHelp';
 import BugReportButton from '@/components/apas/BugReportButton';
 
 const OnboardingTutorial = lazy(() => import('@/components/apas/OnboardingTutorial'));
+const WelcomeDialog = lazy(() => import('@/components/apas/WelcomeDialog'));
 // IdlePhysicsTips moved to footer in Index.tsx
 const DocumentationModal = lazy(() => import('@/components/apas/DocumentationModal'));
 const StroboscopicModal = lazy(() => import('@/components/apas/StroboscopicModal'));
@@ -27,6 +28,9 @@ interface ModalsOverlaysProps {
   // Onboarding
   showOnboarding: boolean;
   setShowOnboarding: (v: boolean) => void;
+  // Welcome Dialog
+  showWelcomeDialog: boolean;
+  setShowWelcomeDialog: (v: boolean) => void;
   // Environment Selector
   showEnvSelector: boolean;
   setShowEnvSelector: (v: boolean) => void;
@@ -105,6 +109,7 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
   const {
     lang, isMuted,
     showOnboarding, setShowOnboarding,
+    showWelcomeDialog, setShowWelcomeDialog,
     showEnvSelector, setShowEnvSelector, currentEnvId, onEnvironmentSelect,
     showDocumentation, setShowDocumentation,
     showStroboscopicModal, setShowStroboscopicModal, stroboscopicSettings, setStroboscopicSettings, stroboscopicMarks, gravity, isSimulationDone,
@@ -123,7 +128,22 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
   return (
     <>
       <Suspense fallback={null}>
-        <OnboardingTutorial lang={lang} open={showOnboarding} onClose={() => setShowOnboarding(false)} />
+        <WelcomeDialog
+          open={showWelcomeDialog}
+          lang={lang}
+          onOpenGuide={() => {
+            setShowWelcomeDialog(false);
+            setShowComprehensiveGuide(true);
+          }}
+          onStartQuickTips={() => {
+            setShowWelcomeDialog(false);
+            setShowOnboarding(true);
+          }}
+          onSkip={() => {
+            setShowWelcomeDialog(false);
+            try { localStorage.setItem('apas_guideDismissed', 'true'); } catch { /* */ }
+          }}
+        />
       </Suspense>
 
       {/* IdlePhysicsTips moved to footer near robot in Index.tsx */}
