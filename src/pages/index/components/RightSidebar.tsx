@@ -92,8 +92,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   return (
     <aside data-tour="right-panel" className={`space-y-3 sm:space-y-4 order-3 lg:sticky lg:top-16 lg:self-start lg:pt-2${isFocusMode ? ' hidden' : ''}`}>
       {/* Integration Methods - Simple Version */}
-      <div className="sidebar-panel-card border border-border/30 rounded-xl p-4 bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] transition-all duration-300 hover:shadow-lg hover:border-primary/15">
-        <h3 className="text-[13px] font-bold text-foreground tracking-tight mb-3 flex items-center gap-2">
+      <div className="border border-border/50 rounded-xl p-4 bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5">
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight mb-3 flex items-center gap-2">
           {lang === 'ar' ? 'طريقة التكامل' : 'Integration Method'}
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
@@ -129,7 +129,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       </div>
 
       {/* APAS Vision */}
-      <div className="sidebar-panel-card border border-border/30 rounded-xl p-4 space-y-3 bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] relative transition-all duration-300 hover:shadow-lg hover:border-primary/15">
+      <div className="border border-border/50 rounded-xl p-4 space-y-3 bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 relative">
         {!canAccessRestrictedFeature && (
           <div className="absolute inset-0 z-10 rounded-xl bg-background/80 backdrop-blur-sm flex items-center justify-center cursor-pointer" onClick={() => onShowRestrictionOverlay('Smart Vision')}>
             <p className="text-xs text-muted-foreground text-center px-4 font-medium">
@@ -137,7 +137,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             </p>
           </div>
         )}
-        <h3 className="text-[13px] font-bold text-foreground tracking-tight mb-2 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight mb-2 flex items-center gap-2">
           {lang === 'ar' ? 'الرؤية الذكية' : 'Smart Vision'}
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -164,24 +164,22 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       </div>
 
       {/* Presets / Scenarios */}
-      <Collapsible defaultOpen={false} className="sidebar-panel-card border border-border/30 rounded-xl bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] transition-all duration-300 hover:shadow-lg hover:border-primary/15">
+      <Collapsible defaultOpen={false} className="border border-border/50 rounded-xl bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5">
         <CollapsibleTrigger 
           onClick={() => playSectionToggle(isMuted)}
-          className="flex items-center justify-between w-full p-3 sm:p-4 cursor-pointer hover:bg-primary/5 transition-all duration-300 group"
+          className="flex items-center justify-between w-full p-3 sm:p-4 cursor-pointer hover:bg-primary/5 transition-all duration-300"
         >
-          <h3 className="text-[13px] font-bold text-foreground tracking-tight flex items-center gap-2">
-            <div className="p-1 rounded-md bg-primary/10">
-              <Layers className="w-3.5 h-3.5 text-primary" />
-            </div>
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
+            <Layers className="w-4 h-4 text-primary" />
             {lang === 'ar' ? 'السيناريوهات الجانبية' : 'Side Scenarios'}
           </h3>
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 group-hover:text-primary [[data-state=open]>&]:rotate-180" />
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="px-3 sm:px-4 pb-3 sm:pb-4">
           <div className="grid grid-cols-3 sm:grid-cols-2 gap-1.5">
             {PRESETS.map((p) => (
               <button key={p.name} onClick={() => loadPreset(p)}
-                className="text-xs font-medium text-foreground py-2.5 px-2 rounded-lg hover:bg-primary/10 border border-border/20 hover:border-primary/20 transition-all duration-300 text-center hover:-translate-y-0.5 hover:shadow-sm">
+                className="text-xs font-medium text-foreground py-2.5 px-2 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 text-center hover:-translate-y-0.5">
                 {lang === 'ar' ? p.name : p.nameEn}
               </button>
             ))}
