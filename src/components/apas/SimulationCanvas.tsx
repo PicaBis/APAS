@@ -1171,16 +1171,48 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       const pulseRadius = 7;
 
       // Draw projectile — use emoji icon if a preset is active
-      if (activePresetEmoji) {
+      if (activePresetEmoji === '🏹') {
+        // Arrow scenario: draw a small arrow shape tangent to velocity vector
+        const moveAngle = Math.atan2(-activePt.vy * sY, activePt.vx * sX);
+        const arrowLen = 22;
+        const arrowHeadLen = 8;
+        const arrowHeadWidth = 5;
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.rotate(moveAngle);
+        // Arrow shaft
+        ctx.beginPath();
+        ctx.strokeStyle = nightMode ? '#e2e8f0' : '#1a1a1a';
+        ctx.lineWidth = 2.5;
+        ctx.moveTo(-arrowLen / 2, 0);
+        ctx.lineTo(arrowLen / 2 - arrowHeadLen, 0);
+        ctx.stroke();
+        // Arrow head
+        ctx.beginPath();
+        ctx.fillStyle = nightMode ? '#e2e8f0' : '#1a1a1a';
+        ctx.moveTo(arrowLen / 2, 0);
+        ctx.lineTo(arrowLen / 2 - arrowHeadLen, -arrowHeadWidth);
+        ctx.lineTo(arrowLen / 2 - arrowHeadLen, arrowHeadWidth);
+        ctx.closePath();
+        ctx.fill();
+        // Arrow tail fletching
+        ctx.beginPath();
+        ctx.strokeStyle = nightMode ? '#94a3b8' : '#666';
+        ctx.lineWidth = 1.5;
+        ctx.moveTo(-arrowLen / 2, 0);
+        ctx.lineTo(-arrowLen / 2 - 3, -4);
+        ctx.moveTo(-arrowLen / 2, 0);
+        ctx.lineTo(-arrowLen / 2 - 3, 4);
+        ctx.stroke();
+        ctx.restore();
+      } else if (activePresetEmoji) {
         const moveAngle = Math.atan2(-activePt.vy * sY, activePt.vx * sX);
         // Adjust rotation for emoji base orientation:
-        // 🚀 points upper-right (~315° or -45°), 🏹 points right (~0°)
+        // 🚀 points upper-right (~315° or -45°)
         // Other emojis (⚽🏀💣) are roughly symmetric so no offset needed
         let emojiBaseAngle = 0;
         if (activePresetEmoji === '🚀') {
-          emojiBaseAngle = -Math.PI / 4; // rocket emoji points upper-right (~-45° in screen coords)
-        } else if (activePresetEmoji === '🏹') {
-          emojiBaseAngle = 0; // arrow points roughly right
+          emojiBaseAngle = -Math.PI / 4;
         }
         ctx.save();
         ctx.translate(bx, by);
@@ -1713,10 +1745,14 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       const dy = e.clientY - dragStart.current.y;
       const canvas = canvasRef.current;
       const ratio = canvas ? canvas.width / canvas.clientWidth : 2;
-      setPanOffset({
-        x: panStart.current.x + dx * ratio,
-        y: panStart.current.y + dy * ratio,
-      });
+      // Clamp pan so content cannot leave the canvas frame
+      const W = canvas ? canvas.width : 1200;
+      const H = canvas ? canvas.height : 700;
+      const maxPanX = W * (zoom - 1) * 0.5;
+      const maxPanY = H * (zoom - 1) * 0.5;
+      const newX = Math.max(-maxPanX, Math.min(maxPanX, panStart.current.x + dx * ratio));
+      const newY = Math.max(-maxPanY, Math.min(maxPanY, panStart.current.y + dy * ratio));
+      setPanOffset({ x: newX, y: newY });
       return;
     }
 

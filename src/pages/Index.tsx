@@ -796,7 +796,7 @@ const Index = () => {
         />
 
         {/* ── Main Content ── */}
-        <div className="max-w-[1600px] mx-auto px-3 sm:px-5 md:px-6 py-4 sm:py-6">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-5 md:px-6 py-2 sm:py-3">
           <div className={isFocusMode ? 'grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr] gap-3 sm:gap-4 md:gap-5' : 'grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr_200px] xl:grid-cols-[260px_1fr_220px] gap-3 sm:gap-4 md:gap-5'}>
 
             {/* ═══ LEFT — Parameters Panel ═══ */}
@@ -1172,47 +1172,38 @@ const Index = () => {
             </aside>
 
             {/* ═══ CENTER — Canvas & Results ═══ */}
-            <div data-tour="center-canvas" className="space-y-3 sm:space-y-5 order-1 md:order-2 min-w-0">
-
-              {/* Calculations Button — above canvas, unlocks after image/video analysis */}
-              <div className="flex items-center justify-center">
-                <button
-                  onClick={() => { if (lastAnalyzedMediaSrc) { setShowCalculationsModal(true); playClick(sim.isMuted); } }}
-                  disabled={!lastAnalyzedMediaSrc}
-                  className={`relative flex items-center gap-1.5 group transition-all duration-300 ${
-                    lastAnalyzedMediaSrc
-                      ? 'apas-assistant-btn rounded-lg px-3 py-1.5 text-white shadow-lg cursor-pointer hover:shadow-xl hover:scale-[1.02]'
-                      : 'rounded-lg px-3 py-1.5 bg-secondary/50 text-muted-foreground cursor-not-allowed opacity-60 border border-border/50'
-                  }`}
-                  title={!lastAnalyzedMediaSrc ? (lang === 'ar' ? 'حلّل صورة أو فيديو أولاً لعرض الحسابات' : lang === 'fr' ? 'Analysez d\'abord une image ou vidéo' : 'Analyze an image or video first to view calculations') : ''}
-                >
-                  <span className="relative flex items-center justify-center w-4 h-4">
-                    {lastAnalyzedMediaSrc ? (
-                      <>
-                        <Calculator className="w-4 h-4 sparkle-icon-flash" />
-                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/60 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white shadow-sm"></span>
-                        </span>
-                      </>
-                    ) : (
-                      <Lock className="w-3.5 h-3.5" />
-                    )}
-                  </span>
-                  <span className="relative z-10 text-[11px] font-bold whitespace-nowrap flex items-center gap-1 tracking-wide" dir={isRTL ? 'rtl' : 'ltr'}>
-                    <span>{lang === 'ar' ? 'كيف تم الحساب' : lang === 'fr' ? 'Calculs' : 'Calculations'}</span>
-                    <span className="font-extrabold">APAS</span>
-                  </span>
-                </button>
-              </div>
+            <div data-tour="center-canvas" className="space-y-1.5 sm:space-y-2 order-1 md:order-2 min-w-0">
 
               {/* Canvas area */}
               <div ref={canvasContainerRef} className={isFullscreen ? 'fixed inset-0 z-50 bg-background flex flex-col' : ''}>
-                <div className="flex items-center justify-between mb-2.5 px-1">
+                <div className="flex items-center justify-between mb-1.5 px-1">
                   <h2 className="text-sm font-semibold text-foreground flex items-center gap-2.5">
                     <span className={pathDotClass} />
                     {lang === 'ar' ? '\u0645\u0633\u0627\u0631 \u0627\u0644\u0645\u0642\u0630\u0648\u0641' : lang === 'fr' ? 'Trajectoire du Projectile' : 'Projectile Path'}
                   </h2>
+                  {/* Calculations APAS button — between title and toolbar */}
+                  <button
+                    onClick={() => { if (lastAnalyzedMediaSrc) { setShowCalculationsModal(true); playClick(sim.isMuted); } }}
+                    disabled={!lastAnalyzedMediaSrc}
+                    className={`relative flex items-center gap-1 group transition-all duration-300 ${
+                      lastAnalyzedMediaSrc
+                        ? 'apas-assistant-btn rounded-md px-2 py-1 text-white shadow-md cursor-pointer hover:shadow-lg hover:scale-[1.02]'
+                        : 'rounded-md px-2 py-1 bg-secondary/50 text-muted-foreground cursor-not-allowed opacity-60 border border-border/50'
+                    }`}
+                    title={!lastAnalyzedMediaSrc ? (lang === 'ar' ? 'حلّل صورة أو فيديو أولاً لعرض الحسابات' : lang === 'fr' ? 'Analysez d\'abord une image ou vidéo' : 'Analyze an image or video first to view calculations') : ''}
+                  >
+                    <span className="relative flex items-center justify-center w-3.5 h-3.5">
+                      {lastAnalyzedMediaSrc ? (
+                        <Calculator className="w-3.5 h-3.5 sparkle-icon-flash" />
+                      ) : (
+                        <Lock className="w-3 h-3" />
+                      )}
+                    </span>
+                    <span className="relative z-10 text-[10px] font-bold whitespace-nowrap flex items-center gap-0.5 tracking-wide" dir={isRTL ? 'rtl' : 'ltr'}>
+                      <span>{lang === 'ar' ? 'الحساب' : 'Calc'}</span>
+                      <span className="font-extrabold">APAS</span>
+                    </span>
+                  </button>
                   <div className="flex items-center gap-1">
                     <button onClick={() => { setCanvasZoom(z => Math.max(0.5, z - 0.25)); playZoomSound(sim.isMuted, false); }}
                       className="group p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 hover:shadow-md transition-all duration-300"
