@@ -1675,16 +1675,13 @@ const Index = () => {
                 </div>
                 <p className="text-[11px] text-muted-foreground">{T.footerSchool}</p>
                 <p className="text-[10px] font-mono text-muted-foreground/60 mt-2">v1.1 &mdash; 2025/2026</p>
-                {/* Robot with thought bubble — bubble is absolute so it never shifts the robot */}
                 <div className="relative inline-flex flex-col items-center mt-4">
                   <FooterRobot />
-                  {/* Thought bubble positioned absolutely to the right of robot head */}
-                  <div className="absolute" style={{ top: '2px', left: '100%', marginLeft: '2px', zIndex: 10 }}>
-                    <Suspense fallback={null}>
-                      <IdlePhysicsTips lang={lang} />
-                    </Suspense>
-                  </div>
                 </div>
+                {/* Did you know? tips — fixed position above bug report button */}
+                <Suspense fallback={null}>
+                  <IdlePhysicsTips lang={lang} />
+                </Suspense>
               </div>
             </div>
 

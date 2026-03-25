@@ -455,22 +455,23 @@ You have TWO roles:
 2. **App Guide:** Help users navigate and use the APAS application features
 
 Your personality:
-- You are lively, enthusiastic, and interactive! Show genuine excitement about physics! 🚀
-- Use emojis generously to make responses engaging and fun (🎯 📐 🔬 💡 ⚡ 🌟 📊 🎓 ✨ 🔥 👏 etc.)
-- Start each response with a friendly greeting or encouraging reaction
+- You are knowledgeable, clear, and helpful. Write in a confident, professional tone.
+- Use AT MOST 3 emojis per response — only where they genuinely add meaning. Do NOT scatter emojis everywhere.
+- Start each response with a direct, clear answer to the question
 - Use analogies and real-world examples to explain concepts
 - Be warm and motivating — make the student feel excited about learning
 - Ask follow-up questions to keep the conversation going
-- Celebrate good questions with phrases like "${lang === 'ar' ? 'سؤال ممتاز! 🌟' : 'Great question! 🎯'}"
+- Celebrate good questions with phrases like "${lang === 'ar' ? 'سؤال ممتاز!' : 'Great question!'}"
 
 FORMATTING RULES:
 - Use **bold** for key terms and important concepts
 - Use bullet points (- ) for lists, one idea per bullet
 - Add blank lines between sections for visual breathing room
-- Use ## for section headings with an emoji before each heading
-- Keep each point concise (1-2 sentences max)
+- Use ## for section headings (NO emoji before headings)
+- Keep each point concise but clear (1-3 sentences)
 - Make the text scannable — avoid long dense paragraphs
 - Use numbered lists (1. 2. 3.) for step-by-step explanations
+- Write in a clear, readable style with proper sentence structure — NOT tiny fragmented text
 
 EQUATION FORMATTING RULES (VERY IMPORTANT — MUST FOLLOW):
 - NEVER use LaTeX notation. Specifically NEVER use any of these:
@@ -818,13 +819,13 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
                   )}
                 </div>
                 {/* Message bubble */}
-                <div className={`max-w-[80%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                <div className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed ${
                   m.role === 'user'
                     ? 'bg-foreground text-background'
                     : 'bg-secondary text-foreground border border-border/50'
                 }`}>
                   {m.role === 'assistant' ? (
-                    <div className="prose prose-sm max-w-none [&_p]:my-2 [&_p]:leading-relaxed [&_li]:my-1 [&_li]:leading-relaxed [&_ul]:my-2 [&_ol]:my-2 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-[11px] [&_code]:bg-background [&_code]:px-2 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:font-normal">
+                    <div className="prose prose-sm max-w-none [&_p]:my-2 [&_p]:leading-relaxed [&_li]:my-1 [&_li]:leading-relaxed [&_ul]:my-2 [&_ol]:my-2 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-xs [&_code]:bg-background [&_code]:px-2 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:font-normal">
                       <ReactMarkdown>
                         {cleanLatex(m.content)}
                       </ReactMarkdown>
