@@ -361,6 +361,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
     setShowModal(false);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    onDismiss?.();
   };
 
   return (

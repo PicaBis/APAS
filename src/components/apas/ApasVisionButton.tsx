@@ -676,7 +676,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
 
       {/* Analysis Modal */}
       {showModal && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { if (!isAnalyzing) { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); } }}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { if (!isAnalyzing) { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); onDismiss?.(); } }}>
           <div
             className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
             dir={isAr ? 'rtl' : 'ltr'}
@@ -688,7 +688,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                 <h3 className="text-sm font-semibold text-foreground">APAS Vision</h3>
               </div>
               {!isAnalyzing && (
-                <button onClick={() => { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <button onClick={() => { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); onDismiss?.(); }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
                   <X className="w-4 h-4" />
                 </button>
               )}
@@ -870,7 +870,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                   </button>
                 )}
                 <button
-                  onClick={() => { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}
+                  onClick={() => { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); onDismiss?.(); }}
                   className="flex-1 text-xs py-2 rounded-md bg-foreground text-background hover:bg-foreground/90 hover:shadow-md transition-all duration-200"
                 >
                   {isAr ? 'إغلاق' : 'Close'}

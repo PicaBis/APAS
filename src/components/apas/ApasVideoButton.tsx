@@ -1048,7 +1048,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
 
       {/* Analysis Modal */}
       {showModal && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => !isAnalyzing && setShowModal(false)}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { if (!isAnalyzing) { setShowModal(false); onDismiss?.(); } }}>
           <div
             className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-slideDown"
             dir={isAr ? 'rtl' : 'ltr'}
@@ -1060,7 +1060,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                 <h3 className="text-sm font-semibold text-foreground">APAS Video</h3>
               </div>
               {!isAnalyzing && (
-                <button onClick={() => setShowModal(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <button onClick={() => { setShowModal(false); onDismiss?.(); }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
                   <X className="w-4 h-4" />
                 </button>
               )}
@@ -1229,7 +1229,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                   </button>
                 )}
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={() => { setShowModal(false); onDismiss?.(); }}
                   className="flex-1 text-xs py-2 rounded-md bg-foreground text-background hover:bg-foreground/90 hover:shadow-md transition-all duration-200"
                 >
                   {isAr ? 'إغلاق' : 'Close'}
