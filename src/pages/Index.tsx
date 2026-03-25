@@ -167,6 +167,12 @@ const Index = () => {
   });
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const dynamicDashboardRef = useRef<HTMLDivElement>(null);
+  const physicsPanelRef = useRef<HTMLDivElement>(null);
+  const displayOptionsRef = useRef<HTMLDivElement>(null);
+  const advancedPhysicsRef = useRef<HTMLDivElement>(null);
+  const comparisonRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
   // ── Mobile UI State ──
@@ -801,11 +807,11 @@ const Index = () => {
           <div className={isFocusMode ? 'grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr] gap-3 sm:gap-4 md:gap-5' : 'grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr_200px] xl:grid-cols-[260px_1fr_220px] gap-3 sm:gap-4 md:gap-5'}>
 
             {/* ═══ LEFT — Parameters Panel ═══ */}
-            <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:scrollbar-thin md:scrollbar-thumb-border md:scrollbar-track-transparent md:pt-2 md:pb-4">
+            <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:overflow-x-hidden md:scrollbar-none md:pt-2 md:pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Dynamic Analytics Dashboard — collapsible, syncs only when open */}
-              <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
+              <div ref={dynamicDashboardRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
-                  onClick={() => { setShowDynamicDashboard(!showDynamicDashboard); playSectionToggle(sim.isMuted); }}
+                  onClick={() => { setShowDynamicDashboard(!showDynamicDashboard); playSectionToggle(sim.isMuted); if (!showDynamicDashboard) setTimeout(() => dynamicDashboardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
@@ -818,7 +824,7 @@ const Index = () => {
                 </button>
 
                 {showDynamicDashboard && (
-                  <div className="border-t border-border animate-slideDown">
+                  <div className="border-t border-border animate-slideDown max-h-[50vh] overflow-y-auto overflow-x-hidden" style={{ scrollbarWidth: 'thin' }}>
                     <Suspense fallback={<div className="p-4 flex items-center justify-center"><AnimatedLoadingSpinner /></div>}>
                       <DynamicAnalyticsDashboard
                         lang={lang}
@@ -834,9 +840,9 @@ const Index = () => {
                 )}
               </div>
 
-              <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
+              <div ref={physicsPanelRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
-                  onClick={() => { setShowPhysicsPanel(!showPhysicsPanel); playSectionToggle(sim.isMuted); }}
+                  onClick={() => { setShowPhysicsPanel(!showPhysicsPanel); playSectionToggle(sim.isMuted); if (!showPhysicsPanel) setTimeout(() => physicsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
@@ -849,7 +855,7 @@ const Index = () => {
                 </button>
 
                 {showPhysicsPanel && (
-                  <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border pt-3 animate-slideDown">
+                  <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border pt-3 animate-slideDown max-h-[50vh] overflow-y-auto overflow-x-hidden" style={{ scrollbarWidth: 'thin' }}>
                     <div className="grid grid-cols-2 sm:grid-cols-1 gap-x-3 gap-y-0">
                       <ParamInputWithUnit
                         label={lang === 'ar' ? '\u0627\u0644\u0633\u0631\u0639\u0629' : lang === 'fr' ? 'Vitesse' : 'Velocity'}
@@ -994,9 +1000,9 @@ const Index = () => {
               </div>
 
               {/* Display Options */}
-              <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
+              <div ref={displayOptionsRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
-                  onClick={() => { setShowDisplayOptions(!showDisplayOptions); playSectionToggle(sim.isMuted); }}
+                  onClick={() => { setShowDisplayOptions(!showDisplayOptions); playSectionToggle(sim.isMuted); if (!showDisplayOptions) setTimeout(() => displayOptionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
@@ -1009,14 +1015,14 @@ const Index = () => {
                 </button>
 
                 {showDisplayOptions && (
-                  <div className="p-4 pt-0 space-y-2 animate-slideDown" style={{ animationDuration: '0.3s' }}>
+                  <div className="p-4 pt-2 space-y-1.5 animate-slideDown border-t border-border/30" style={{ animationDuration: '0.3s' }}>
                     <button
                       onClick={() => { setShowEnvSelector(true); playClick(sim.isMuted); }}
-                      className="group w-full text-xs font-medium py-2.5 px-3 rounded-lg flex items-center gap-2 text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 hover:shadow-md transition-all duration-300"
+                      className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
                     >
-                      <Globe2 className="w-3.5 h-3.5" />
+                      <Globe2 className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
                       {lang === 'ar' ? '\u0627\u062e\u062a\u064a\u0627\u0631 \u0627\u0644\u0628\u064a\u0626\u0629' : lang === 'fr' ? 'Environnement' : 'Environment'}
-                      <span className="ml-auto text-[10px] text-muted-foreground">
+                      <span className="text-[10px] text-muted-foreground">
                         {ENVIRONMENTS.find(e => e.id === currentEnvId)?.emoji} {ENVIRONMENTS.find(e => e.id === currentEnvId)?.name[lang as 'ar' | 'en' | 'fr']}
                       </span>
                     </button>
@@ -1033,12 +1039,12 @@ const Index = () => {
                     />
                     <button
                       onClick={() => { setShowStroboscopicModal(true); playClick(sim.isMuted); }}
-                      className={`group w-full text-xs font-medium py-2.5 px-3 rounded-lg flex items-center gap-2 transition-all duration-300 ${stroboscopicSettings.enabled ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border border-primary/50 shadow-md shadow-primary/20' : 'text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20'}`}
+                      className={`group w-full text-xs font-medium py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-all duration-200 ${stroboscopicSettings.enabled ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md' : 'text-foreground border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md'}`}
                     >
-                      <Clock className="w-3.5 h-3.5" />
+                      <Clock className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
                       {lang === 'ar' ? '\u0627\u0644\u062a\u0635\u0648\u064a\u0631 \u0627\u0644\u0645\u062a\u0639\u0627\u0642\u0628' : lang === 'fr' ? 'Photographie Stroboscopique' : 'Stroboscopic'}
                       {stroboscopicSettings.enabled && (
-                        <span className="ml-auto text-[10px] opacity-80">&Delta;t={stroboscopicSettings.deltaT}s</span>
+                        <span className="text-[10px] opacity-80">&Delta;t={stroboscopicSettings.deltaT}s</span>
                       )}
                     </button>
                     <ToggleOption label={lang === 'ar' ? '\u0627\u0631\u062a\u062f\u0627\u062f \u0627\u0644\u0645\u0642\u0630\u0648\u0641' : lang === 'fr' ? 'Rebond du Projectile' : 'Bouncing'} active={sim.enableBounce}
@@ -1058,12 +1064,14 @@ const Index = () => {
               </div>
 
               {/* Advanced Physics Panel */}
-              <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} relativity={relativity} muted={sim.isMuted} />
+              <div ref={advancedPhysicsRef}>
+                <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} relativity={relativity} muted={sim.isMuted} onSectionToggle={() => setTimeout(() => advancedPhysicsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)} />
+              </div>
 
               {/* Save/Compare */}
-              <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
+              <div ref={comparisonRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
-                  onClick={() => { setShowComparisonSection(!showComparisonSection); playSectionToggle(sim.isMuted); }}
+                  onClick={() => { setShowComparisonSection(!showComparisonSection); playSectionToggle(sim.isMuted); if (!showComparisonSection) setTimeout(() => comparisonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
@@ -1161,23 +1169,26 @@ const Index = () => {
               </div>
 
               {/* Export */}
-              <ExportSection
-                lang={lang}
-                trajectoryData={sim.trajectoryData}
-                prediction={sim.prediction}
-                velocity={sim.velocity}
-                angle={sim.angle}
-                height={sim.height}
-                gravity={sim.gravity}
-                airResistance={sim.airResistance}
-                mass={sim.mass}
-                onExportPNG={exportSimulationPNG}
-                muted={sim.isMuted}
-                spinRate={sim.spinRate}
-                projectileRadius={sim.projectileRadius}
-                windSpeed={sim.windSpeed}
-                integrationMethod={sim.selectedIntegrationMethod}
-              />
+              <div ref={exportRef}>
+                <ExportSection
+                  lang={lang}
+                  trajectoryData={sim.trajectoryData}
+                  prediction={sim.prediction}
+                  velocity={sim.velocity}
+                  angle={sim.angle}
+                  height={sim.height}
+                  gravity={sim.gravity}
+                  airResistance={sim.airResistance}
+                  mass={sim.mass}
+                  onExportPNG={exportSimulationPNG}
+                  muted={sim.isMuted}
+                  spinRate={sim.spinRate}
+                  projectileRadius={sim.projectileRadius}
+                  windSpeed={sim.windSpeed}
+                  integrationMethod={sim.selectedIntegrationMethod}
+                  onSectionToggle={() => setTimeout(() => exportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)}
+                />
+              </div>
             </aside>
 
             {/* ═══ CENTER — Canvas & Results ═══ */}

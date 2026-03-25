@@ -22,6 +22,7 @@ interface AdvancedPhysicsPanelProps {
   environmentId?: string;
   relativity?: UseRelativityReturn;
   muted?: boolean;
+  onSectionToggle?: () => void;
 }
 
 const translations = {
@@ -201,15 +202,15 @@ const SectionHeader: React.FC<{
 }> = ({ icon, label, open, onToggle }) => (
   <button
     onClick={onToggle}
-    className="w-full flex items-center gap-1.5 py-2.5 px-3 text-[11px] font-semibold text-foreground uppercase tracking-wide rounded-lg border border-border/50 hover:bg-primary/10 hover:border-primary/20 hover:shadow-md transition-all duration-300"
+    className="group w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium text-foreground rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200"
   >
-    {icon}
-    <span className="flex-1 text-left">{label}</span>
+    <span className="transition-transform duration-200 group-hover:scale-110">{icon}</span>
+    <span>{label}</span>
     <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
   </button>
 );
 
-export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth', relativity, muted = false }) => {
+export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth', relativity, muted = false, onSectionToggle }) => {
   const isWaterEnvironment = environmentId === 'underwater';
   const [isExpanded, setIsExpanded] = useState(false);
   const [sectionRotational, setSectionRotational] = useState(false);
@@ -243,7 +244,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
   return (
     <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
       <button
-            onClick={() => { setIsExpanded(!isExpanded); playSectionToggle(false); }}
+            onClick={() => { setIsExpanded(!isExpanded); playSectionToggle(false); if (!isExpanded) onSectionToggle?.(); }}
             className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
         <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">

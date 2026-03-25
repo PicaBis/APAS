@@ -10,8 +10,8 @@ interface ToggleOptionProps {
 const ToggleOption: React.FC<ToggleOptionProps> = ({ label, active, onClick, icon }) => {
   return (
     <button onClick={onClick}
-      className={`w-full text-xs font-medium py-2.5 px-3 rounded-lg flex items-center gap-2 transition-all duration-300 ${active ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border border-primary/50 shadow-md shadow-primary/20' : 'text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20'}`}>
-      {icon}
+      className={`group w-full text-xs font-medium py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-all duration-200 ${active ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md' : 'text-foreground border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md'}`}>
+      <span className="transition-transform duration-200 group-hover:scale-110">{icon}</span>
       {label}
     </button>
   );

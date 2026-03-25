@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ChevronDown, Camera, FileText, QrCode, FileDown, FileType } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import jsPDF from 'jspdf';
@@ -21,13 +21,16 @@ interface Props {
   projectileRadius?: number;
   windSpeed?: number;
   integrationMethod?: string;
+  onSectionToggle?: () => void;
 }
 
 export default function ExportSection({
   lang, trajectoryData, prediction, velocity, angle, height, gravity, airResistance, mass, onExportPNG, muted,
   spinRate = 0, projectileRadius = 0.05, windSpeed = 0, integrationMethod = 'ai-apas',
+  onSectionToggle,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
   const [showQR, setShowQR] = useState(false);
   const isAr = lang === 'ar';
 
@@ -285,9 +288,9 @@ ${trajectoryData
     (prediction ? `|R=${prediction.range.toFixed(2)}|H=${prediction.maxHeight.toFixed(2)}|T=${prediction.timeOfFlight.toFixed(2)}` : '');
 
   return (
-    <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-xl shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/[0.08] dark:border-border/30">
+    <div ref={sectionRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-xl shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/[0.08] dark:border-border/30">
       <button
-        onClick={() => { setExpanded(!expanded); playSectionToggle(muted); }}
+        onClick={() => { setExpanded(!expanded); playSectionToggle(muted); if (!expanded) { onSectionToggle?.(); setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); } }}
         className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
         <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
