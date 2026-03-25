@@ -14,6 +14,7 @@ const Index = lazy(() => import("./pages/Index"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Classroom = lazy(() => import("./pages/Classroom"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const ApasNew = lazy(() => import("./pages/ApasNew"));
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,11 @@ const App = () => (
               <Route path="/admin" element={
                 <ProtectedRoute requireAdmin>
                   <AdminPanel />
+                </ProtectedRoute>
+              } />
+              <Route path="/apas-new" element={
+                <ProtectedRoute>
+                  <ApasNew />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Download, Monitor } from 'lucide-react';
+import { ArrowRight, Brain, Eye, Layers, BarChart3, Globe, Zap, GraduationCap, Users, Sparkles, ChevronDown, Box, Camera, Calculator, BookOpen, Moon, Sun, Info, Volume2, VolumeX, LogIn, UserPlus, Shield, LogOut, Download, Monitor, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 
@@ -503,6 +503,11 @@ const LandingPage: React.FC = () => {
             className="group px-6 py-3 bg-secondary/80 text-foreground rounded-xl font-medium text-base border border-border/50 hover:border-primary/30 hover:bg-primary/10 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 nav-btn-animate">
             <GraduationCap className="w-5 h-5" />
             {t.enterClassroom}
+          </button>
+          <button onClick={() => navigateWithSound('/apas-new')}
+            className="group px-6 py-3 bg-gradient-to-r from-cyan-600 to-violet-600 text-white rounded-xl font-semibold text-base shadow-lg shadow-cyan-500/20 hover:shadow-xl hover:shadow-cyan-500/30 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 nav-btn-animate">
+            <Video className="w-5 h-5" />
+            {lang === 'ar' ? 'APAS NEW' : lang === 'fr' ? 'APAS NEW' : 'APAS NEW'}
           </button>
         </div>
         <ChevronDown className="w-6 h-6 text-muted-foreground mx-auto mt-12 animate-bounce" />
