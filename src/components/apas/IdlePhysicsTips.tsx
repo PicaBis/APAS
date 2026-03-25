@@ -167,14 +167,20 @@ export default function IdlePhysicsTips({ lang }: Props) {
       className={`transition-all duration-500 pointer-events-none ${
         fadeState === 'in' ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
       }`}
-      style={{ maxWidth: '260px' }}
+      style={{ maxWidth: '240px' }}
     >
-      {/* Thought bubble - cartoon style with small trailing circles */}
+      {/* Thought bubble - cartoon style with trailing circles pointing left toward robot head */}
       <div className="relative">
+        {/* Trailing circles — positioned to the left, pointing toward robot head */}
+        <div className="absolute flex flex-col items-center" style={{ left: '-14px', top: '50%', transform: 'translateY(-50%)' }}>
+          <div className="w-2 h-2 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm mb-0.5" />
+          <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm" />
+        </div>
+
         {/* Main thought cloud */}
-        <div className="relative bg-white dark:bg-slate-800 border border-border/40 rounded-[20px] px-3.5 py-2.5 shadow-md pointer-events-auto">
+        <div className="relative bg-white dark:bg-slate-800 border border-border/40 rounded-[18px] px-3 py-2 shadow-md pointer-events-auto">
           {/* Header */}
-          <div className="flex items-center gap-1.5 mb-1">
+          <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-xs">💡</span>
             <span className="text-[9px] font-bold uppercase tracking-wider text-primary whitespace-nowrap">
               {isAr ? 'هل تعلم؟' : 'Did you know?'}
@@ -185,13 +191,6 @@ export default function IdlePhysicsTips({ lang }: Props) {
           <p className="text-[11px] text-foreground/80 leading-relaxed" dir={isAr ? 'rtl' : 'ltr'}>
             {tips[tipIndex]}
           </p>
-        </div>
-
-        {/* Thought bubble trailing circles - pointing down toward robot */}
-        <div className="flex justify-center mt-1 gap-1" style={{ direction: isAr ? 'rtl' : 'ltr' }}>
-          <div className="w-3 h-3 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm" />
-          <div className="w-2 h-2 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm mt-1" />
-          <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm mt-2" />
         </div>
       </div>
     </div>
