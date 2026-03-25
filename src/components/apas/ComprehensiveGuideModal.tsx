@@ -32,36 +32,36 @@ const ComprehensiveGuideModal: React.FC<ComprehensiveGuideModalProps> = ({ open,
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[90vh] p-0 gap-0 overflow-hidden border-border bg-background" dir={isRTL ? 'rtl' : 'ltr'}>
-        {/* Header */}
-        <div className="border-b border-border px-6 py-4 bg-gradient-to-r from-primary/5 to-transparent">
+      <DialogContent className="max-w-5xl w-[95vw] sm:w-auto max-h-[92vh] sm:max-h-[90vh] p-0 gap-0 overflow-hidden border-border bg-background rounded-xl sm:rounded-lg" dir={isRTL ? 'rtl' : 'ltr'}>
+        {/* Header - compact on mobile */}
+        <div className="border-b border-border px-3 sm:px-6 py-2.5 sm:py-4 bg-gradient-to-r from-primary/5 to-transparent">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-primary" />
-              {lang === 'ar' ? 'الدليل الشامل للتطبيق — APAS' : lang === 'fr' ? 'Guide Complet de l\'Application — APAS' : 'Comprehensive Application Guide — APAS'}
+            <DialogTitle className="text-sm sm:text-xl font-bold text-foreground flex items-center gap-2">
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0" />
+              <span className="truncate">{lang === 'ar' ? 'الدليل الشامل — APAS' : lang === 'fr' ? 'Guide Complet — APAS' : 'Guide — APAS'}</span>
             </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground mt-1">
-              {lang === 'ar' ? 'دليل تفصيلي يشرح كل عنصر وقسم في التطبيق' : lang === 'fr' ? 'Guide détaillé expliquant chaque élément de l\'application' : 'Detailed guide explaining every element and section in the application'}
+            <DialogDescription className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1">
+              {lang === 'ar' ? 'دليل تفصيلي لكل أقسام التطبيق' : lang === 'fr' ? 'Guide détaillé de l\'application' : 'Detailed guide for the application'}
             </DialogDescription>
           </DialogHeader>
         </div>
 
         {/* Two-column layout: sidebar + content */}
-        <div className="flex flex-col sm:flex-row flex-1 overflow-hidden" style={{ maxHeight: 'calc(90vh - 100px)' }}>
-          {/* Sidebar navigation */}
-          <div className="sm:w-56 shrink-0 border-b sm:border-b-0 sm:border-e border-border bg-secondary/20 overflow-x-auto sm:overflow-x-visible sm:overflow-y-auto">
-            <div className="flex sm:flex-col p-2 gap-1">
+        <div className="flex flex-col sm:flex-row flex-1 overflow-hidden" style={{ maxHeight: 'calc(92vh - 80px)' }}>
+          {/* Sidebar navigation - horizontal scroll on mobile, vertical on desktop */}
+          <div className="sm:w-48 md:w-56 shrink-0 border-b sm:border-b-0 sm:border-e border-border bg-secondary/20 overflow-x-auto sm:overflow-x-visible sm:overflow-y-auto">
+            <div className="flex sm:flex-col p-1.5 sm:p-2 gap-0.5 sm:gap-1">
               {SECTIONS.map((s) => (
                 <button
                   key={s.key}
                   onClick={() => setActiveSection(s.key)}
-                  className={`flex items-center gap-2 px-3 py-2.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
+                  className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2.5 text-[10px] sm:text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
                     activeSection === s.key
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                   }`}
                 >
-                  {s.iconEl}
+                  <span className="shrink-0 [&>svg]:w-3 [&>svg]:h-3 sm:[&>svg]:w-4 sm:[&>svg]:h-4">{s.iconEl}</span>
                   <span className="truncate">{getLabel(s)}</span>
                   {activeSection === s.key && <ChevronRight className={`w-3 h-3 ms-auto hidden sm:block ${isRTL ? 'rotate-180' : ''}`} />}
                 </button>
@@ -71,7 +71,7 @@ const ComprehensiveGuideModal: React.FC<ComprehensiveGuideModalProps> = ({ open,
 
           {/* Content */}
           <ScrollArea className="flex-1">
-            <div className={`p-6 ${isRTL ? 'text-right' : 'text-start'}`}>
+            <div className={`p-3 sm:p-6 ${isRTL ? 'text-right' : 'text-start'}`}>
               {activeSection === 'overview' && <OverviewSection lang={lang} />}
               {activeSection === 'interface' && <InterfaceSection lang={lang} />}
               {activeSection === 'simulation' && <SimulationSection lang={lang} />}

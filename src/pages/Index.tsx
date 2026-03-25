@@ -689,14 +689,6 @@ const Index = () => {
                           </span>
                           <Switch checked={sim.showCriticalPoints} onCheckedChange={() => { sim.setShowCriticalPoints(!sim.showCriticalPoints); playToggle(sim.isMuted, !sim.showCriticalPoints); }} />
                         </div>
-                        {/* External Forces */}
-                        <div className="flex items-center justify-between py-1.5 px-1">
-                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Activity className="w-3.5 h-3.5 text-primary/70" />
-                            {lang === 'ar' ? 'القوى الخارجية' : 'External Forces'}
-                          </span>
-                          <Switch checked={sim.showExternalForces} onCheckedChange={() => { sim.setShowExternalForces(!sim.showExternalForces); playToggle(sim.isMuted, !sim.showExternalForces); }} />
-                        </div>
                         {/* Bouncing */}
                         <div className="flex items-center justify-between py-1.5 px-1">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
@@ -717,7 +709,7 @@ const Index = () => {
                         )}
                       </div>
 
-                      {/* Force Vectors */}
+                      {/* Force Vectors — button only (switch removed per user request) */}
                       <ForceVectorsSection
                         lang={lang}
                         showExternalForces={sim.showExternalForces}

@@ -300,30 +300,34 @@ const LandingPage: React.FC = () => {
         <div className="absolute -bottom-20 right-1/4 w-72 h-72 rounded-full bg-accent/5 blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
       </div>
 
-      {/* Nav bar */}
+      {/* Nav bar - mobile optimized */}
       <nav className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-xl shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-end gap-4" dir="ltr">
-          <div className="flex items-center gap-2 mr-auto">
-            <span className="text-[10px] font-mono text-muted-foreground/70 border border-border/50 rounded px-1.5 py-0.5">Version : 1.1</span>
-            <ApasLogo size={32} />
-            <span className="text-lg font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent">APAS</span>
+        <div className="max-w-6xl mx-auto px-2 sm:px-6 h-11 sm:h-14 flex items-center justify-end gap-1 sm:gap-4" dir="ltr">
+          {/* Logo - compact on mobile */}
+          <div className="flex items-center gap-1 sm:gap-2 mr-auto shrink-0">
+            <span className="text-[8px] sm:text-[10px] font-mono text-muted-foreground/70 border border-border/50 rounded px-1 py-0.5 hidden sm:inline">v1.1</span>
+            <ApasLogo size={24} />
+            <span className="text-sm sm:text-lg font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent">APAS</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Nav items - icons only on mobile, with labels on desktop */}
+          <div className="flex items-center gap-0.5 sm:gap-2">
             {/* Auth buttons */}
             {!user && !isGuest && (
               <>
                 <button
                   onClick={() => navigate('/')}
-                  className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                  className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary p-1.5 sm:px-3 sm:py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 flex items-center gap-1 nav-btn-animate"
+                  title="Log In"
                 >
-                  <LogIn className="w-4 h-4" />
+                  <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline font-medium">Log In</span>
                 </button>
                 <button
                   onClick={() => navigate('/?mode=signup')}
-                  className="group text-xs font-medium text-white bg-primary hover:bg-primary/90 px-2.5 sm:px-3.5 py-1.5 rounded-lg transition-all duration-300 flex items-center gap-1.5 nav-btn-animate shadow-sm"
+                  className="group text-xs font-medium text-white bg-primary hover:bg-primary/90 p-1.5 sm:px-3 sm:py-1.5 rounded-lg transition-all duration-300 flex items-center gap-1 nav-btn-animate shadow-sm"
+                  title="Sign Up"
                 >
-                  <UserPlus className="w-4 h-4" />
+                  <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline font-medium">Sign Up</span>
                 </button>
               </>
@@ -333,10 +337,10 @@ const LandingPage: React.FC = () => {
                 {isAdmin && (
                   <button
                     onClick={() => navigate('/admin')}
-                    className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                    className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary p-1.5 sm:px-3 sm:py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 flex items-center gap-1 nav-btn-animate"
                     title="Admin Panel"
                   >
-                    <Shield className="w-4 h-4" />
+                    <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className="hidden sm:inline font-medium">Admin</span>
                   </button>
                 )}
@@ -344,29 +348,31 @@ const LandingPage: React.FC = () => {
                 {user && (
                   <button
                     onClick={async () => { await signOut(); navigate('/'); }}
-                    className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-destructive px-2 sm:px-3 py-1.5 rounded-lg hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                    className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-destructive p-1.5 sm:px-3 sm:py-1.5 rounded-lg hover:bg-destructive/10 transition-all duration-300 flex items-center gap-1 nav-btn-animate"
                     title="Sign Out"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className="hidden sm:inline font-medium">{profile?.display_name || 'Sign Out'}</span>
                   </button>
                 )}
                 {isGuest && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-0.5 sm:gap-1.5">
                     <button
                       onClick={() => { navigate('/?mode=signup'); }}
-                      className="group text-xs font-medium text-primary hover:text-primary/80 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/15 border border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                      className="group text-xs font-medium text-primary hover:text-primary/80 p-1.5 sm:px-3 sm:py-1.5 rounded-lg bg-primary/10 hover:bg-primary/15 border border-primary/20 transition-all duration-300 flex items-center gap-1 nav-btn-animate"
+                      title={lang === 'ar' ? 'إنشاء حساب' : 'Sign Up'}
                     >
-                      <UserPlus className="w-4 h-4" />
+                      <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span className="hidden sm:inline font-medium">
                         {lang === 'ar' ? 'إنشاء حساب' : lang === 'fr' ? 'S\'inscrire' : 'Sign Up'}
                       </span>
                     </button>
                     <button
                       onClick={() => { navigate('/'); }}
-                      className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
+                      className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary p-1.5 sm:px-3 sm:py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 flex items-center gap-1 nav-btn-animate"
+                      title={lang === 'ar' ? 'تسجيل الدخول' : 'Login'}
                     >
-                      <LogIn className="w-4 h-4" />
+                      <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span className="hidden sm:inline font-medium">
                         {lang === 'ar' ? 'تسجيل الدخول' : lang === 'fr' ? 'Connexion' : 'Login'}
                       </span>
@@ -375,49 +381,51 @@ const LandingPage: React.FC = () => {
                 )}
               </>
             )}
+            {/* Download */}
             <a
               href="#download-section"
               onClick={(e) => { e.preventDefault(); playLandingNav(muted); document.getElementById('download-section')?.scrollIntoView({ behavior: 'smooth' }); }}
-              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate cursor-pointer"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary p-1.5 sm:px-3 sm:py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 flex items-center gap-1 nav-btn-animate cursor-pointer"
               title={t.downloadNav}
             >
-              <Download className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
-              <span className="hidden sm:inline font-medium">{t.downloadNav}</span>
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden md:inline font-medium">{t.downloadNav}</span>
             </a>
+            {/* About */}
             <button
               onClick={() => { playLandingNav(muted); setShowAbout(true); }}
-              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2.5 sm:px-3.5 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
-              title={lang === 'ar' ? '\u062d\u0648\u0644 \u0627\u0644\u062a\u0637\u0628\u064a\u0642' : 'About'}
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary p-1.5 sm:px-3 sm:py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 flex items-center gap-1 nav-btn-animate"
+              title={lang === 'ar' ? 'حول التطبيق' : 'About'}
             >
-              <Info className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
-              <span className="hidden sm:inline font-medium">
-                {lang === 'ar' ? '\u062d\u0648\u0644' : lang === 'fr' ? '\u00c0 Propos' : 'About'}
+              <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden md:inline font-medium">
+                {lang === 'ar' ? 'حول' : lang === 'fr' ? 'À Propos' : 'About'}
               </span>
             </button>
+            {/* Theme toggle */}
             <button
               onClick={handleThemeToggle}
-              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5 nav-btn-animate"
-              title={nightMode ? (lang === 'ar' ? '\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0646\u0647\u0627\u0631\u064a' : lang === 'fr' ? 'Mode Clair' : 'Light Mode') : (lang === 'ar' ? '\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0644\u064a\u0644\u064a' : lang === 'fr' ? 'Mode Sombre' : 'Dark Mode')}
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary p-1.5 sm:px-2 sm:py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 nav-btn-animate"
+              title={nightMode ? 'Light Mode' : 'Dark Mode'}
             >
               <span className={themeSwitching ? 'theme-switch-animate' : ''}>
-                {nightMode ? <Sun className="w-4 h-4 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-90" /> : <Moon className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />}
-              </span>
-              <span className="hidden sm:inline font-medium">
-                {nightMode ? (lang === 'ar' ? '\u0646\u0647\u0627\u0631\u064a' : lang === 'fr' ? 'Clair' : 'Light') : (lang === 'ar' ? '\u0644\u064a\u0644\u064a' : lang === 'fr' ? 'Sombre' : 'Dark')}
+                {nightMode ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </span>
             </button>
+            {/* Mute toggle */}
             <button
               onClick={() => setMuted(!muted)}
-              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 nav-btn-animate"
+              className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary p-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300 nav-btn-animate"
               title={muted ? 'Unmute' : 'Mute'}
             >
-              {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {muted ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
-            <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-0.5">
+            {/* Language switcher - compact */}
+            <div className="flex items-center gap-0.5 bg-secondary/50 rounded-lg p-0.5">
               {(['ar', 'en', 'fr'] as Lang[]).map((l) => (
                 <button key={l} onClick={() => handleLangSwitch(l)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 nav-btn-animate ${lang === l ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground dark:text-foreground hover:text-foreground'}`}>
-                  {l === 'ar' ? '\u0639\u0631\u0628\u064a' : l === 'en' ? 'EN' : 'FR'}
+                  className={`px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all duration-200 nav-btn-animate ${lang === l ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground dark:text-foreground hover:text-foreground'}`}>
+                  {l === 'ar' ? 'عر' : l === 'en' ? 'EN' : 'FR'}
                 </button>
               ))}
             </div>

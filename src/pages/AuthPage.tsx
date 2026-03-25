@@ -195,33 +195,35 @@ export default function AuthPage() {
 
   return (
     <PageTransition>
-      <div className={`min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden transition-all duration-500 ${navigating ? 'opacity-0 scale-95 blur-sm' : 'opacity-100 scale-100'}`} dir={isRTL ? 'rtl' : 'ltr'}>
-        {/* About Button - top left */}
-        <button
-          onClick={() => { playClick(false); setShowAbout(true); }}
-          className="fixed top-4 left-4 z-20 flex items-center gap-1.5 bg-card/80 backdrop-blur-md border border-border rounded-lg px-3 py-1.5 shadow-sm text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200"
-        >
-          <BookOpen className="w-3.5 h-3.5" />
-          {lang === 'ar' ? 'حول' : isFr ? 'À Propos' : 'About'}
-        </button>
+      <div className={`min-h-screen bg-background flex flex-col items-center justify-center p-3 sm:p-4 relative overflow-hidden transition-all duration-500 ${navigating ? 'opacity-0 scale-95 blur-sm' : 'opacity-100 scale-100'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+        {/* Top bar: About + Language - responsive */}
+        <div className="fixed top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-20 flex items-center justify-between">
+          <button
+            onClick={() => { playClick(false); setShowAbout(true); }}
+            className="flex items-center gap-1 bg-card/80 backdrop-blur-md border border-border rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm text-[10px] sm:text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200"
+          >
+            <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden xs:inline">{lang === 'ar' ? 'حول' : isFr ? 'À Propos' : 'About'}</span>
+          </button>
 
-        {/* Language Selector - top right */}
-        <div className="fixed top-4 right-4 z-20 flex items-center gap-1 bg-card/80 backdrop-blur-md border border-border rounded-lg p-1 shadow-sm">
-          <Globe className="w-3.5 h-3.5 text-muted-foreground ml-1.5" />
-          {LANG_OPTIONS.map((opt) => (
-            <button
-              key={opt.code}
-              onClick={() => { playLangSwitch(false); setLang(opt.code); }}
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
-                lang === opt.code
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-              }`}
-              title={opt.label}
-            >
-              <span>{opt.label}</span>
-            </button>
-          ))}
+          {/* Language Selector - compact on mobile */}
+          <div className="flex items-center gap-0.5 bg-card/80 backdrop-blur-md border border-border rounded-lg p-0.5 sm:p-1 shadow-sm">
+            <Globe className="w-3 h-3 text-muted-foreground ml-1" />
+            {LANG_OPTIONS.map((opt) => (
+              <button
+                key={opt.code}
+                onClick={() => { playLangSwitch(false); setLang(opt.code); }}
+                className={`flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all duration-200 ${
+                  lang === opt.code
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`}
+                title={opt.label}
+              >
+                <span>{opt.code === 'ar' ? 'عر' : opt.code.toUpperCase()}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Background decorations */}
@@ -258,55 +260,56 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <div className="w-full max-w-md z-10">
-          {/* Logo & Title */}
-          <div className="text-center mb-8" style={{ animation: 'heroFadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both' }}>
-            <div className="flex items-center justify-center gap-3 mb-4">
+        <div className="w-full max-w-md z-10 px-1 sm:px-0">
+          {/* Logo & Title - compact on mobile */}
+          <div className="text-center mb-5 sm:mb-8" style={{ animation: 'heroFadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both' }}>
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
               <div className="relative">
-                <div className="absolute -inset-3 rounded-full bg-primary/10 blur-xl animate-pulse" />
-                <ApasLogo size={48} animated />
+                <div className="absolute -inset-2 sm:-inset-3 rounded-full bg-primary/10 blur-xl animate-pulse" />
+                <ApasLogo size={36} animated />
               </div>
-              <h1 className="text-4xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent animate-gradient-text">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent animate-gradient-text">
                 APAS
               </h1>
             </div>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-xs sm:text-sm">
               {T.subtitle}
             </p>
           </div>
 
-          {/* Auth Card */}
-          <div className="animate-auth-card bg-card/80 border border-border/60 rounded-2xl shadow-2xl p-6 backdrop-blur-xl relative overflow-hidden">
+          {/* Auth Card - responsive padding */}
+          <div className="animate-auth-card bg-card/80 border border-border/60 rounded-2xl shadow-2xl p-4 sm:p-6 backdrop-blur-xl relative overflow-hidden">
             {/* Card top gradient accent */}
             <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-            {/* Mode Tabs */}
-            <div className="flex gap-1 mb-6 bg-secondary/50 rounded-lg p-1">
+            {/* Mode Tabs - compact on mobile */}
+            <div className="flex gap-0.5 sm:gap-1 mb-4 sm:mb-6 bg-secondary/50 rounded-lg p-0.5 sm:p-1">
               <button
                 onClick={() => { playClick(false); setMode('login'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
                   mode === 'login' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 {T.logIn}
               </button>
               <button
                 onClick={() => { playClick(false); setMode('signup'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
                   mode === 'signup' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 {T.signUp}
               </button>
               <button
                 onClick={() => { playClick(false); setMode('otp'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
                   mode === 'otp' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
-                <Sparkles className="w-4 h-4" />
-                {T.magicLink}
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">{T.magicLink}</span>
+                <span className="xs:hidden">{lang === 'ar' ? 'رابط' : 'OTP'}</span>
               </button>
             </div>
 
