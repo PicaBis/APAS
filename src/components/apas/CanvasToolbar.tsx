@@ -60,7 +60,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
 
       <div className="flex items-center gap-1 sm:gap-1.5 text-xs text-muted-foreground flex-wrap">
         <span className="text-[10px] sm:text-xs">{T.playbackSpeed}</span>
-        {[0.25, 0.5, 1, 2, 4].map((s) => (
+        {[0.10, 0.25, 0.5, 1, 2, 4].map((s) => (
           <button key={s} onClick={() => { onSetPlaybackSpeed(s); playSpeedChange(isMuted); }}
             className={`apas-btn px-1.5 sm:px-2 py-0.5 rounded-lg text-[10px] sm:text-xs font-mono border transition-all duration-300 ${playbackSpeed === s ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20' : 'hover:bg-primary/10 border-transparent hover:border-primary/20'}`}>
             {s}x

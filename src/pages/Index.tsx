@@ -801,7 +801,7 @@ const Index = () => {
           <div className={isFocusMode ? 'grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr] gap-3 sm:gap-4 md:gap-5' : 'grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr_200px] xl:grid-cols-[260px_1fr_220px] gap-3 sm:gap-4 md:gap-5'}>
 
             {/* ═══ LEFT — Parameters Panel ═══ */}
-            <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:scrollbar-thin md:scrollbar-thumb-border md:scrollbar-track-transparent md:pt-24">
+            <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:scrollbar-thin md:scrollbar-thumb-border md:scrollbar-track-transparent md:pt-2">
               {/* Dynamic Analytics Dashboard — collapsible, syncs only when open */}
               <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
@@ -1369,18 +1369,30 @@ const Index = () => {
                 )}
 
                 {/* Chart Section */}
-                <CollapsibleSection title={lang === 'ar' ? '\ud83d\udcc8 \u0627\u0644\u062a\u0645\u062b\u064a\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u064a' : '\ud83d\udcc8 Graphical Representation'} icon="\ud83d\udcc8" open={showChartSection} toggle={() => setShowChartSection(!showChartSection)}
-
-                  miniPreview={
-                    chartAxisX && chartAxisY ? (
-                      <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400">
-                        {axisVars.find(v => v.key === chartAxisX)?.symbol || chartAxisX} vs {axisVars.find(v => v.key === chartAxisY)?.symbol || chartAxisY}
-                      </span>
-                    ) : (
-                      <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{lang === 'ar' ? '\u0644\u0645 \u064a\u064f\u062d\u062f\u062f' : 'Not set'}</span>
-                    )
-                  }
-                >
+                <Collapsible open={showChartSection} onOpenChange={() => setShowChartSection(!showChartSection)} className="border-2 border-border/40 rounded-2xl bg-card/70 backdrop-blur-sm shadow-xl shadow-black/[0.06] dark:shadow-black/20 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-primary/[0.08] dark:border-border/30">
+                  <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-5 sm:px-6 py-5 sm:py-6 cursor-pointer hover:bg-primary/5 transition-all duration-300 group">
+                    <span className="text-base sm:text-lg font-bold text-foreground flex items-center gap-3">
+                      {lang === 'ar' ? '\ud83d\udcc8 \u0627\u0644\u062a\u0645\u062b\u064a\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u064a' : '\ud83d\udcc8 Graphical Representation'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {!showChartSection && (
+                        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
+                          {chartAxisX && chartAxisY ? (
+                            <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400">
+                              {axisVars.find(v => v.key === chartAxisX)?.symbol || chartAxisX} vs {axisVars.find(v => v.key === chartAxisY)?.symbol || chartAxisY}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{lang === 'ar' ? '\u0644\u0645 \u064a\u064f\u062d\u062f\u062f' : 'Not set'}</span>
+                          )}
+                        </span>
+                      )}
+                      <div className="w-9 h-9 rounded-lg bg-secondary/60 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+                        <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${showChartSection ? 'rotate-180' : ''}`} />
+                      </div>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="border-t border-border/30">
+                    <div className="p-4">
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-1.5">{T.xAxis}</p>
@@ -1430,7 +1442,9 @@ const Index = () => {
                       <p className="text-sm font-medium text-muted-foreground">{lang === 'ar' ? '\u0627\u062e\u062a\u0631 \u0627\u0644\u0645\u062d\u0627\u0648\u0631 \u0623\u0639\u0644\u0627\u0647' : 'Select axes above'}</p>
                     </div>
                   )}
-                </CollapsibleSection>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
 
                 {/* Equations & Details */}
                 <Collapsible defaultOpen={false} className="border-2 border-border/40 rounded-2xl bg-card/70 backdrop-blur-sm shadow-xl shadow-black/[0.06] dark:shadow-black/20 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-primary/[0.08] dark:border-border/30">
@@ -1675,7 +1689,7 @@ const Index = () => {
                 </div>
                 <p className="text-[11px] text-muted-foreground">{T.footerSchool}</p>
                 <p className="text-[10px] font-mono text-muted-foreground/60 mt-2">v1.1 &mdash; 2025/2026</p>
-                <div className="relative inline-flex flex-col items-center mt-4">
+                <div className="relative inline-flex flex-col items-center mt-4" style={{ marginInlineEnd: '-20px' }}>
                   <FooterRobot />
                 </div>
                 {/* Did you know? tips — fixed position above bug report button */}
