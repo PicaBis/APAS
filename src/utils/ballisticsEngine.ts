@@ -118,6 +118,7 @@ export interface BallisticsAnalysisResult {
   calibratedPoints: CalibratedPoint[];
   pixelsToMetersRatio: number;
   calibrationSource: 'user' | 'auto' | 'default';
+  calibrationDetail?: string;
 
   // Stage 3: Physics
   polynomialFit: PolynomialFit;
@@ -149,21 +150,86 @@ export type ProgressCallback = (stage: number, progress: number, message: string
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Calculate pixels-to-meters ratio from known reference or defaults.
+ * Detect reference object length in pixels from telemetry.
+ * Looks for vertical structures (launch rod) or the projectile itself
+ * in early frames to establish a calibration baseline.
+ *
+ * @param telemetry - Raw telemetry points
+ * @param frameHeight - Frame height in pixels
+ * @returns Detected reference length in pixels and estimated real-world size, or null
+ */
+function detectReferenceObject(
+  telemetry: TelemetryPoint[],
+  frameHeight: number,
+): { refLengthPx: number; refLengthM: number; method: string } | null {
+  if (telemetry.length < 3) return null;
+
+  // Strategy 1: Detect launch rod from initial vertical displacement
+  // In launch frames, the projectile moves along a rod — the displacement
+  // between the first few frames approximates the rod length visible.
+  const launchPoints = telemetry.slice(0, Math.min(5, telemetry.length));
+  const dxTotal = Math.abs(launchPoints[launchPoints.length - 1].x - launchPoints[0].x);
+  const dyTotal = Math.abs(launchPoints[launchPoints.length - 1].y - launchPoints[0].y);
+  const launchDisplacement = Math.sqrt(dxTotal * dxTotal + dyTotal * dyTotal);
+
+  // If early displacement is mostly vertical and significant, likely a launch rod
+  if (launchDisplacement > frameHeight * 0.05 && dyTotal > dxTotal * 0.8) {
+    // Typical model rocket launch rod: 1.0m
+    return { refLengthPx: launchDisplacement, refLengthM: 1.0, method: 'launch_rod' };
+  }
+
+  // Strategy 2: Use total trajectory arc height as reference
+  // For typical projectile videos, the visible arc height correlates with
+  // known physics — use it when no other reference is available.
+  const yValues = telemetry.map(p => p.y);
+  const arcHeightPx = Math.max(...yValues) - Math.min(...yValues);
+
+  if (arcHeightPx > frameHeight * 0.08) {
+    // Estimate: visible arc spans ~2-5m for typical amateur rockets/projectiles
+    const estimatedArcM = 3.0;
+    return { refLengthPx: arcHeightPx, refLengthM: estimatedArcM, method: 'trajectory_arc' };
+  }
+
+  return null;
+}
+
+/**
+ * Calculate pixels-to-meters ratio using calibration hierarchy:
+ * 1. User-provided calibration (highest priority)
+ * 2. Auto-detected reference object (launch rod / projectile)
+ * 3. Default field-of-view estimate (fallback)
  *
  * @param frameWidth - Video frame width in pixels
+ * @param frameHeight - Video frame height in pixels
  * @param calibrationMeters - User-provided field of view in meters
- * @returns meters per pixel
+ * @param telemetry - Raw telemetry for auto-detection
+ * @returns meters per pixel and calibration source
  */
 function calculatePixelsToMetersRatio(
   frameWidth: number,
+  frameHeight?: number,
   calibrationMeters?: number,
-): { ratio: number; source: 'user' | 'auto' | 'default' } {
+  telemetry?: TelemetryPoint[],
+): { ratio: number; source: 'user' | 'auto' | 'default'; refDetail?: string } {
+  // Priority 1: User-provided calibration
   if (calibrationMeters && calibrationMeters > 0) {
     return { ratio: calibrationMeters / frameWidth, source: 'user' };
   }
 
-  // Default: assume ~8 meters field of view for a typical outdoor video
+  // Priority 2: Auto-detect reference object from telemetry
+  if (telemetry && telemetry.length >= 3 && frameHeight) {
+    const ref = detectReferenceObject(telemetry, frameHeight);
+    if (ref && ref.refLengthPx > 0) {
+      const ratio = ref.refLengthM / ref.refLengthPx;
+      return {
+        ratio,
+        source: 'auto',
+        refDetail: `${ref.method}: ${ref.refLengthM}m = ${Math.round(ref.refLengthPx)}px`,
+      };
+    }
+  }
+
+  // Priority 3: Default — assume ~8 meters field of view
   return { ratio: 8 / frameWidth, source: 'default' };
 }
 
@@ -655,9 +721,11 @@ export async function runBallisticsEngine(
   // ═══ STAGE 2: REAL-WORLD CALIBRATION ═══
   onProgress?.(2, 60, 'Stage 2: Calibrating to real-world units...');
 
-  const { ratio: metersPerPixel, source: calSource } = calculatePixelsToMetersRatio(
+  const { ratio: metersPerPixel, source: calSource, refDetail: calDetail } = calculatePixelsToMetersRatio(
     trackingResult.frameWidth,
+    trackingResult.frameHeight,
     config?.calibrationMeters,
+    smoothedTelemetry,
   );
 
   const calibratedPoints = calibrateTelemetry(
@@ -755,6 +823,7 @@ export async function runBallisticsEngine(
     calibratedPoints,
     pixelsToMetersRatio: metersPerPixel,
     calibrationSource: calSource,
+    calibrationDetail: calDetail,
     polynomialFit,
     dragAnalysis,
     energyAnalysis,
@@ -767,6 +836,6 @@ export async function runBallisticsEngine(
     estimatedMass: mass,
     verification,
     processingTimeMs: Math.round(processingTimeMs),
-    engineVersion: '1.0.0',
+    engineVersion: '2.0.0',
   };
 }

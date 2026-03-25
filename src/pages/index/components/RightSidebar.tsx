@@ -41,6 +41,7 @@ interface RightSidebarProps {
   onSessionLoad: (session: SessionData) => void;
   onShowRestrictionOverlay: (name: string) => void;
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
+  onAutoRun?: () => void;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -49,7 +50,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   currentEnvId, nightMode, selectedIntegrationMethod,
   enableBounce, bounceCoefficient,
   setSelectedIntegrationMethod, setVelocity, setAngle, setHeight, setMass, setGravity,
-  setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed,
+  setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed, onAutoRun,
 }) => {
   const { isGuest, isApproved, isAdmin, isRestricted, user } = useAuth();
   const canAccessRestrictedFeature = isAdmin || (user && isApproved && !isRestricted);
@@ -144,8 +145,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
           </span>
         </h3>
-        <ApasVisionButton lang={lang} onUpdateParams={handleVisionParams} onMediaAnalyzed={onMediaAnalyzed} />
-        <ApasVideoButton lang={lang} onUpdateParams={handleVisionParams} onMediaAnalyzed={onMediaAnalyzed} />
+        <ApasVisionButton lang={lang} onUpdateParams={handleVisionParams} onMediaAnalyzed={onMediaAnalyzed} onAutoRun={onAutoRun} />
+        <ApasVideoButton lang={lang} onUpdateParams={handleVisionParams} onMediaAnalyzed={onMediaAnalyzed} onAutoRun={onAutoRun} />
         <ApasSubjectReading
           lang={lang}
           onUpdateParams={(p) => {

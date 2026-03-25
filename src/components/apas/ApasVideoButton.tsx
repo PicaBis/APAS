@@ -37,6 +37,7 @@ interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
+  onAutoRun?: () => void;
   calibrationMeters?: number;
   gravity?: number;
   autoOpen?: boolean;
@@ -208,7 +209,7 @@ const extractFramesFromVideo = (
   });
 };
 
-export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed, calibrationMeters, gravity, autoOpen, onDismiss }: Props) {
+export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, calibrationMeters, gravity, autoOpen, onDismiss }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
@@ -515,6 +516,10 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
             height: result.height,
             objectType: result.objectType,
           });
+          // Auto-run simulation with extracted parameters
+          if (onAutoRun) {
+            setTimeout(() => onAutoRun(), 150);
+          }
           toast.success(isAr ? '\ud83e\udd16 \u062a\u0645 \u062a\u062d\u062f\u064a\u062b \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629 \u0628\u0648\u0627\u0633\u0637\u0629 APAS AI' : '\ud83e\udd16 Simulation updated by APAS AI');
         } else if (result.detected && confidence < CONFIDENCE_THRESHOLD) {
           toast.warning(isAr ? `\u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629 \u0645\u0646\u062e\u0641\u0636\u0629 (${confidence}%) \u2014 \u0644\u0645 \u064a\u062a\u0645 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0642\u064a\u0645` : `Low confidence (${confidence}%) \u2014 values not loaded`);
@@ -714,6 +719,10 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         mass: entry.data.mass,
         height: entry.data.height,
       });
+      // Auto-run simulation with loaded history params
+      if (onAutoRun) {
+        setTimeout(() => onAutoRun(), 150);
+      }
     }
   };
 

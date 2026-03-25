@@ -19,6 +19,7 @@ interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
+  onAutoRun?: () => void;
   autoOpen?: boolean;
   onDismiss?: () => void;
 }
@@ -50,7 +51,57 @@ interface HistoryEntry {
   thumbnailData?: string;
 }
 
-export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, autoOpen, onDismiss }: Props) {
+/** Generate professional Markdown+LaTeX report for image analysis */
+function formatImageReport(data: AnalysisData, lang: string): string {
+  const isAr = lang === 'ar';
+  const v0 = data.velocity ?? 0;
+  const theta = data.angle ?? 0;
+  const h0 = data.height ?? 0;
+  const m = data.mass ?? 0.5;
+  const g = data.gravity ?? 9.81;
+  const conf = data.confidence ?? 0;
+  const yMax = data.maxHeight ?? (v0 * v0 * Math.sin(theta * Math.PI / 180) ** 2) / (2 * g) + h0;
+  const xMax = data.maxRange ?? (v0 * v0 * Math.sin(2 * theta * Math.PI / 180)) / g;
+  const tFlight = data.totalTime ?? (2 * v0 * Math.sin(theta * Math.PI / 180)) / g;
+  const fmt = (n: number, d = 2) => isFinite(n) ? n.toFixed(d) : '\u2014';
+
+  return [
+    `# ${isAr ? '\u{1F4CA} \u062a\u0642\u0631\u064a\u0631 \u062a\u062d\u0644\u064a\u0644 APAS AI' : '\u{1F4CA} APAS AI Analysis Report'}`,
+    `**${isAr ? '\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0635\u0648\u0631\u0629' : 'Image Analysis'}** | ${data.objectType || (isAr ? '\u0645\u0642\u0630\u0648\u0641' : 'Projectile')}`,
+    '',
+    `## ${isAr ? '\u0627\u0644\u062d\u0627\u0644\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629' : 'Initial State'}`,
+    '',
+    `| ${isAr ? '\u0627\u0644\u0645\u062a\u063a\u064a\u0631' : 'Parameter'} | ${isAr ? '\u0627\u0644\u0642\u064a\u0645\u0629' : 'Value'} |`,
+    '|---|---|',
+    `| $v_0$ | **${fmt(v0, 1)}** m/s |`,
+    `| $\\theta$ | **${fmt(theta, 1)}**\u00b0 |`,
+    `| $h_0$ | **${fmt(h0, 1)}** m |`,
+    `| $m$ | **${fmt(m, 2)}** kg |`,
+    '',
+    `## ${isAr ? '\u0627\u0644\u0646\u0645\u0630\u062c\u0629 \u0627\u0644\u062d\u0631\u0643\u064a\u0629' : 'Kinematic Modeling'}`,
+    '',
+    '$$x(t) = v_0 \\cos(\\theta) \\cdot t$$',
+    '',
+    '$$y(t) = h_0 + v_0 \\sin(\\theta) \\cdot t - \\frac{1}{2}g t^2$$',
+    '',
+    `## ${isAr ? '\u062a\u0648\u0642\u0639 \u0627\u0644\u0645\u0633\u0627\u0631' : 'Flight Prediction'}`,
+    '',
+    `| ${isAr ? '\u0627\u0644\u0645\u0642\u064a\u0627\u0633' : 'Metric'} | ${isAr ? '\u0627\u0644\u0642\u064a\u0645\u0629' : 'Value'} |`,
+    '|---|---|',
+    `| ${isAr ? '\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639' : 'Peak Altitude'} ($y_{max}$) | **${fmt(yMax, 2)}** m |`,
+    `| ${isAr ? '\u0627\u0644\u0645\u062f\u0649' : 'Range'} ($x_{max}$) | **${fmt(xMax, 2)}** m |`,
+    `| ${isAr ? '\u0632\u0645\u0646 \u0627\u0644\u0637\u064a\u0631\u0627\u0646' : 'Time of Flight'} | **${fmt(tFlight, 2)}** s |`,
+    '',
+    `## ${isAr ? '\u0627\u0644\u062b\u0642\u0629' : 'Confidence'}`,
+    '',
+    `| ${isAr ? '\u0627\u0644\u0628\u0646\u062f' : 'Item'} | ${isAr ? '\u0627\u0644\u0642\u064a\u0645\u0629' : 'Value'} |`,
+    '|---|---|',
+    `| ${isAr ? '\u0645\u0633\u062a\u0648\u0649 \u0627\u0644\u062b\u0642\u0629' : 'Confidence Level'} | **${conf}%** |`,
+    `| ${isAr ? '\u0627\u0644\u0645\u0635\u062f\u0631' : 'Source'} | ${isAr ? '\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0635\u0648\u0631\u0629 \u0628\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a' : 'AI Image Analysis'} |`,
+  ].join('\n');
+}
+
+export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, autoOpen, onDismiss }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
@@ -196,9 +247,11 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
 
     const handleParsedResult = (text: string) => {
       const { result, cleanText } = parseAIResponse(text);
-      setAnalysisText(cleanText);
 
       if (result) {
+        // Use professional report format when data is detected
+        const reportText = result.detected ? formatImageReport(result, lang) : cleanText;
+        setAnalysisText(reportText);
         setAnalysisData(result);
         const confidence = result.confidence ?? 0;
 
@@ -220,6 +273,10 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
             height: result.height,
             objectType: result.objectType,
           });
+          // Auto-run simulation with extracted parameters
+          if (onAutoRun) {
+            setTimeout(() => onAutoRun(), 150);
+          }
           toast.success(isAr ? '🤖 تم تحديث المحاكاة بواسطة APAS AI' : '🤖 Simulation updated by APAS AI');
         } else if (result.detected && confidence < CONFIDENCE_THRESHOLD) {
           toast.warning(isAr ? `نسبة الثقة منخفضة (${confidence}%) — لم يتم تحميل القيم` : `Low confidence (${confidence}%) — values not loaded`);
@@ -376,6 +433,10 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
         mass: entry.data.mass,
         height: entry.data.height,
       });
+      // Auto-run simulation with loaded history params
+      if (onAutoRun) {
+        setTimeout(() => onAutoRun(), 150);
+      }
     }
   };
 

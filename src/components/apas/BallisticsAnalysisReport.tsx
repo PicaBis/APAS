@@ -13,7 +13,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Activity, Crosshair, Gauge, Zap, Shield, TrendingUp, ChevronDown, ChevronUp,
-  AlertTriangle, CheckCircle, BarChart3, Flame, Wind, Target,
+  AlertTriangle, CheckCircle, BarChart3, Flame, Wind, Target, FileText, Copy, Check,
 } from 'lucide-react';
 import type { BallisticsAnalysisResult, CalibratedPoint } from '@/utils/ballisticsEngine';
 
@@ -91,20 +91,95 @@ const MetricCard: React.FC<{
   </div>
 );
 
+/** Generate professional report text with Markdown & LaTeX formatting */
+function generateProfessionalReport(result: BallisticsAnalysisResult, lang: string): string {
+  const isAr = lang === 'ar';
+  const g = 9.81;
+  const v0 = result.initialVelocity;
+  const theta = result.launchAngle;
+  const h0 = result.maxAltitude > 0 ? 0 : 0; // launch height (ground level)
+  const yMax = result.maxAltitude;
+  const xMax = result.range;
+  const tFlight = result.timeOfFlight;
+  const K = result.pixelsToMetersRatio;
+  const conf = result.verification.confidenceScore;
+  const calSrc = result.calibrationSource === 'user'
+    ? (isAr ? 'مرجع المستخدم' : 'User Reference')
+    : result.calibrationSource === 'auto'
+    ? (isAr ? 'كشف تلقائي' : 'Auto-Detected')
+    : (isAr ? 'تقدير افتراضي (8م)' : 'Default Estimate (8m FOV)');
+  const calDetail = result.calibrationDetail || '';
+
+  const lines = [
+    `# ${isAr ? '\u{1F4CA} تقرير تحليل APAS AI' : '\u{1F4CA} APAS AI Analysis Report'}`,
+    `**Engine v${result.engineVersion}** | ${result.processingTimeMs}ms | ${result.trackingResult.detectedFrames}/${result.trackingResult.totalFrames} ${isAr ? 'إطار' : 'frames'}`,
+    '',
+    `## ${isAr ? 'الحالة الابتدائية' : 'Initial State'}`,
+    '',
+    `| ${isAr ? 'المتغير' : 'Parameter'} | ${isAr ? 'القيمة' : 'Value'} |`,
+    '|---|---|',
+    `| $v_0$ | **${fmt(v0, 1)}** m/s |`,
+    `| $\\theta$ | **${fmt(theta, 1)}**° |`,
+    `| $h_0$ | **${fmt(h0, 1)}** m |`,
+    `| $m$ | **${fmt(result.estimatedMass, 2)}** kg |`,
+    '',
+    `## ${isAr ? 'النمذجة الحركية' : 'Kinematic Modeling'}`,
+    '',
+    '$$x(t) = v_0 \\cos(\\theta) \\cdot t$$',
+    '',
+    '$$y(t) = h_0 + v_0 \\sin(\\theta) \\cdot t - \\frac{1}{2}g t^2$$',
+    '',
+    `$v_0 = ${fmt(v0, 1)}$ m/s, $\\theta = ${fmt(theta, 1)}°$, $g = ${fmt(g, 2)}$ m/s²`,
+    '',
+    `## ${isAr ? 'توقع المسار' : 'Flight Prediction'}`,
+    '',
+    `| ${isAr ? 'المقياس' : 'Metric'} | ${isAr ? 'القيمة' : 'Value'} |`,
+    '|---|---|',
+    `| ${isAr ? 'أقصى ارتفاع' : 'Peak Altitude'} ($y_{max}$) | **${fmt(yMax, 2)}** m |`,
+    `| ${isAr ? 'المدى' : 'Range'} ($x_{max}$) | **${fmt(xMax, 2)}** m |`,
+    `| ${isAr ? 'زمن الطيران' : 'Time of Flight'} | **${fmt(tFlight, 2)}** s |`,
+    `| ${isAr ? 'سرعة الاصطدام' : 'Impact Velocity'} | **${fmt(result.impactVelocity, 1)}** m/s |`,
+    '',
+    `## ${isAr ? 'الثقة والمعايرة' : 'Confidence & Calibration'}`,
+    '',
+    `| ${isAr ? 'البند' : 'Item'} | ${isAr ? 'القيمة' : 'Value'} |`,
+    '|---|---|',
+    `| ${isAr ? 'نسبة المقياس' : 'Scale Ratio'} ($K$) | **${fmt(K * 1000, 2)}** mm/px |`,
+    `| ${isAr ? 'مستوى الثقة' : 'Confidence Level'} | **${conf}%** |`,
+    `| ${isAr ? 'مصدر المعايرة' : 'Calibration Source'} | ${calSrc} |`,
+    calDetail ? `| ${isAr ? 'تفاصيل' : 'Detail'} | ${calDetail} |` : '',
+    `| $R^2$ | ${fmt(result.polynomialFit.rSquared, 4)} |`,
+    `| RMSE | ${fmt(result.polynomialFit.rmse, 3)} m |`,
+  ];
+
+  return lines.filter(l => l !== '').join('\n');
+}
+
 export default function BallisticsAnalysisReport({ result, lang }: Props) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    report: true,
     physics: true,
     telemetry: false,
     energy: false,
     drag: false,
     verification: true,
   });
+  const [copied, setCopied] = useState(false);
 
   const toggleSection = (key: string) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const isAr = lang === 'ar';
+
+  const reportText = useMemo(() => generateProfessionalReport(result, lang), [result, lang]);
+
+  const copyReport = () => {
+    navigator.clipboard.writeText(reportText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
 
   // Prepare telemetry data for display (show max 20 rows)
   const telemetryRows = useMemo(() => {
@@ -189,6 +264,38 @@ export default function BallisticsAnalysisReport({ result, lang }: Props) {
             {tl(lang, 'درجة الثقة', 'Confidence')}
           </p>
         </div>
+      </div>
+
+      {/* ═══ PROFESSIONAL REPORT ═══ */}
+      <div>
+        <SectionHeader
+          icon={<FileText className="w-4 h-4 text-indigo-500" />}
+          title={tl(lang, 'التقرير المهني', 'Professional Report')}
+          badge="MD + LaTeX"
+          badgeColor="bg-indigo-500/10 text-indigo-600"
+          expanded={expandedSections.report}
+          onToggle={() => toggleSection('report')}
+        />
+        {expandedSections.report && (
+          <div className="px-1 pb-2">
+            <div className="relative rounded-lg border border-border/50 bg-card/30 overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/30 border-b border-border/30">
+                <span className="text-[9px] text-muted-foreground font-mono">report.md</span>
+                <button
+                  onClick={copyReport}
+                  className="flex items-center gap-1 text-[9px] px-2 py-0.5 rounded hover:bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
+                  title={isAr ? 'نسخ التقرير' : 'Copy Report'}
+                >
+                  {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                  {copied ? (isAr ? 'تم النسخ' : 'Copied') : (isAr ? 'نسخ' : 'Copy')}
+                </button>
+              </div>
+              <pre className="p-3 text-[9px] font-mono text-foreground/90 whitespace-pre-wrap overflow-x-auto max-h-[400px] overflow-y-auto leading-relaxed">
+                {reportText}
+              </pre>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ═══ PHYSICS METRICS ═══ */}
@@ -496,8 +603,11 @@ export default function BallisticsAnalysisReport({ result, lang }: Props) {
               <p>
                 {tl(lang, 'معايرة', 'Calibration')}: {result.calibrationSource === 'user'
                   ? tl(lang, 'مرجع المستخدم', 'User reference')
-                  : tl(lang, 'تقدير تلقائي (8م)', 'Auto-estimated (8m FOV)')
+                  : result.calibrationSource === 'auto'
+                  ? tl(lang, 'كشف تلقائي', 'Auto-detected')
+                  : tl(lang, 'تقدير افتراضي (8م)', 'Auto-estimated (8m FOV)')
                 }
+                {result.calibrationDetail && ` (${result.calibrationDetail})`}
                 {' | '}K = {fmt(result.pixelsToMetersRatio * 1000, 2)} mm/px
               </p>
               <p>

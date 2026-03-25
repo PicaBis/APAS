@@ -200,6 +200,13 @@ const Index = () => {
     playClick(sim.isMuted);
   }, [sim, setActivePresetEmoji]);
 
+  const handleAutoRunSimulation = useCallback(() => {
+    if (!sim.isAnimating) {
+      sim.resetAnimation();
+      setTimeout(() => sim.startAnimation(), 100);
+    }
+  }, [sim]);
+
   const handleMobileVoiceParams = useCallback((p: { velocity?: number; angle?: number; height?: number; mass?: number; gravity?: number }) => {
     if (p.velocity !== undefined) sim.setVelocity(p.velocity);
     if (p.angle !== undefined) sim.setAngle(p.angle);
@@ -1380,12 +1387,12 @@ const Index = () => {
           {/* Mobile APAS Feature Components — direct access via autoOpen (no intermediate bottom sheet) */}
           {showMobileVision && (
             <div className="hidden">
-              <ApasVisionButton lang={lang} onUpdateParams={handleMobileVisionParams} autoOpen onDismiss={() => setShowMobileVision(false)} />
+              <ApasVisionButton lang={lang} onUpdateParams={handleMobileVisionParams} onAutoRun={handleAutoRunSimulation} autoOpen onDismiss={() => setShowMobileVision(false)} />
             </div>
           )}
           {showMobileVideo && (
             <div className="hidden">
-              <ApasVideoButton lang={lang} onUpdateParams={handleMobileVisionParams} autoOpen onDismiss={() => setShowMobileVideo(false)} />
+              <ApasVideoButton lang={lang} onUpdateParams={handleMobileVisionParams} onAutoRun={handleAutoRunSimulation} autoOpen onDismiss={() => setShowMobileVideo(false)} />
             </div>
           )}
           {showMobileSubject && (
@@ -2572,6 +2579,7 @@ const Index = () => {
               setMass={sim.setMass} setGravity={sim.setGravity}
               setActivePresetEmoji={setActivePresetEmoji}
               onSessionLoad={handleSessionLoad} onShowRestrictionOverlay={setShowRestrictionOverlay}
+              onAutoRun={handleAutoRunSimulation}
               onMediaAnalyzed={(src: string) => {
                 setLastAnalyzedMediaSrc(src || null);
                 if (src) {
