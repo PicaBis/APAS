@@ -279,7 +279,16 @@ const Index = () => {
     })).filter((d) => d.xVal != null && d.yVal != null && typeof d.xVal === 'number' && typeof d.yVal === 'number' && !isNaN(d.xVal) && !isNaN(d.yVal));
   }, [chartAxisX, chartAxisY, sim.trajectoryData]);
 
-  const fmtTick = (v: number) => (typeof v === 'number' && v != null && !isNaN(v) && isFinite(v)) ? Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1) : '';
+  // Safe number formatter — Recharts can pass null/undefined/NaN to tickFormatter
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fmtTick = (v: any): string => {
+    if (v == null || typeof v !== 'number' || !isFinite(v)) return '';
+    return Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1);
+  };
+  const safeFixed = (v: unknown, digits = 2): string => {
+    if (v == null || typeof v !== 'number' || !isFinite(v)) return '0';
+    return v.toFixed(digits);
+  };
 
   // ── Derived state ──
   const lastPt = sim.trajectoryData[sim.trajectoryData.length - 1];
@@ -1533,12 +1542,12 @@ const Index = () => {
                         title={lang === 'ar' ? '\ud83d\udcca \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0623\u062e\u0637\u0627\u0621 \u0648\u0627\u0644\u0642\u064a\u0627\u0633\u0627\u062a' : '\ud83d\udcca Error Analysis & Measurements'}
                         icon="\ud83d\udcc9" open={showErrorsSection} toggle={() => setShowErrorsSection(!showErrorsSection)}
                         miniPreview={(() => {
-                          const avgErr = ((sim.prediction.rangeError + sim.prediction.maxHeightError + sim.prediction.timeError) / 3);
-                          const acc = Math.max(0, 100 - avgErr);
+                          const avgErr = ((sim.prediction.rangeError ?? 0) + (sim.prediction.maxHeightError ?? 0) + (sim.prediction.timeError ?? 0)) / 3;
+                          const acc = Math.max(0, 100 - (isFinite(avgErr) ? avgErr : 0));
                           return (
                             <>
                               <span className={`px-1.5 py-0.5 rounded ${acc >= 95 ? 'bg-green-500/10 text-green-600 dark:text-green-400' : acc >= 85 ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
-                                {lang === 'ar' ? '\u0627\u0644\u062f\u0642\u0629' : 'Acc'} {acc.toFixed(1)}%
+                                {lang === 'ar' ? '\u0627\u0644\u062f\u0642\u0629' : 'Acc'} {safeFixed(acc, 1)}%
                               </span>
                               <span className="inline-flex items-center gap-0.5">
                                 <span className="w-8 h-1.5 rounded-full bg-muted overflow-hidden inline-block">
@@ -1553,9 +1562,9 @@ const Index = () => {
                           <div className="space-y-3">
                             <p className="text-xs font-medium text-muted-foreground">{lang === 'ar' ? '\u0646\u0638\u0631\u064a / \u0645\u062d\u0627\u0643\u0627\u0629' : 'Theoretical / Simulated'}</p>
                             {[
-                              { label: T.range, theo: sim.prediction!.rangeTheoretical, exp: sim.prediction!.range, err: sim.prediction!.rangeError, unit: T.u_m_s },
-                              { label: T.maxHeight, theo: sim.prediction!.maxHeightTheoretical, exp: sim.prediction!.maxHeight, err: sim.prediction!.maxHeightError, unit: T.u_m_s },
-                              { label: T.flightTime, theo: sim.prediction!.timeOfFlightTheoretical, exp: sim.prediction!.timeOfFlight, err: sim.prediction!.timeError, unit: T.u_s },
+                              { label: T.range, theo: sim.prediction!.rangeTheoretical ?? 0, exp: sim.prediction!.range ?? 0, err: sim.prediction!.rangeError ?? 0, unit: T.u_m_s },
+                              { label: T.maxHeight, theo: sim.prediction!.maxHeightTheoretical ?? 0, exp: sim.prediction!.maxHeight ?? 0, err: sim.prediction!.maxHeightError ?? 0, unit: T.u_m_s },
+                              { label: T.flightTime, theo: sim.prediction!.timeOfFlightTheoretical ?? 0, exp: sim.prediction!.timeOfFlight ?? 0, err: sim.prediction!.timeError ?? 0, unit: T.u_s },
                             ].map(({ label, theo, exp, err }) => {
                               const absErr = Math.abs(exp - theo);
                               const accuracy = err < 5 ? T.errHigh : err < 15 ? T.errMed : T.errLow;
@@ -1563,11 +1572,11 @@ const Index = () => {
                                 <div key={label} className="bg-secondary/30 rounded-md p-3">
                                   <p className="text-xs font-medium text-foreground mb-2">{label}</p>
                                   <div className="grid grid-cols-3 gap-2 text-[10px]">
-                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryLabel}</p><p className="font-mono font-semibold text-foreground">{theo.toFixed(3)}</p></div>
-                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryExp}</p><p className="font-mono font-semibold text-foreground">{exp.toFixed(3)}</p></div>
-                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryErrPct}</p><p className="font-mono font-semibold text-foreground">{err.toFixed(2)}%</p></div>
+                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryLabel}</p><p className="font-mono font-semibold text-foreground">{safeFixed(theo, 3)}</p></div>
+                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryExp}</p><p className="font-mono font-semibold text-foreground">{safeFixed(exp, 3)}</p></div>
+                                    <div className="bg-background rounded p-1.5 text-center"><p className="text-muted-foreground">{T.theoryErrPct}</p><p className="font-mono font-semibold text-foreground">{safeFixed(err, 2)}%</p></div>
                                   </div>
-                                  <div className="mt-1.5 text-[9px] text-muted-foreground">|&Delta;| = {absErr.toFixed(4)} &mdash; {accuracy}</div>
+                                  <div className="mt-1.5 text-[9px] text-muted-foreground">|&Delta;| = {safeFixed(absErr, 4)} &mdash; {accuracy}</div>
                                 </div>
                               );
                             })}
