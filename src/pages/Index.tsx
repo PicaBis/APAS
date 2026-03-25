@@ -801,18 +801,20 @@ const Index = () => {
           <div className={isFocusMode ? 'grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr] gap-3 sm:gap-4 md:gap-5' : 'grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr_200px] xl:grid-cols-[260px_1fr_220px] gap-3 sm:gap-4 md:gap-5'}>
 
             {/* ═══ LEFT — Parameters Panel ═══ */}
-            <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:scrollbar-thin md:scrollbar-thumb-border md:scrollbar-track-transparent md:pt-24">
+            <aside data-tour="left-panel" className="space-y-3 sm:space-y-3.5 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:scrollbar-thin md:scrollbar-thumb-border md:scrollbar-track-transparent md:pt-24">
               {/* Dynamic Analytics Dashboard — collapsible, syncs only when open */}
-              <div className="border border-border/40 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.04] dark:shadow-black/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.06] dark:border-border/30">
+              <div className="sidebar-panel-card border border-border/30 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] dark:shadow-black/15 transition-all duration-300 hover:shadow-lg hover:border-primary/15 dark:border-border/25">
                 <button
                   onClick={() => { setShowDynamicDashboard(!showDynamicDashboard); playSectionToggle(sim.isMuted); }}
-                  className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+                  className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-emerald-500" />
+                  <h3 className="text-[13px] font-bold text-foreground tracking-tight flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-emerald-500/10">
+                      <Activity className="w-3.5 h-3.5 text-emerald-500" />
+                    </div>
                     {lang === 'ar' ? 'لوحة التحليلات الديناميكية' : 'Dynamic Analytics'}
                   </h3>
-                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${showDynamicDashboard ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 group-hover:text-primary ${showDynamicDashboard ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showDynamicDashboard && (
@@ -832,16 +834,18 @@ const Index = () => {
                 )}
               </div>
 
-              <div className="border border-border/40 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.04] dark:shadow-black/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.06] dark:border-border/30">
+              <div className="sidebar-panel-card border border-border/30 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] dark:shadow-black/15 transition-all duration-300 hover:shadow-lg hover:border-primary/15 dark:border-border/25">
                 <button
                   onClick={() => { setShowPhysicsPanel(!showPhysicsPanel); playSectionToggle(sim.isMuted); }}
-                  className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+                  className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-                    <Gauge className="w-4 h-4 text-primary" />
+                  <h3 className="text-[13px] font-bold text-foreground tracking-tight flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-primary/10">
+                      <Gauge className="w-3.5 h-3.5 text-primary" />
+                    </div>
                     {T.physicsPanel}
                   </h3>
-                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${showPhysicsPanel ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 group-hover:text-primary ${showPhysicsPanel ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showPhysicsPanel && (
@@ -990,16 +994,18 @@ const Index = () => {
               </div>
 
               {/* Display Options */}
-              <div className="border border-border/40 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.04] dark:shadow-black/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.06] dark:border-border/30">
+              <div className="sidebar-panel-card border border-border/30 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] dark:shadow-black/15 transition-all duration-300 hover:shadow-lg hover:border-primary/15 dark:border-border/25">
                 <button
                   onClick={() => { setShowDisplayOptions(!showDisplayOptions); playSectionToggle(sim.isMuted); }}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-                    <Eye className="w-4 h-4 text-primary" />
+                  <h3 className="text-[13px] font-bold text-foreground tracking-tight flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-violet-500/10">
+                      <Eye className="w-3.5 h-3.5 text-violet-500" />
+                    </div>
                     {lang === 'ar' ? '\u062e\u064a\u0627\u0631\u0627\u062a \u0627\u0644\u0639\u0631\u0636' : lang === 'fr' ? "Options d'Affichage" : 'Display Options'}
                   </h3>
-                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${showDisplayOptions ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 group-hover:text-primary ${showDisplayOptions ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showDisplayOptions && (
@@ -1055,16 +1061,18 @@ const Index = () => {
               <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} relativity={relativity} muted={sim.isMuted} />
 
               {/* Save/Compare */}
-              <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+              <div className="sidebar-panel-card border border-border/30 rounded-xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] dark:shadow-black/15 transition-all duration-300 hover:shadow-lg hover:border-primary/15 dark:border-border/25">
                 <button
                   onClick={() => { setShowComparisonSection(!showComparisonSection); playSectionToggle(sim.isMuted); }}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-                    <GitBranch className="w-3.5 h-3.5 text-primary" />
+                  <h3 className="text-[13px] font-bold text-foreground tracking-tight flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-cyan-500/10">
+                      <GitBranch className="w-3.5 h-3.5 text-cyan-500" />
+                    </div>
                     {lang === 'ar' ? '\u0627\u0644\u0645\u0642\u0627\u0631\u0646\u0629' : lang === 'fr' ? 'Comparaison' : 'Comparison'}
                   </h3>
-                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${showComparisonSection ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 group-hover:text-primary ${showComparisonSection ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showComparisonSection && (
@@ -1176,9 +1184,9 @@ const Index = () => {
             <div data-tour="center-canvas" className="space-y-1.5 sm:space-y-2 order-1 md:order-2 min-w-0">
 
               {/* Canvas area */}
-              <div ref={canvasContainerRef} className={isFullscreen ? 'fixed inset-0 z-50 bg-background flex flex-col' : ''}>
-                <div className="flex items-center justify-between mb-1.5 px-1">
-                  <h2 className="text-sm font-semibold text-foreground flex items-center gap-2.5">
+              <div ref={canvasContainerRef} className={isFullscreen ? 'fixed inset-0 z-50 bg-background flex flex-col' : 'rounded-2xl border border-border/30 bg-card/30 backdrop-blur-sm shadow-lg shadow-black/[0.03] dark:shadow-black/20 overflow-hidden'}>
+                <div className="flex items-center justify-between px-3 py-2.5 bg-gradient-to-r from-card/80 via-card/60 to-card/80 border-b border-border/30">
+                  <h2 className="text-sm font-bold text-foreground flex items-center gap-2.5">
                     <span className={pathDotClass} />
                     {lang === 'ar' ? '\u0645\u0633\u0627\u0631 \u0627\u0644\u0645\u0642\u0630\u0648\u0641' : lang === 'fr' ? 'Trajectoire du Projectile' : 'Projectile Path'}
                   </h2>
@@ -1255,6 +1263,7 @@ const Index = () => {
                     </Suspense>
                   </div>
                 </div>
+                {/* Canvas inner padding */}
 
                 <div className={isFullscreen ? 'flex-1 min-h-0' : ''}>
                   {is3DMode ? (
@@ -1424,9 +1433,9 @@ const Index = () => {
                 </CollapsibleSection>
 
                 {/* Equations & Details */}
-                <Collapsible defaultOpen={false} className="border border-border/50 rounded-xl bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 overflow-hidden">
-                  <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300">
-                    <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Collapsible defaultOpen={false} className="border border-border/30 rounded-xl bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-primary/15">
+                  <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300 group">
+                    <span className="text-[13px] font-bold text-foreground flex items-center gap-2">
                       {lang === 'ar' ? '\ud83d\udcdd \u0642\u0633\u0645 \u0627\u0644\u0645\u0639\u0627\u062f\u0644\u0627\u062a \u0648 \u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644' : '\ud83d\udcdd Equations & Details'}
                     </span>
                     <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-300 [[data-state=open]>&]:rotate-180" />
@@ -1519,9 +1528,9 @@ const Index = () => {
                 </Collapsible>
 
                 {/* Analysis & Errors */}
-                <Collapsible defaultOpen={false} className="border border-border/50 rounded-xl bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 overflow-hidden">
-                  <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300">
-                    <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Collapsible defaultOpen={false} className="border border-border/30 rounded-xl bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-primary/15">
+                  <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300 group">
+                    <span className="text-[13px] font-bold text-foreground flex items-center gap-2">
                       {lang === 'ar' ? '\ud83d\udd0d \u0642\u0633\u0645 \u0627\u0644\u062a\u062d\u0644\u064a\u0644\u0627\u062a \u0648\u0627\u0644\u0623\u062e\u0637\u0627\u0621' : '\ud83d\udd0d Analysis & Errors'}
                     </span>
                     <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-300 [[data-state=open]>&]:rotate-180" />
@@ -1582,9 +1591,9 @@ const Index = () => {
 
                 {/* AI Section */}
                 {sim.aiModels && (
-                  <Collapsible defaultOpen={false} className="border border-border/50 rounded-xl bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 overflow-hidden">
-                    <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300">
-                      <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Collapsible defaultOpen={false} className="border border-border/30 rounded-xl bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-primary/15">
+                    <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300 group">
+                      <span className="text-[13px] font-bold text-foreground flex items-center gap-2">
                         {lang === 'ar' ? '\ud83e\udde0 \u0642\u0633\u0645 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a' : '\ud83e\udde0 Artificial Intelligence'}
                       </span>
                       <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-300 [[data-state=open]>&]:rotate-180" />
@@ -1623,9 +1632,9 @@ const Index = () => {
                 )}
 
                 {/* Supporting Technologies */}
-                <Collapsible defaultOpen={false} className="border border-border/50 rounded-xl bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 overflow-hidden">
-                  <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300">
-                    <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Collapsible defaultOpen={false} className="border border-border/30 rounded-xl bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-primary/15">
+                  <CollapsibleTrigger onClick={() => playSectionToggle(sim.isMuted)} className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300 group">
+                    <span className="text-[13px] font-bold text-foreground flex items-center gap-2">
                       {lang === 'ar' ? '\ud83d\udee0\ufe0f \u0642\u0633\u0645 \u0627\u0644\u062a\u0642\u0646\u064a\u0627\u062a \u0627\u0644\u0645\u0633\u0627\u0639\u062f\u0629' : '\ud83d\udee0\ufe0f Supporting Technologies'}
                     </span>
                     <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-300 [[data-state=open]>&]:rotate-180" />
@@ -1649,15 +1658,15 @@ const Index = () => {
               </>}
 
               {/* Footer */}
-              <div className="text-center py-8 border-t border-border/30 mt-6 space-y-3">
-                <p className="text-xs text-muted-foreground font-medium">{T.footerDev}</p>
+              <div className="text-center py-10 border-t border-border/20 mt-8 space-y-3">
+                <p className="text-xs text-muted-foreground font-medium tracking-wide">{T.footerDev}</p>
                 <div className="flex items-center justify-center gap-3">
-                  <span className="text-xs font-semibold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">{T.footerName1}</span>
-                  <span className="text-xs text-primary/40">&middot;</span>
-                  <span className="text-xs font-semibold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">{T.footerName2}</span>
+                  <span className="text-xs font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">{T.footerName1}</span>
+                  <span className="text-xs text-primary/30">&middot;</span>
+                  <span className="text-xs font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">{T.footerName2}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">{T.footerSchool}</p>
-                <p className="text-[10px] font-mono text-muted-foreground/60 mt-2">v1.1 &mdash; 2025/2026</p>
+                <p className="text-[11px] text-muted-foreground/80">{T.footerSchool}</p>
+                <p className="text-[10px] font-mono text-muted-foreground/50 mt-2">v1.1 &mdash; 2025/2026</p>
                 {/* Robot with thought bubble — bubble is absolute so it never shifts the robot */}
                 <div className="relative inline-flex flex-col items-center mt-4">
                   <FooterRobot />
