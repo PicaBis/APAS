@@ -167,30 +167,78 @@ export default function IdlePhysicsTips({ lang }: Props) {
       className={`transition-all duration-500 pointer-events-none ${
         fadeState === 'in' ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
       }`}
-      style={{ maxWidth: '240px' }}
+      style={{ maxWidth: '260px' }}
     >
-      {/* Thought bubble - cartoon style with trailing circles pointing left toward robot head */}
+      {/* Cloud-shaped thought bubble with trailing circles */}
       <div className="relative">
-        {/* Trailing circles — positioned to the left, pointing toward robot head */}
-        <div className="absolute flex flex-col items-center" style={{ left: '-14px', top: '50%', transform: 'translateY(-50%)' }}>
-          <div className="w-2 h-2 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm mb-0.5" />
-          <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm" />
+        {/* Trailing thought circles — bottom-left, pointing toward robot head */}
+        <div className="absolute" style={{ left: '10px', bottom: '-18px' }}>
+          <div className="w-3.5 h-3.5 rounded-full bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 shadow-sm" />
+        </div>
+        <div className="absolute" style={{ left: '0px', bottom: '-28px' }}>
+          <div className="w-2.5 h-2.5 rounded-full bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 shadow-sm" />
+        </div>
+        <div className="absolute" style={{ left: '-6px', bottom: '-35px' }}>
+          <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 shadow-sm" />
         </div>
 
-        {/* Main thought cloud */}
-        <div className="relative bg-white dark:bg-slate-800 border border-border/40 rounded-[18px] px-3 py-2 shadow-md pointer-events-auto">
-          {/* Header */}
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-xs">💡</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider text-primary whitespace-nowrap">
-              {isAr ? 'هل تعلم؟' : 'Did you know?'}
-            </span>
+        {/* Main cloud bubble — SVG cloud shape with content overlay */}
+        <div className="relative">
+          <svg viewBox="0 0 260 120" className="w-full h-auto drop-shadow-md" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="cloudShadow">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000" floodOpacity="0.08" />
+              </filter>
+            </defs>
+            {/* Cloud shape made of overlapping ellipses */}
+            <g filter="url(#cloudShadow)">
+              {/* Base cloud body */}
+              <ellipse cx="130" cy="65" rx="110" ry="42" className="fill-white dark:fill-slate-800" stroke="currentColor" strokeWidth="0.5" opacity="0" />
+              {/* Cloud bumps — top */}
+              <ellipse cx="80" cy="38" rx="40" ry="28" className="fill-white dark:fill-slate-800" />
+              <ellipse cx="140" cy="32" rx="48" ry="30" className="fill-white dark:fill-slate-800" />
+              <ellipse cx="195" cy="42" rx="35" ry="25" className="fill-white dark:fill-slate-800" />
+              {/* Cloud bumps — bottom */}
+              <ellipse cx="65" cy="72" rx="38" ry="24" className="fill-white dark:fill-slate-800" />
+              <ellipse cx="130" cy="78" rx="50" ry="26" className="fill-white dark:fill-slate-800" />
+              <ellipse cx="195" cy="70" rx="38" ry="24" className="fill-white dark:fill-slate-800" />
+              {/* Cloud bumps — sides */}
+              <ellipse cx="40" cy="55" rx="30" ry="22" className="fill-white dark:fill-slate-800" />
+              <ellipse cx="220" cy="55" rx="30" ry="22" className="fill-white dark:fill-slate-800" />
+              {/* Center fill */}
+              <ellipse cx="130" cy="55" rx="100" ry="35" className="fill-white dark:fill-slate-800" />
+              {/* Cloud outline — drawn as one continuous path over the filled shapes */}
+            </g>
+            {/* Subtle cloud border */}
+            <g fill="none" className="text-gray-300 dark:text-slate-600" strokeWidth="1">
+              <ellipse cx="80" cy="38" rx="40" ry="28" stroke="currentColor" />
+              <ellipse cx="140" cy="32" rx="48" ry="30" stroke="currentColor" />
+              <ellipse cx="195" cy="42" rx="35" ry="25" stroke="currentColor" />
+              <ellipse cx="65" cy="72" rx="38" ry="24" stroke="currentColor" />
+              <ellipse cx="130" cy="78" rx="50" ry="26" stroke="currentColor" />
+              <ellipse cx="195" cy="70" rx="38" ry="24" stroke="currentColor" />
+              <ellipse cx="40" cy="55" rx="30" ry="22" stroke="currentColor" />
+              <ellipse cx="220" cy="55" rx="30" ry="22" stroke="currentColor" />
+            </g>
+            {/* Inner white cover to hide internal border lines */}
+            <ellipse cx="130" cy="55" rx="95" ry="30" className="fill-white dark:fill-slate-800" />
+          </svg>
+
+          {/* Content overlaid on cloud */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6 py-3 pointer-events-auto">
+            {/* Header */}
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-sm">💡</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary whitespace-nowrap">
+                {isAr ? 'هل تعلم؟' : 'Did you know?'}
+              </span>
+            </div>
+            
+            {/* Tip text */}
+            <p className="text-[10px] text-foreground/80 leading-snug text-center" dir={isAr ? 'rtl' : 'ltr'}>
+              {tips[tipIndex]}
+            </p>
           </div>
-          
-          {/* Tip text */}
-          <p className="text-[11px] text-foreground/80 leading-relaxed" dir={isAr ? 'rtl' : 'ltr'}>
-            {tips[tipIndex]}
-          </p>
         </div>
       </div>
     </div>

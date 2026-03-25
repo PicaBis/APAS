@@ -1661,8 +1661,8 @@ const Index = () => {
                 {/* Robot with thought bubble — bubble is absolute so it never shifts the robot */}
                 <div className="relative inline-flex flex-col items-center mt-4">
                   <FooterRobot />
-                  {/* Thought bubble positioned absolutely to the right of robot head */}
-                  <div className="absolute" style={{ top: '2px', left: '100%', marginLeft: '2px', zIndex: 10 }}>
+                  {/* Cloud thought bubble positioned above-right of robot head */}
+                  <div className="absolute" style={{ bottom: '75%', left: '45%', zIndex: 10 }}>
                     <Suspense fallback={null}>
                       <IdlePhysicsTips lang={lang} />
                     </Suspense>

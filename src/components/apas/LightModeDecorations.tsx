@@ -11,8 +11,8 @@ const FooterRobot: React.FC = () => {
     <div className="relative inline-flex flex-col items-center justify-end select-none" aria-hidden="true"
       style={{ width: '240px' }}>
 
-      {/* School logo — centered above robot head, no animations */}
-      <div className="flex justify-center mb-2" style={{ zIndex: 3 }}>
+      {/* School logo — aligned above robot head center (x=115 in 260-wide viewBox ≈ 44%) */}
+      <div className="flex justify-start mb-2" style={{ zIndex: 3, width: '240px', paddingLeft: '74px' }}>
         <img
           src="/ensl-logo.jpg"
           alt=""
