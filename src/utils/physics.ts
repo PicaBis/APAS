@@ -429,6 +429,8 @@ export const calculateTrajectory = (
   };
 
   let ax = 0, ay = 0;
+  // Store raw (unrounded) values from the previous step for accurate interpolation
+  let prevRawX = x, prevRawY = y, prevRawVx = vx, prevRawVy = vy, prevRawT = t;
 
   // For zero gravity with no air resistance, use a reasonable max time/distance
   const maxTime = gravity === 0 ? Math.min(MAX_SIMULATION_TIME, 2000 / Math.max(velocity, 1)) : MAX_SIMULATION_TIME;
@@ -460,6 +462,9 @@ export const calculateTrajectory = (
       }
     }
     
+    // Save raw values before updating for accurate ground-crossing interpolation
+    prevRawX = x; prevRawY = y; prevRawVx = vx; prevRawVy = vy; prevRawT = t;
+
     x = result.x;
     y = result.y;
     vx = result.vx;
@@ -473,17 +478,15 @@ export const calculateTrajectory = (
     // Ground hit detection: only trigger if the projectile crosses y=0 from above
     // or started at y>=0 and comes back down
     if (y <= 0 && wasAboveGround && height >= 0) {
-      // Interpolate to find exact ground crossing point.
-      // The previous-previous point (before the underground one we just added)
-      // is used as the "above ground" reference for interpolation.
+      // Interpolate to find exact ground crossing point using raw (unrounded) previous
+      // values to avoid systematic precision errors from r3() rounding in addPoint().
       const undergroundIdx = points.length - 1;
-      const prevPt = points.length > 1 ? points[points.length - 2] : null;
-      if (prevPt && prevPt.y > 0 && y < 0) {
-        const frac = prevPt.y / (prevPt.y - y);
-        x = prevPt.x + (x - prevPt.x) * frac;
-        vx = prevPt.vx + (vx - prevPt.vx) * frac;
-        vy = prevPt.vy + (vy - prevPt.vy) * frac;
-        t = prevPt.time + (t - prevPt.time) * frac;
+      if (prevRawY > 0 && y < 0) {
+        const frac = prevRawY / (prevRawY - y);
+        x = prevRawX + (x - prevRawX) * frac;
+        vx = prevRawVx + (vx - prevRawVx) * frac;
+        vy = prevRawVy + (vy - prevRawVy) * frac;
+        t = prevRawT + (t - prevRawT) * frac;
       }
       y = 0;
 

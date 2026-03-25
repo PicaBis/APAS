@@ -552,7 +552,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       }
 
       if (!persistentVideoUrl) {
-        throw new Error(isAr ? 'فشل رفع الفيديو. تأكد من إعدادات التخزين.' : 'Video upload failed. Check storage settings.');
+        // Soft failure: warn but continue with frame-based analysis
+        console.warn('[APAS] Video upload failed — continuing with local frame extraction');
       }
 
       setProgress(30);

@@ -97,7 +97,13 @@ function generateProfessionalReport(result: BallisticsAnalysisResult, lang: stri
   const g = 9.81;
   const v0 = result.initialVelocity;
   const theta = result.launchAngle;
-  const h0 = result.maxAltitude > 0 ? 0 : 0; // launch height (ground level)
+  // Launch height: derive from first calibrated point's altitude relative to minimum
+  const minY = result.calibratedPoints.length > 0
+    ? Math.min(...result.calibratedPoints.map(p => p.yM))
+    : 0;
+  const h0 = result.calibratedPoints.length > 0
+    ? result.calibratedPoints[0].yM - minY
+    : 0;
   const yMax = result.maxAltitude;
   const xMax = result.range;
   const tFlight = result.timeOfFlight;

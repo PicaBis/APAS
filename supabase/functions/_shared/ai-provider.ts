@@ -162,9 +162,12 @@ export async function aiStream(
 ): Promise<{ body: ReadableStream<Uint8Array>; provider: string }> {
   const { text, provider } = await aiComplete(options);
   const encoder = new TextEncoder();
+  // Wrap in SSE format so consumers that parse "data: " lines can consume it
+  const ssePayload = JSON.stringify({ choices: [{ delta: { content: text } }] });
+  const sseFormatted = `data: ${ssePayload}\n\ndata: [DONE]\n\n`;
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
-      controller.enqueue(encoder.encode(text));
+      controller.enqueue(encoder.encode(sseFormatted));
       controller.close();
     },
   });
