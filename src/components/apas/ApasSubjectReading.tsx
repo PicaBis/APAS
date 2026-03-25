@@ -30,6 +30,75 @@ interface SubjectData {
   isProjectileMotion?: boolean;
 }
 
+/* ------------------------------------------------------------------ */
+/*  SolutionRenderer – renders text with equations in styled blocks    */
+/* ------------------------------------------------------------------ */
+
+function isEquationLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  // Lines that look like equations: contain = and math-like characters
+  const hasEquals = trimmed.includes('=');
+  const hasMathSymbols = /[+\-*/√²³⁴⁰¹⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉αβγθδωπσρμλεφψτηνΔΩΣ≈≤≥∞±·×÷∂∇∑∫⇒→]/.test(trimmed);
+  const startsWithMathVar = /^[a-zA-Z][\s_₀₁₂₃₄₅₆₇₈₉ₓ]*[\s(=]/.test(trimmed);
+  const hasParenMath = /\([^)]*[+\-*/^√]\s*[^)]*\)/.test(trimmed);
+  // Equation-like patterns
+  if (hasEquals && hasMathSymbols) return true;
+  if (hasEquals && startsWithMathVar) return true;
+  if (hasEquals && hasParenMath) return true;
+  // Lines starting with known equation patterns
+  if (/^[xyRHTvVaghmFKE][\s_₀₁₂]*([\s(=])/.test(trimmed)) return true;
+  if (/^[θαβ][\s_]*=/.test(trimmed)) return true;
+  return false;
+}
+
+function SolutionRenderer({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const blocks: { type: 'text' | 'equation'; content: string }[] = [];
+  let currentText: string[] = [];
+
+  const flushText = () => {
+    if (currentText.length > 0) {
+      blocks.push({ type: 'text', content: currentText.join('\n') });
+      currentText = [];
+    }
+  };
+
+  for (const line of lines) {
+    if (isEquationLine(line)) {
+      flushText();
+      blocks.push({ type: 'equation', content: line.trim() });
+    } else {
+      currentText.push(line);
+    }
+  }
+  flushText();
+
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, i) =>
+        block.type === 'equation' ? (
+          <div
+            key={i}
+            className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto"
+            dir="ltr"
+          >
+            {block.content}
+          </div>
+        ) : (
+          <div key={i} className="text-xs leading-relaxed text-foreground [&_p]:my-1 [&_li]:my-0.5">
+            <ReactMarkdown>{block.content}</ReactMarkdown>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main Component                                                     */
+/* ------------------------------------------------------------------ */
+
 export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -395,9 +464,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                         {isAr ? 'شرح التمرين' : 'Exercise Explanation'}
                       </p>
-                      <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                        <ReactMarkdown>{cleanLatex(explanationText)}</ReactMarkdown>
-                      </div>
+                      <SolutionRenderer text={cleanLatex(explanationText)} />
                     </div>
                   )}
 
@@ -419,9 +486,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
                         <Eye className="w-3 h-3" />
                         {isAr ? 'الحل' : 'Solution'}
                       </p>
-                      <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                        <ReactMarkdown>{cleanLatex(solutionText)}</ReactMarkdown>
-                      </div>
+                      <SolutionRenderer text={cleanLatex(solutionText)} />
                       {subjectData.isProjectileMotion && (
                         <div className="mt-3 p-2 rounded-md bg-green-500/10 border border-green-500/20">
                           <p className="text-[10px] text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
