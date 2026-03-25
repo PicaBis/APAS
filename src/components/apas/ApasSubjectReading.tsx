@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
-import { BookOpen, Loader2, X, Upload, Eye, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { BookOpen, Loader2, X, Upload, Eye, CheckCircle, AlertTriangle, XCircle, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeImageQuality, getIssueMessage } from '@/utils/mediaQuality';
@@ -28,6 +28,15 @@ interface SubjectData {
   explanation?: string;
   solution?: string;
   isProjectileMotion?: boolean;
+}
+
+interface ExerciseHistoryEntry {
+  id: number;
+  timestamp: Date;
+  data: SubjectData | null;
+  explanationText: string;
+  solutionText: string;
+  thumbnailData?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -109,6 +118,8 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
   const [showSolution, setShowSolution] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [history, setHistory] = useState<ExerciseHistoryEntry[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isAr = lang === 'ar';
@@ -210,6 +221,16 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
           setExplanationText(parsed.explanation || '');
           setSolutionText(parsed.solution || '');
 
+          // Add to history
+          setHistory(prev => [{
+            id: Date.now(),
+            timestamp: new Date(),
+            data: parsed,
+            explanationText: parsed.explanation || '',
+            solutionText: parsed.solution || '',
+            thumbnailData: previewUrl || undefined,
+          }, ...prev].slice(0, 20));
+
           if (parsed.recognized && parsed.extractedData) {
             const ed = parsed.extractedData;
             if (parsed.isProjectileMotion) {
@@ -303,6 +324,28 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
     }
   };
 
+  const loadFromHistory = (entry: ExerciseHistoryEntry) => {
+    setSubjectData(entry.data);
+    setExplanationText(entry.explanationText);
+    setSolutionText(entry.solutionText);
+    setShowSolution(false);
+    if (entry.thumbnailData) {
+      setPreviewUrl(entry.thumbnailData);
+    }
+    setShowHistoryModal(false);
+    setShowModal(true);
+    setAnalysisStep('results');
+    if (entry.data?.recognized && entry.data.extractedData && entry.data.isProjectileMotion) {
+      const ed = entry.data.extractedData;
+      onUpdateParams({
+        velocity: ed.velocity,
+        angle: ed.angle,
+        height: ed.height,
+        mass: ed.mass,
+      });
+    }
+  };
+
   const closeModal = () => {
     setShowModal(false);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -313,21 +356,126 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
     <>
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
 
-      <button
-        onClick={() => fileRef.current?.click()}
-        disabled={isAnalyzing}
-        className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
-        title={isAr ? 'قراءة تمرين' : 'Read Exercise'}
-      >
-        <div className="relative">
-          <BookOpen className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-          {isAnalyzing && (
-            <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
-          )}
-        </div>
-        <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Subject</span>
-        <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'قراءة تمرين' : 'Read Exercise'}</span>
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={isAnalyzing}
+          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
+          title={isAr ? 'قراءة تمرين' : 'Read Exercise'}
+        >
+          <div className="relative">
+            <BookOpen className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
+            {isAnalyzing && (
+              <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
+            )}
+          </div>
+          <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Subject</span>
+          <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'قراءة تمرين' : 'Read Exercise'}</span>
+        </button>
+
+        {history.length > 0 && (
+          <button
+            onClick={() => setShowHistoryModal(true)}
+            className="p-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 relative"
+            title={isAr ? 'سجل التمارين' : 'Exercise History'}
+          >
+            <History className="w-3.5 h-3.5 text-foreground" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[8px] font-bold rounded-full flex items-center justify-center">
+              {history.length}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Exercise History Modal */}
+      {showHistoryModal && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowHistoryModal(false)}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
+            dir={isAr ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">{isAr ? 'سجل التمارين' : 'Exercise History'}</h3>
+              </div>
+              <button onClick={() => setShowHistoryModal(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {history.map(entry => (
+                <div
+                  key={entry.id}
+                  className="w-full text-start p-3 rounded-lg border border-border hover:bg-secondary/50 hover:shadow-sm transition-all duration-200 relative group"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); e.preventDefault();
+                      setHistory(prev => prev.filter(h => h.id !== entry.id));
+                    }}
+                    className="absolute top-2 end-2 z-10 p-2 -m-1 rounded-md hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                    title={isAr ? 'حذف' : 'Delete'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => loadFromHistory(entry)}
+                    className="w-full text-start pe-6"
+                  >
+                    <div className="flex items-start gap-2">
+                      {entry.thumbnailData && (
+                        <img src={entry.thumbnailData} alt="" className="w-14 h-10 object-cover rounded border border-border/30 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 pe-5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                            entry.data?.recognized
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                              : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                          }`}>
+                            {entry.data?.recognized
+                              ? (isAr ? 'تم التعرف' : 'Recognized')
+                              : (isAr ? 'لم يُتعرف' : 'Not recognized')}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {entry.timestamp.toLocaleTimeString()}
+                          </span>
+                        </div>
+                        {entry.data?.type && (
+                          <p className="text-xs text-foreground truncate mb-1">{entry.data.type}</p>
+                        )}
+                        {entry.data?.recognized && entry.data.extractedData && (
+                          <div className="grid grid-cols-2 gap-1.5 text-[9px]">
+                            {[
+                              { label: isAr ? 'السرعة' : 'V', value: entry.data.extractedData.velocity, unit: 'm/s' },
+                              { label: isAr ? 'الزاوية' : 'θ', value: entry.data.extractedData.angle, unit: '°' },
+                              { label: isAr ? 'الارتفاع' : 'H', value: entry.data.extractedData.height, unit: 'm' },
+                              { label: isAr ? 'الكتلة' : 'M', value: entry.data.extractedData.mass, unit: 'kg' },
+                            ].filter(item => item.value != null).map(item => (
+                              <div key={item.label} className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{item.label}: </span>
+                                <span className="font-mono font-medium text-foreground">{item.value} {item.unit}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {entry.data?.isProjectileMotion && (
+                          <p className="text-[9px] text-green-600 dark:text-green-400 mt-1">
+                            {isAr ? 'حركة مقذوفات' : 'Projectile motion'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Analysis Modal */}
       {showModal && createPortal(

@@ -716,14 +716,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       const curSecPt = secAnimIdx >= 0 ? secondaryTraj[secAnimIdx] : secondaryTraj[secondaryTraj.length - 1];
       if (curSecPt) {
         const spx = toX(curSecPt.x), spy = toY(curSecPt.y);
-        const spPulseR = isAnimating ? 7 + 3 * Math.sin(Date.now() / 300 + 1) : 7;
-        if (isAnimating) {
-          const glowA = 0.2 + 0.12 * Math.sin(Date.now() / 300 + 1);
-          ctx.beginPath();
-          ctx.fillStyle = secondaryColor + Math.round(glowA * 255).toString(16).padStart(2, '0');
-          ctx.arc(spx, spy, spPulseR + 6, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        const spPulseR = 7;
         ctx.beginPath();
         ctx.arc(spx, spy, spPulseR, 0, Math.PI * 2);
         ctx.strokeStyle = secondaryColor;
@@ -1149,27 +1142,13 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       const bx = toX(activePt.x), by = toY(activePt.y);
 
       // Determine projectile dot state:
-      // - animating → green pulsing
+      // - animating → solid color (no animation)
       // - finished (timeline complete) → red
       // - stopped/paused → default (black/white depending on theme)
       const lastPt = trajectoryData[trajectoryData.length - 1];
       const isFinished = !isAnimating && lastPt && currentTime >= lastPt.time - 0.001;
       const dotColor = isAnimating ? '#22c55e' : isFinished ? '#ef4444' : colors.projectile;
-      const pulseRadius = isAnimating ? 7 + 3 * Math.sin(Date.now() / 300) : 7;
-
-      // Glow ring when animating (green) or finished (red)
-      if (isAnimating) {
-        const glowAlpha = 0.25 + 0.15 * Math.sin(Date.now() / 300);
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(34, 197, 94, ${glowAlpha})`;
-        ctx.arc(bx, by, pulseRadius + 6, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (isFinished) {
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
-        ctx.arc(bx, by, 13, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      const pulseRadius = 7;
 
       // Draw projectile — use emoji icon if a preset is active
       if (activePresetEmoji) {
@@ -1186,7 +1165,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         ctx.save();
         ctx.translate(bx, by);
         ctx.rotate(moveAngle - emojiBaseAngle);
-        const emojiSize = Math.round(pulseRadius * 3.5);
+        const emojiSize = Math.round(7 * 3.5);
         ctx.font = `${emojiSize}px serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

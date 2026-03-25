@@ -451,12 +451,11 @@ select:focus {
 
 /* Section expand with spring — for collapsible sections */
 @keyframes sectionExpand {
-  0% { opacity: 0; max-height: 0; transform: translateY(-8px); }
-  100% { opacity: 1; max-height: 2000px; transform: translateY(0); }
+  0% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 .animate-section-expand {
   animation: sectionExpand 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-  overflow: hidden;
 }
 
 /* Notification slide-in from top */

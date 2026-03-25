@@ -1693,7 +1693,10 @@ const Index = () => {
                   const ext = src.split('.').pop()?.toLowerCase() ?? '';
                   const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(ext) || src.includes('video');
                   setLastAnalyzedMediaType(isVideo ? 'video' : 'image');
-                  setShowVideoOverlay(true);
+                  // Only show the video overlay for actual videos, not images
+                  if (isVideo) {
+                    setShowVideoOverlay(true);
+                  }
                   setShowTheoreticalComparison(true);
                   setShowDynamicDashboard(true);
                 }

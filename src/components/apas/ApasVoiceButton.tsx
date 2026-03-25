@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Mic, MicOff, Loader2, X, Volume2, CheckCircle } from 'lucide-react';
+import { Mic, MicOff, Loader2, X, Volume2, CheckCircle, History } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EDGE_VOICE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-process`;
@@ -26,6 +26,15 @@ interface ExtractedParams {
   gravity?: number;
 }
 
+interface VoiceHistoryEntry {
+  id: number;
+  timestamp: Date;
+  transcript: string;
+  params: ExtractedParams | null;
+  aiMessage: string;
+  applied: boolean;
+}
+
 export default function ApasVoiceButton({ lang, onUpdateParams, simulationContext }: Props) {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -33,6 +42,8 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
   const [transcript, setTranscript] = useState('');
   const [extractedParams, setExtractedParams] = useState<ExtractedParams | null>(null);
   const [applied, setApplied] = useState(false);
+  const [history, setHistory] = useState<VoiceHistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const isAr = lang === 'ar';
@@ -114,6 +125,14 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
           setExtractedParams(result.params);
           onUpdateParams(result.params);
           setApplied(true);
+          setHistory(prev => [{
+            id: Date.now(),
+            timestamp: new Date(),
+            transcript: spokenText,
+            params: result.params,
+            aiMessage: result.message,
+            applied: true,
+          }, ...prev].slice(0, 20));
           toast.success(isAr ? 'تم تطبيق الأوامر الصوتية على المحاكاة' : 'Voice commands applied to simulation');
         } else if (result.missing.length > 0) {
           toast.info(result.message || (isAr ? 'بعض المعطيات ناقصة' : 'Some parameters are missing'));
@@ -124,8 +143,24 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
             setExtractedParams(directResult.params);
             onUpdateParams(directResult.params);
             setApplied(true);
+            setHistory(prev => [{
+              id: Date.now(),
+              timestamp: new Date(),
+              transcript: spokenText,
+              params: directResult.params,
+              aiMessage: '',
+              applied: true,
+            }, ...prev].slice(0, 20));
             toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
           } else {
+            setHistory(prev => [{
+              id: Date.now(),
+              timestamp: new Date(),
+              transcript: spokenText,
+              params: null,
+              aiMessage: '',
+              applied: false,
+            }, ...prev].slice(0, 20));
             toast.info(isAr ? 'لم أتمكن من استخراج قيم فيزيائية من الكلام' : 'Could not extract physics values from speech');
           }
         }
@@ -136,8 +171,24 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
           setExtractedParams(directResult.params);
           onUpdateParams(directResult.params);
           setApplied(true);
+          setHistory(prev => [{
+            id: Date.now(),
+            timestamp: new Date(),
+            transcript: spokenText,
+            params: directResult.params,
+            aiMessage: '',
+            applied: true,
+          }, ...prev].slice(0, 20));
           toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
         } else {
+          setHistory(prev => [{
+            id: Date.now(),
+            timestamp: new Date(),
+            transcript: spokenText,
+            params: null,
+            aiMessage: '',
+            applied: false,
+          }, ...prev].slice(0, 20));
           toast.error(isAr ? 'تعذر معالجة الأمر الصوتي' : 'Could not process voice command');
         }
       }
@@ -225,16 +276,112 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
 
   return (
     <>
-      <button
-        onClick={startListening}
-        disabled={isProcessing}
-        className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
-        title={isAr ? 'الأوامر الصوتية' : 'Voice Commands'}
-      >
-        <Mic className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-        <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Voice</span>
-        <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'الأوامر الصوتية' : 'Voice Commands'}</span>
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={startListening}
+          disabled={isProcessing}
+          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
+          title={isAr ? 'الأوامر الصوتية' : 'Voice Commands'}
+        >
+          <Mic className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
+          <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Voice</span>
+          <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'الأوامر الصوتية' : 'Voice Commands'}</span>
+        </button>
+
+        {history.length > 0 && (
+          <button
+            onClick={() => setShowHistory(true)}
+            className="p-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 relative"
+            title={isAr ? 'سجل الأوامر الصوتية' : 'Voice History'}
+          >
+            <History className="w-3.5 h-3.5 text-foreground" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[8px] font-bold rounded-full flex items-center justify-center">
+              {history.length}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Voice History Modal */}
+      {showHistory && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowHistory(false)}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
+            dir={isAr ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">{isAr ? 'سجل الأوامر الصوتية' : 'Voice Command History'}</h3>
+              </div>
+              <button onClick={() => setShowHistory(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {history.map(entry => (
+                <div
+                  key={entry.id}
+                  className="w-full text-start p-3 rounded-lg border border-border hover:bg-secondary/50 hover:shadow-sm transition-all duration-200 relative group"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); e.preventDefault();
+                      setHistory(prev => prev.filter(h => h.id !== entry.id));
+                    }}
+                    className="absolute top-2 end-2 z-10 p-2 -m-1 rounded-md hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                    title={isAr ? 'حذف' : 'Delete'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (entry.params) {
+                        onUpdateParams(entry.params);
+                        toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
+                      }
+                      setShowHistory(false);
+                    }}
+                    className="w-full text-start pe-6"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-purple-500/10">
+                        <Volume2 className="w-4 h-4 text-purple-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 pe-5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${entry.applied ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                            {entry.applied ? (isAr ? 'مُطبّق' : 'Applied') : (isAr ? 'لم يُطبّق' : 'Not applied')}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {entry.timestamp.toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground truncate mb-1">"{entry.transcript}"</p>
+                        {entry.params && (
+                          <div className="grid grid-cols-2 gap-1.5 text-[9px]">
+                            {Object.entries(entry.params).filter(([, v]) => v != null).map(([key, value]) => (
+                              <div key={key} className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{key}: </span>
+                                <span className="font-mono font-medium text-foreground">{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {!entry.params && (
+                          <span className="text-[10px] text-muted-foreground">{isAr ? 'لم تُستخرج قيم' : 'No values extracted'}</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Voice Modal */}
       {showModal && createPortal(
