@@ -1650,11 +1650,11 @@ const Index = () => {
                   <CollapsibleContent className="border-t border-border/30">
                     <div className="p-4 space-y-4">
                       <button onClick={() => setShowNoiseFilter(true)}
-                        className="w-full text-xs font-medium py-3 px-4 rounded-xl flex items-center gap-3 text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 transition-all duration-300 bg-card/60 backdrop-blur-sm">
-                        <Filter className="w-5 h-5 text-primary" />
+                        className="w-full text-sm font-semibold py-3 px-4 rounded-xl flex items-center gap-3 text-foreground hover:bg-primary/5 border border-border/40 hover:border-border/60 transition-all duration-300 bg-card/50 backdrop-blur-sm">
+                        <Filter className="w-4 h-4 text-primary" />
                         <div className="text-left rtl:text-right">
-                          <div className="font-semibold">{lang === 'ar' ? '\u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0636\u0648\u0636\u0627\u0621' : 'Noise Filtering'}</div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5">{lang === 'ar' ? 'Kalman / \u0645\u062a\u0648\u0633\u0637 \u0645\u062a\u062d\u0631\u0643 \u0644\u062a\u0646\u0639\u064a\u0645 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a' : 'Kalman / Moving Average smoothing'}</div>
+                          <div>{lang === 'ar' ? '\u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0636\u0648\u0636\u0627\u0621' : 'Noise Filtering'}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5 font-normal">{lang === 'ar' ? 'Kalman / \u0645\u062a\u0648\u0633\u0637 \u0645\u062a\u062d\u0631\u0643 \u0644\u062a\u0646\u0639\u064a\u0645 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a' : 'Kalman / Moving Average smoothing'}</div>
                         </div>
                       </button>
                       <SensorLab lang={lang} muted={sim.isMuted} />

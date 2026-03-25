@@ -279,10 +279,10 @@ const DevOpsTesting: React.FC<DevOpsTestingProps> = ({
   };
 
   return (
-    <div className="border border-border/50 rounded-xl bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 overflow-hidden">
+    <div className="border border-border/40 rounded-xl bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-border/60">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full px-4 py-3.5 cursor-pointer hover:bg-primary/5 transition-all duration-300"
+        className="flex items-center justify-between w-full px-4 py-3 cursor-pointer hover:bg-primary/5 transition-all duration-300 group"
       >
         <span className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Shield className="w-4 h-4 text-primary" />
@@ -301,7 +301,9 @@ const DevOpsTesting: React.FC<DevOpsTestingProps> = ({
               </span>
             </span>
           )}
-          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+          <div className="w-6 h-6 rounded-md bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+          </div>
         </div>
       </button>
 

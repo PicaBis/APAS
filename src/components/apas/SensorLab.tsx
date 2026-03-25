@@ -176,7 +176,7 @@ export default function SensorLab({ lang, muted, onDataCollected }: Props) {
     <>
       <button
         onClick={() => { setIsOpen(true); if (hasPermission === null) requestPermission(); }}
-        className="w-full text-xs font-medium py-3 px-4 rounded-xl flex items-center gap-3 text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 transition-all duration-300 bg-card/60 backdrop-blur-sm"
+        className="w-full text-sm font-semibold py-3 px-4 rounded-xl flex items-center gap-3 text-foreground hover:bg-primary/5 border border-border/40 hover:border-border/60 transition-all duration-300 bg-card/50 backdrop-blur-sm"
       >
         <Smartphone className="w-5 h-5 text-primary" />
         <div className="text-left rtl:text-right">

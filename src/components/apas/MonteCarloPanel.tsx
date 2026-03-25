@@ -70,12 +70,12 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
   );
 
   return (
-    <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+    <div className="border border-border/40 rounded-xl overflow-hidden bg-card/50 backdrop-blur-sm transition-all duration-300 hover:border-border/60">
       <button
         onClick={() => { setExpanded(!expanded); playSectionToggle(muted); }}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           🎲 {t('تحليل مونت كارلو', 'Monte Carlo Analysis', 'Analyse Monte Carlo')}
         </h3>
         <div className="flex items-center gap-2">
@@ -91,7 +91,9 @@ export default function MonteCarloPanel({ lang, muted, velocity, angle, height, 
               )}
             </span>
           )}
-          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+          <div className="w-6 h-6 rounded-md bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+          </div>
         </div>
       </button>
 
