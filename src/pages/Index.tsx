@@ -59,6 +59,7 @@ const IdlePhysicsTips = lazy(() => import('@/components/apas/IdlePhysicsTips'));
 import SensorLab from '@/components/apas/SensorLab';
 import VideoOverlay from '@/components/apas/VideoOverlay';
 import QuickStartTips from '@/components/apas/QuickStartTips';
+import WelcomeDialog from '@/components/apas/WelcomeDialog';
 import CalculationsSection from '@/components/apas/CalculationsSection';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -153,7 +154,8 @@ const Index = () => {
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const [showDynamicDashboard, setShowDynamicDashboard] = useState(false);
   const [showTheoreticalComparison, setShowTheoreticalComparison] = useState(false);
-  const [showQuickTips, setShowQuickTips] = useState(true);
+  const [showQuickTips, setShowQuickTips] = useState(false);
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(true);
   const [showComparisonSection, setShowComparisonSection] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
@@ -167,12 +169,6 @@ const Index = () => {
   });
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const dynamicDashboardRef = useRef<HTMLDivElement>(null);
-  const physicsPanelRef = useRef<HTMLDivElement>(null);
-  const displayOptionsRef = useRef<HTMLDivElement>(null);
-  const advancedPhysicsRef = useRef<HTMLDivElement>(null);
-  const comparisonRef = useRef<HTMLDivElement>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
   // ── Mobile UI State ──
@@ -809,9 +805,9 @@ const Index = () => {
             {/* ═══ LEFT — Parameters Panel ═══ */}
             <aside data-tour="left-panel" className="space-y-3.5 sm:space-y-4 order-2 md:order-1 md:sticky md:top-16 md:self-start md:max-h-[calc(100vh-5rem)] md:overflow-y-auto md:overflow-x-hidden md:scrollbar-none md:pt-2 md:pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Dynamic Analytics Dashboard — collapsible, syncs only when open */}
-              <div ref={dynamicDashboardRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
+              <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
-                  onClick={() => { setShowDynamicDashboard(!showDynamicDashboard); playSectionToggle(sim.isMuted); if (!showDynamicDashboard) setTimeout(() => dynamicDashboardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
+                  onClick={() => { setShowDynamicDashboard(!showDynamicDashboard); playSectionToggle(sim.isMuted); }}
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
@@ -840,9 +836,9 @@ const Index = () => {
                 )}
               </div>
 
-              <div ref={physicsPanelRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
+              <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
-                  onClick={() => { setShowPhysicsPanel(!showPhysicsPanel); playSectionToggle(sim.isMuted); if (!showPhysicsPanel) setTimeout(() => physicsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
+                  onClick={() => { setShowPhysicsPanel(!showPhysicsPanel); playSectionToggle(sim.isMuted); }}
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
@@ -1000,9 +996,9 @@ const Index = () => {
               </div>
 
               {/* Display Options */}
-              <div ref={displayOptionsRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
+              <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
-                  onClick={() => { setShowDisplayOptions(!showDisplayOptions); playSectionToggle(sim.isMuted); if (!showDisplayOptions) setTimeout(() => displayOptionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
+                  onClick={() => { setShowDisplayOptions(!showDisplayOptions); playSectionToggle(sim.isMuted); }}
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
@@ -1064,14 +1060,12 @@ const Index = () => {
               </div>
 
               {/* Advanced Physics Panel */}
-              <div ref={advancedPhysicsRef}>
-                <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} relativity={relativity} muted={sim.isMuted} onSectionToggle={() => setTimeout(() => advancedPhysicsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)} />
-              </div>
+              <AdvancedPhysicsPanel lang={lang} advancedPhysicsInstance={advancedPhysics} onPhysicsChange={() => sim.recalculate()} environmentId={currentEnvId} relativity={relativity} muted={sim.isMuted} />
 
               {/* Save/Compare */}
-              <div ref={comparisonRef} className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
+              <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
                 <button
-                  onClick={() => { setShowComparisonSection(!showComparisonSection); playSectionToggle(sim.isMuted); if (!showComparisonSection) setTimeout(() => comparisonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
+                  onClick={() => { setShowComparisonSection(!showComparisonSection); playSectionToggle(sim.isMuted); }}
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
@@ -1169,26 +1163,23 @@ const Index = () => {
               </div>
 
               {/* Export */}
-              <div ref={exportRef}>
-                <ExportSection
-                  lang={lang}
-                  trajectoryData={sim.trajectoryData}
-                  prediction={sim.prediction}
-                  velocity={sim.velocity}
-                  angle={sim.angle}
-                  height={sim.height}
-                  gravity={sim.gravity}
-                  airResistance={sim.airResistance}
-                  mass={sim.mass}
-                  onExportPNG={exportSimulationPNG}
-                  muted={sim.isMuted}
-                  spinRate={sim.spinRate}
-                  projectileRadius={sim.projectileRadius}
-                  windSpeed={sim.windSpeed}
-                  integrationMethod={sim.selectedIntegrationMethod}
-                  onSectionToggle={() => setTimeout(() => exportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)}
-                />
-              </div>
+              <ExportSection
+                lang={lang}
+                trajectoryData={sim.trajectoryData}
+                prediction={sim.prediction}
+                velocity={sim.velocity}
+                angle={sim.angle}
+                height={sim.height}
+                gravity={sim.gravity}
+                airResistance={sim.airResistance}
+                mass={sim.mass}
+                onExportPNG={exportSimulationPNG}
+                muted={sim.isMuted}
+                spinRate={sim.spinRate}
+                projectileRadius={sim.projectileRadius}
+                windSpeed={sim.windSpeed}
+                integrationMethod={sim.selectedIntegrationMethod}
+              />
             </aside>
 
             {/* ═══ CENTER — Canvas & Results ═══ */}
@@ -1368,6 +1359,15 @@ const Index = () => {
                     onDismiss={() => setShowQuickTips(false)}
                   />
                 )}
+
+                {/* Welcome / Onboarding Dialog */}
+                <WelcomeDialog
+                  open={showWelcomeDialog}
+                  lang={lang}
+                  onOpenGuide={() => { setShowWelcomeDialog(false); setShowComprehensiveGuide(true); }}
+                  onStartQuickTips={() => { setShowWelcomeDialog(false); setShowQuickTips(true); }}
+                  onSkip={() => setShowWelcomeDialog(false)}
+                />
 
                 {/* ── Results ── */}
                 {sim.prediction && (

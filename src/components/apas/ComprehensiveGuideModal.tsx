@@ -71,7 +71,7 @@ const ComprehensiveGuideModal: React.FC<ComprehensiveGuideModalProps> = ({ open,
 
           {/* Content */}
           <ScrollArea className="flex-1">
-            <div className="p-6">
+            <div className="p-6 text-start">
               {activeSection === 'overview' && <OverviewSection lang={lang} />}
               {activeSection === 'interface' && <InterfaceSection lang={lang} />}
               {activeSection === 'simulation' && <SimulationSection lang={lang} />}
@@ -117,7 +117,7 @@ function GuideItem({ label, desc }: { label: string; desc: string }) {
   return (
     <div className="flex gap-3 items-start py-2 border-b border-border/20 last:border-0">
       <span className="text-primary font-bold text-[10px] bg-primary/10 px-1.5 py-0.5 rounded shrink-0 mt-0.5">{label}</span>
-      <p className="text-[11px] text-muted-foreground leading-relaxed">{desc}</p>
+      <p className="text-[11px] text-muted-foreground leading-relaxed text-start">{desc}</p>
     </div>
   );
 }

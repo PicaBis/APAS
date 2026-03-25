@@ -22,7 +22,6 @@ interface AdvancedPhysicsPanelProps {
   environmentId?: string;
   relativity?: UseRelativityReturn;
   muted?: boolean;
-  onSectionToggle?: () => void;
 }
 
 const translations = {
@@ -210,7 +209,7 @@ const SectionHeader: React.FC<{
   </button>
 );
 
-export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth', relativity, muted = false, onSectionToggle }) => {
+export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth', relativity, muted = false }) => {
   const isWaterEnvironment = environmentId === 'underwater';
   const [isExpanded, setIsExpanded] = useState(false);
   const [sectionRotational, setSectionRotational] = useState(false);
@@ -244,7 +243,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
   return (
     <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
       <button
-            onClick={() => { setIsExpanded(!isExpanded); playSectionToggle(false); if (!isExpanded) onSectionToggle?.(); }}
+            onClick={() => { setIsExpanded(!isExpanded); playSectionToggle(false); }}
             className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
         <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
