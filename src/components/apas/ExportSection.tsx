@@ -302,37 +302,37 @@ ${trajectoryData
       {expanded && (
         <div className="px-3 pb-3 border-t border-border space-y-1.5 pt-2 animate-slideDown">
           <button onClick={() => { onExportPNG(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#2563eb' }}>
             <Camera className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'تصدير PNG' : 'Export PNG'}
           </button>
           <button onClick={() => { exportCSV(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#16a34a' }}>
             <FileText className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'CSV' : 'Export CSV'}
           </button>
           <button onClick={() => { exportTXT(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#9333ea' }}>
             <FileText className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'TXT' : 'Export TXT'}
           </button>
           <button onClick={() => { exportPDF(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#dc2626' }}>
             <FileDown className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'PDF' : 'Export PDF'}
           </button>
           <button onClick={() => { exportDOCX(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#2563eb' }}>
             <FileType className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'تصدير DOCX' : 'Export DOCX'}
           </button>
           <button onClick={() => { exportLabReport(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#059669' }}>
             <FileText className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'تقرير مختبر شامل' : 'Lab Report'}
           </button>
           <button onClick={() => { setShowQR(!showQR); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#ea580c' }}>
             <QrCode className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'QR' : 'QR Code'}
           </button>
