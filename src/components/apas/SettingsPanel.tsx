@@ -248,7 +248,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             >
               <div className="space-y-1">
                 {([
-                  { id: 'refined-lab' as Theme3DId, label: t('مختبر محسّن', 'Refined Lab', 'Labo Raffiné'), desc: t('المظهر الحالي محسّن', 'Current look, refined', 'Apparence actuelle améliorée'), color: '#D3D3D3' },
+                  { id: 'refined-lab' as Theme3DId, label: t('مختبر محسّن (الأصلي)', 'Refined Lab (Original)', 'Labo Raffiné (Original)'), desc: t('المظهر الحالي محسّن', 'Current look, refined', 'Apparence actuelle améliorée'), color: '#D3D3D3' },
                   { id: 'academic-white' as Theme3DId, label: t('أكاديمي أبيض', 'Academic White', 'Blanc Académique'), desc: t('للنشر والطباعة', 'For publication & print', 'Pour publication et impression'), color: '#FFFFFF' },
                   { id: 'technical-dark' as Theme3DId, label: t('تقني داكن', 'Technical Dark', 'Technique Sombre'), desc: t('وضع مظلم عالي التقنية', 'High-tech dark mode', 'Mode sombre haute technologie'), color: '#212121' },
                 ]).map(item => (

@@ -812,8 +812,8 @@ const Index = () => {
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
-                    <Activity className="w-5 h-5 text-emerald-500" />
-                    {lang === 'ar' ? 'لوحة التحليلات الديناميكية' : 'Dynamic Analytics'}
+                                        <Activity className="w-5 h-5 text-primary" />
+                                        {lang === 'ar' ? 'المحاكاة' : 'Simulation'}
                   </h3>
                   <div className="w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
                     <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${showDynamicDashboard ? 'rotate-180' : ''}`} />
