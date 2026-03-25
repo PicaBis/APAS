@@ -300,13 +300,22 @@ export default function CalculationsSection({
 
     const langName = lang === 'ar' ? 'Arabic' : lang === 'fr' ? 'French' : 'English';
 
-    const systemPrompt = 'You are a physics professor explaining projectile motion calculations. ' +
+    const systemPrompt = 'You are a physics professor explaining projectile motion calculations to a student. ' +
       'Given the following calculation pipeline, provide a clear step-by-step explanation. ' +
       'Use the ACTUAL values provided \u2014 do NOT use placeholders or generic examples. ' +
       'Adapt your explanation to the specific scenario type. ' +
-      'Use LaTeX notation for equations where helpful (wrap in $...$ for inline or $$...$$ for display). ' +
       'Respond in ' + langName + '. ' +
-      'Keep the explanation concise but thorough. Explain WHY each step matters physically.';
+      'IMPORTANT FORMATTING RULES — follow these strictly:\n' +
+      '1. Use markdown headings (## and ###) for each step title.\n' +
+      '2. Write each equation on its OWN separate line, wrapped in $$...$$ delimiters (display math). Never put equations inline with text.\n' +
+      '3. After each equation line, write a short clear explanation of what it means in a new paragraph.\n' +
+      '4. After substituting values, show the substitution as a SEPARATE $$...$$ equation on its own line, then the result.\n' +
+      '5. Use bullet points or numbered lists for clarity.\n' +
+      '6. Keep explanation text SHORT and CLEAR for each step — 1-2 sentences max.\n' +
+      '7. Separate each step with a blank line.\n' +
+      '8. At the end, include a ### summary section listing all final results.\n' +
+      '9. NEVER mix equations with text on the same line. Equations must ALWAYS be on their own line.\n' +
+      '10. Do NOT use $...$ inline math — ONLY use $$...$$ display math on separate lines.';
 
     const mediaSrc = pipeline.detected_from_media
       ? 'Source: Detected from ' + pipeline.detected_from_media.source + ' (confidence: ' + (pipeline.detected_from_media.confidence ?? '?') + '%)'
@@ -393,7 +402,7 @@ export default function CalculationsSection({
               const content = parsed?.choices?.[0]?.delta?.content;
               if (content) {
                 fullText += content;
-                setAiExplanation(cleanLatex(fullText));
+                setAiExplanation(fullText);
               }
             } catch {
               buf = line + '\n' + buf;
@@ -408,7 +417,7 @@ export default function CalculationsSection({
       } else {
         const data = await resp.json();
         const content = data?.choices?.[0]?.message?.content || data?.content || '';
-        setAiExplanation(cleanLatex(content));
+        setAiExplanation(content);
       }
     } catch (err) {
       console.error('AI explanation error:', err);
@@ -926,8 +935,88 @@ export default function CalculationsSection({
               )}
 
               {aiExplanation && (
-                <div className="bg-background/80 rounded-lg border border-border/30 p-4 text-xs text-foreground leading-relaxed prose prose-xs max-w-none dark:prose-invert" dir={isAr ? 'rtl' : 'ltr'}>
-                  <ReactMarkdown>{aiExplanation}</ReactMarkdown>
+                <div className="bg-background/80 rounded-lg border border-border/30 p-4 text-xs text-foreground leading-relaxed prose prose-xs max-w-none dark:prose-invert ai-explanation-formatted" dir={isAr ? 'rtl' : 'ltr'}>
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => {
+                        // Check if this paragraph contains a display math block ($$...$$)
+                        const text = String(children);
+                        const mathMatch = text.match(/^\$\$([\s\S]+?)\$\$$/); 
+                        if (mathMatch) {
+                          return <Latex display math={mathMatch[1].trim()} />;
+                        }
+                        // Check for inline $$...$$ within text and render them as display blocks
+                        const parts = text.split(/(\$\$[\s\S]+?\$\$)/);
+                        if (parts.length > 1) {
+                          return (
+                            <div className="space-y-2">
+                              {parts.map((part, i) => {
+                                const m = part.match(/^\$\$([\s\S]+?)\$\$$/);
+                                if (m) {
+                                  return (
+                                    <div key={i} className="bg-primary/5 border border-primary/15 rounded-lg px-3 py-2 my-2 overflow-x-auto" dir="ltr">
+                                      <Latex display math={m[1].trim()} />
+                                    </div>
+                                  );
+                                }
+                                // Handle inline $...$ in remaining text
+                                const inlineParts = part.split(/(\$[^$]+?\$)/);
+                                if (inlineParts.length > 1) {
+                                  return (
+                                    <p key={i}>
+                                      {inlineParts.map((ip, j) => {
+                                        const im = ip.match(/^\$([^$]+?)\$$/);
+                                        if (im) return <Latex key={j} math={im[1].trim()} />;
+                                        return <span key={j}>{ip}</span>;
+                                      })}
+                                    </p>
+                                  );
+                                }
+                                return part.trim() ? <p key={i}>{part}</p> : null;
+                              })}
+                            </div>
+                          );
+                        }
+                        // Handle inline $...$ math in regular paragraphs
+                        const inlineParts = text.split(/(\$[^$]+?\$)/);
+                        if (inlineParts.length > 1) {
+                          return (
+                            <p>
+                              {inlineParts.map((part, i) => {
+                                const m = part.match(/^\$([^$]+?)\$$/);
+                                if (m) return <Latex key={i} math={m[1].trim()} />;
+                                return <span key={i}>{part}</span>;
+                              })}
+                            </p>
+                          );
+                        }
+                        return <p>{children}</p>;
+                      },
+                      h2: ({ children }) => (
+                        <h2 className="text-sm font-bold text-foreground mt-4 mb-2 pb-1 border-b border-primary/20 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+                          {children}
+                        </h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-xs font-bold text-foreground mt-3 mb-1.5 flex items-center gap-1.5">
+                          <span className="text-primary">▸</span>
+                          {children}
+                        </h3>
+                      ),
+                      strong: ({ children }) => (
+                        <strong className="font-bold text-primary">{children}</strong>
+                      ),
+                      li: ({ children }) => (
+                        <li className="text-[11px] text-foreground/80 leading-relaxed ml-3">{children}</li>
+                      ),
+                      code: ({ children }) => (
+                        <code className="bg-primary/10 text-primary font-mono text-[10px] px-1.5 py-0.5 rounded">{children}</code>
+                      ),
+                    }}
+                  >
+                    {aiExplanation}
+                  </ReactMarkdown>
                 </div>
               )}
 
