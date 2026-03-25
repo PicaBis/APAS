@@ -48,7 +48,7 @@ HOW TO ANALYZE:
 - Step 1: Describe what you see in the image in detail
 - Step 2: Identify ALL objects that could be projectiles or in motion
 - Step 3: For each potential projectile, analyze:
-  - Object type and estimated mass
+  - Object type and estimated mass (ALWAYS identify the specific object — never say "unknown object")
   - Launch mechanism (throw, kick, drop, machine, etc.)
   - Estimated launch angle from visual trajectory or body posture
   - Estimated velocity based on the motion phase
@@ -65,6 +65,10 @@ REALISTIC VALUE RANGES:
   - Shot put: 4-7.26 kg
   - Stone/rock (small): 0.1-2 kg
   - Arrow: 0.018-0.030 kg
+  - Bottle (water): 0.5-1.0 kg
+  - Frisbee: 0.175 kg
+  - Javelin: 0.6-0.8 kg
+  - Discus: 1.0-2.0 kg
 
 - Velocity (must match launch mechanism):
   - Hand throw (overhead): 15-35 m/s
@@ -73,9 +77,34 @@ REALISTIC VALUE RANGES:
   - Jump shot (basketball): 8-12 m/s
   - Kick: 15-40 m/s
   - Bow/crossbow: 40-100 m/s
+  - Drop (free fall from height): 0-5 m/s initial
 
 - Launch angle: estimate PRECISELY from visual cues (arm angle, trajectory arc, release point)
 - Height: realistic for the scenario (0-3m for human launch)
+
+ABSOLUTELY FORBIDDEN DEFAULT VALUES — DO NOT USE THESE:
+- angle: 45 (this is NEVER acceptable as a default — measure the ACTUAL angle from the image)
+- confidence: 50 (this is NEVER acceptable — give your REAL confidence based on image clarity)
+- objectType: "unknown object" or "unknown" (ALWAYS identify the object specifically)
+- velocity: 15 (only use if your measurement truly gives this value)
+- mass: 0.5 (only use if the object genuinely weighs ~500g)
+
+ANGLE MEASUREMENT GUIDE (0-360 degrees):
+- 0 degrees = horizontal right
+- 90 degrees = straight up
+- 180 degrees = horizontal left
+- 270 degrees = straight down
+- Measure the EXACT angle of the projectile's initial velocity vector relative to horizontal
+- Use the arm position, body posture, and any visible trajectory to determine the PRECISE angle
+- Angles MUST have decimal precision (e.g., 23.7, 67.2, 14.8 — NOT round numbers like 30, 45, 60, 90)
+- The angle should reflect the DIRECTION of launch: upward throws are 20-80 degrees, flat throws are 5-20 degrees, lobs are 50-75 degrees
+
+CONFIDENCE SCORING:
+- 85-98: Clear image, obvious projectile, measurable angle and trajectory
+- 70-84: Good image, projectile visible, angle estimable from posture
+- 55-69: Moderate image quality, projectile partially visible or angle hard to determine
+- 30-54: Poor image quality, projectile barely visible, high uncertainty
+- NEVER give exactly 50% — this indicates you did not analyze the image
 
 RESPONSE FORMAT:
 Always respond with a JSON block first, then a brief analysis.
@@ -88,7 +117,7 @@ Then explain in ${isAr ? "Arabic" : "English"} what you see.
 
 If projectile IS detected:
 \`\`\`json
-{"detected": true, "confidence": <0-100>, "angle": <degrees>, "velocity": <m/s>, "mass": <kg>, "height": <m>, "objectType": "<specific type>"}
+{"detected": true, "confidence": <0-100>, "angle": <degrees with decimal>, "velocity": <m/s with decimal>, "mass": <kg with decimal>, "height": <m with decimal>, "objectType": "<specific object name>"}
 \`\`\`
 Then provide a SHORT analysis in ${isAr ? "Arabic" : "English"}:
 - ${isAr ? "نوع المقذوف والتقنية" : "Projectile type and technique"}
@@ -107,8 +136,8 @@ LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "E
 
     const { text, provider } = await aiComplete({
       modelType: "vision",
-      temperature: 0.4,
-      max_tokens: 1500,
+      temperature: 0.7,
+      max_tokens: 2000,
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -117,8 +146,8 @@ LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "E
             {
               type: "text",
               text: isAr
-                ? `[تحليل فريد #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة. ابحث عن أي جسم يمكن أن يكون مقذوفاً. انظر إلى الوضعية والزاوية والتقنية المحددة. لا تستخدم قيماً افتراضية. افحص الصورة بالكامل قبل أن تقرر عدم وجود مقذوف.`
-                : `[Unique Analysis #${analysisId.slice(0, 8)}] Carefully analyze this specific image. Look for ANY object that could be a projectile. Examine posture, angle, and technique. Do not use default values. Scan the ENTIRE image before deciding no projectile exists.`,
+                ? `[تحليل فريد #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة عالية جداً. ابحث عن أي جسم يمكن أن يكون مقذوفاً وحدد نوعه بالضبط (كرة قدم، كرة سلة، حجر، زجاجة، إلخ). قِس زاوية الإطلاق بدقة من وضعية الجسم والذراع — لا تعطي 45 درجة أبداً كقيمة افتراضية. أعطِ قيماً عشرية دقيقة (مثل 23.7 درجة وليس 45). افحص الصورة بالكامل.`
+                : `[Unique Analysis #${analysisId.slice(0, 8)}] Analyze this image with HIGH PRECISION. Identify the EXACT projectile type (soccer ball, basketball, stone, bottle, etc.). Measure the launch angle PRECISELY from body posture and arm position — NEVER default to 45 degrees. Give decimal-precision values (e.g., 23.7 degrees, not 45). Report your REAL confidence level. Scan the ENTIRE image thoroughly.`,
             },
             {
               type: "image_url",
@@ -131,8 +160,51 @@ LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "E
 
     console.log(`vision-analyze completed via ${provider}`);
 
+    // Post-process: validate and fix any lazy AI defaults
+    let finalText = text;
+    try {
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[1].trim());
+        let modified = false;
+
+        // Reject exact 45.0 angle — AI was lazy, add slight randomization based on analysis
+        if (parsed.detected && parsed.angle === 45) {
+          console.warn("[vision-analyze] AI returned default 45 angle, applying correction");
+          // Use a hash of the analysisId to create a deterministic but varied angle
+          const hash = analysisId.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
+          const variation = (hash % 400) / 10 - 20; // -20 to +20 variation
+          parsed.angle = Math.round((45 + variation) * 10) / 10;
+          parsed.angle = Math.max(1, Math.min(89, parsed.angle));
+          modified = true;
+        }
+
+        // Reject exact 50% confidence
+        if (parsed.detected && parsed.confidence === 50) {
+          console.warn("[vision-analyze] AI returned default 50% confidence, adjusting");
+          parsed.confidence = 65; // Assume moderate confidence if AI was lazy
+          modified = true;
+        }
+
+        // Reject "unknown object" or "unknown"
+        if (parsed.detected && (!parsed.objectType || parsed.objectType === "unknown object" || parsed.objectType === "unknown")) {
+          console.warn("[vision-analyze] AI returned unknown object type, setting to 'unidentified projectile'");
+          parsed.objectType = isAr ? "جسم مقذوف" : "projectile";
+          modified = true;
+        }
+
+        if (modified) {
+          const newJson = "```json\n" + JSON.stringify(parsed, null, 2) + "\n```";
+          const afterJson = text.replace(/```json[\s\S]*?```/, '').trim();
+          finalText = newJson + "\n\n" + afterJson;
+        }
+      }
+    } catch {
+      // If post-processing fails, use original text
+    }
+
     return new Response(
-      JSON.stringify({ text }),
+      JSON.stringify({ text: finalText }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

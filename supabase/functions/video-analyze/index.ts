@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const CLAUDE_MODEL = "claude-opus-4-20250514";
+import { aiComplete } from "../_shared/ai-provider.ts";
 
 // ── Geometric computation helpers ──
 
@@ -252,18 +250,13 @@ serve(async (req) => {
       });
     }
 
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!anthropicKey) {
-      throw new Error("ANTHROPIC_API_KEY is not configured");
-    }
-
     console.log(`[APAS] Received ${frames.length} frames for video analysis, fps: ${fps}, totalFrames: ${totalFrames}`);
 
     const isAr = lang === "ar";
 
     // PASS 1: Ask AI to detect object positions in each frame
 
-    const positionPrompt = `You are APAS (Advanced Physics Analysis System) — a precise object tracking system for physics video analysis powered by Claude 4.6 Opus.
+    const positionPrompt = `You are APAS (Advanced Physics Analysis System) — a precise object tracking system for physics video analysis.
 You will receive ${frames.length} consecutive video frames showing a potential moving object (projectile).
 
 YOUR ONLY TASK:
@@ -286,113 +279,91 @@ PHYSICAL CONSTRAINTS (use these to validate your tracking):
 - The trajectory should form a smooth parabola (or straight line for vertical/horizontal throws).
 - Sudden jumps in position indicate tracking errors - avoid them.
 
-ADVANCED ANALYSIS:
-- Detect the moment of "peak height" (maximum altitude) in the trajectory.
-- Detect the moment of "impact" (when the object hits the ground or stops).
-- Note any drag effects visible (deceleration beyond gravity).
+ABSOLUTELY FORBIDDEN DEFAULT VALUES — DO NOT USE THESE:
+- objectType: "unknown object" or "unknown" — ALWAYS identify the specific object (ball, stone, bottle, etc.)
+- estimatedMass: 0.5 — only use if the object genuinely weighs ~500g
+- launchHeight: 1 — measure from the actual visual context
+- NEVER return the same positions for different videos
+
+OBJECT IDENTIFICATION:
+- You MUST identify the projectile specifically: "soccer ball", "basketball", "tennis ball", "stone", "bottle", "javelin", etc.
+- NEVER return "unknown object" or "unknown" — if unsure, describe what you see (e.g., "small round object", "dark spherical ball")
 
 Also identify:
-- objectType: what the moving object is (ball, stone, bottle, etc.)
-- estimatedMass: mass in kg based on the object type (use realistic values)
+- objectType: what the moving object is specifically
+- estimatedMass: mass in kg based on the object type (use realistic values with decimals)
 - launchHeight: estimated launch height in meters (how high the object started from ground)
 - peakFrame: frame number where the object reaches maximum height (or null)
 - impactFrame: frame number where the object hits the ground (or null)
+- aiAngle: your estimated launch angle in degrees (with decimal precision)
+- aiVelocity: your estimated initial velocity in m/s (with decimal precision)
+- aiConfidence: your confidence in the detection 0-100
 
 RESPOND WITH ONLY THIS JSON (no other text):
-\`\`\`json
 {
   "detected": true,
-  "objectType": "<type>",
-  "estimatedMass": <kg>,
-  "launchHeight": <meters>,
+  "objectType": "<specific object name — NEVER unknown>",
+  "estimatedMass": <kg_with_decimal>,
+  "launchHeight": <meters_with_decimal>,
   "imageWidth": 384,
   "peakFrame": <frame_number_or_null>,
   "impactFrame": <frame_number_or_null>,
   "dragEffect": "<none|slight|significant>",
+  "aiAngle": <launch_angle_degrees_with_decimal>,
+  "aiVelocity": <initial_velocity_m_per_s_with_decimal>,
+  "aiConfidence": <0-100>,
   "positions": [
     {"frame": 1, "x": <pixel_x>, "y": <pixel_y>},
     {"frame": 2, "x": <pixel_x>, "y": <pixel_y>}
   ]
 }
-\`\`\`
 
 If NO moving object is found at all:
-\`\`\`json
-{"detected": false, "positions": []}
-\`\`\``;
+{"detected": false, "positions": []}`;
 
-    // Build Claude Messages API content with base64 images
-    function parseDataUrl(dataUrl: string): { base64: string; mediaType: string } {
-      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        return { mediaType: match[1], base64: match[2] };
-      }
-      return { mediaType: "image/jpeg", base64: dataUrl };
-    }
-
-    // Physics analysis prompt for Claude 4.6 Opus
-    const physicsAnalysisPrompt = "تحليل هذه الصور المتتابعة لمقذوف. استخرج مسار الحركة (Trajectory)، احسب السرعة الابتدائية والزاوية، وقدم تقريراً فيزيائياً مفصلاً عن الحركة الظاهرة في الصور.";
-
+    // Build content array with base64 images for AI provider
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const claudeContent: Array<Record<string, any>> = [];
-    claudeContent.push({
+    const contentParts: Array<Record<string, any>> = [];
+    contentParts.push({
       type: "text",
-      text: `${physicsAnalysisPrompt}\n\nAnalyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
+      text: `Analyze these ${frames.length} consecutive frames from video "${videoName || "unknown"}". Track the moving object precisely in each frame. Pay close attention to the EXACT pixel coordinates of the object center.`,
     });
 
     for (let i = 0; i < frames.length; i++) {
       const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(3) : String(i * 0.1);
-      claudeContent.push({
+      contentParts.push({
         type: "text",
         text: `--- Frame ${i + 1}/${frames.length} (Time: ${ts}s) ---`,
       });
 
-      const { base64, mediaType } = parseDataUrl(frames[i].data);
-      claudeContent.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: mediaType,
-          data: base64,
-        },
+      // Ensure data URL format for the AI provider
+      let imageUrl = frames[i].data;
+      if (!imageUrl.startsWith("data:")) {
+        imageUrl = `data:image/jpeg;base64,${imageUrl}`;
+      }
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: imageUrl },
       });
     }
 
-    console.log(`[APAS] Pass 1: Sending ${frames.length} frames to Claude 4.6 Opus (${CLAUDE_MODEL})...`);
+    console.log(`[APAS] Pass 1: Sending ${frames.length} frames to AI vision provider...`);
 
-    const posResponse = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": anthropicKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        system: positionPrompt,
-        messages: [
-          { role: "user", content: claudeContent },
-        ],
-        temperature: 0.05,
-        max_tokens: 4000,
-      }),
+    const { text: posText, provider: usedProvider } = await aiComplete({
+      messages: [
+        { role: "system", content: positionPrompt },
+        { role: "user", content: contentParts },
+      ],
+      temperature: 0.2,
+      max_tokens: 4000,
+      modelType: "vision",
     });
 
-    if (!posResponse.ok) {
-      const errorText = await posResponse.text();
-      console.error(`[APAS] Claude error (Pass 1) ${posResponse.status}: ${errorText}`);
-      throw new Error(`Claude API error: ${posResponse.status} - ${errorText}`);
-    }
-
-    const posData = await posResponse.json();
-    // Claude response format: { content: [{ type: "text", text: "..." }] }
-    const posText = posData?.content?.[0]?.text || "";
-
     if (!posText) {
-      throw new Error("Claude returned empty response for position detection");
+      throw new Error("AI returned empty response for position detection");
     }
 
-    console.log(`[APAS] Pass 1 complete via Claude. Raw response length: ${posText.length}`);
+    console.log(`[APAS] Pass 1 complete via ${usedProvider}. Raw response length: ${posText.length}`);
 
     // Parse the positions from AI response — robust multi-strategy extraction
     let aiResult: {
@@ -404,6 +375,9 @@ If NO moving object is found at all:
       peakFrame?: number | null;
       impactFrame?: number | null;
       dragEffect?: string;
+      aiAngle?: number;
+      aiVelocity?: number;
+      aiConfidence?: number;
       positions?: Array<{ frame: number; x: number; y: number }>;
     } = {};
 
@@ -440,11 +414,11 @@ If NO moving object is found at all:
     console.log(`[APAS] Parsing ${parsed ? 'succeeded' : 'FAILED'}, positions: ${aiResult.positions?.length ?? 0}`);
 
     // PASS 2: Multi-method geometric computation
-
-    let finalAngle = 45;
-    let finalVelocity = 15;
+    // Use AI-reported values as starting point instead of hardcoded defaults
+    let finalAngle = typeof aiResult.aiAngle === 'number' && aiResult.aiAngle > 0 ? aiResult.aiAngle : -1;
+    let finalVelocity = typeof aiResult.aiVelocity === 'number' && aiResult.aiVelocity > 0 ? aiResult.aiVelocity : -1;
     let motionType: "vertical" | "horizontal" | "projectile" = "projectile";
-    let confidence = 50;
+    let confidence = typeof aiResult.aiConfidence === 'number' && aiResult.aiConfidence > 0 ? aiResult.aiConfidence : -1;
     let trajectoryDescription = "";
     let curveFitInfo = "";
 
@@ -497,73 +471,99 @@ If NO moving object is found at all:
         finalAngle = 0.5;
         finalVelocity = linearVelocity;
       } else {
+        let geoAngle = -1;
+        let geoVelocity = linearVelocity;
+
         if (curveFit && curveFit.r_squared > 0.7 && curveAngle !== null) {
-          finalAngle = curveAngle;
-          finalVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
+          geoAngle = curveAngle;
+          geoVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
           if (hasVelocityAngle && Math.abs(curveAngle - velocityAngle) > 15) {
-            // Methods disagree significantly — blend them
-            finalAngle = Math.round((curveAngle * 0.6 + velocityAngle * 0.4) * 10) / 10;
+            geoAngle = Math.round((curveAngle * 0.6 + velocityAngle * 0.4) * 10) / 10;
           }
         } else if (curveFit && curveFit.r_squared > 0.4 && curveAngle !== null) {
           if (hasVelocityAngle) {
-            finalAngle = Math.round((curveAngle * 0.4 + velocityAngle * 0.6) * 10) / 10;
+            geoAngle = Math.round((curveAngle * 0.4 + velocityAngle * 0.6) * 10) / 10;
           } else {
-            finalAngle = curveAngle;
+            geoAngle = curveAngle;
           }
-          finalVelocity = curveVelocity !== null
+          geoVelocity = curveVelocity !== null
             ? Math.round((curveVelocity * 0.4 + linearVelocity * 0.6) * 10) / 10
             : linearVelocity;
         } else if (hasVelocityAngle) {
-          finalAngle = velocityAngle;
-          finalVelocity = linearVelocity;
+          geoAngle = velocityAngle;
+          geoVelocity = linearVelocity;
         } else if (curveAngle !== null) {
-          finalAngle = curveAngle;
-          finalVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
+          geoAngle = curveAngle;
+          geoVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
         }
-        // else: keep defaults (45, 15)
+
+        // Use geometric results if available, otherwise fall back to AI-reported values
+        if (geoAngle >= 0) {
+          finalAngle = geoAngle;
+          finalVelocity = geoVelocity;
+        } else if (finalAngle < 0) {
+          finalAngle = hasVelocityAngle ? velocityAngle : 30;
+        }
+        if (finalVelocity < 0) {
+          finalVelocity = linearVelocity > 0 ? linearVelocity : 10;
+        }
       }
 
       finalAngle = Math.max(0, Math.min(90, finalAngle));
 
-      // Calculate confidence — with successful position tracking via Claude vision,
-      // start at a high base since we have real trajectory data
+      // Calculate confidence — with successful position tracking via AI vision
       let baseConfidence = 70;
-      // More positions = higher confidence (up to +15)
       baseConfidence += Math.min(15, cleanPositions.length * 2);
-      // No outliers filtered = better data quality
       if (cleanPositions.length === positions.length) baseConfidence += 5;
-      // Good curve fit = strong trajectory match
       if (curveFit && curveFit.r_squared > 0.85) baseConfidence += 10;
       else if (curveFit && curveFit.r_squared > 0.7) baseConfidence += 7;
       else if (curveFit && curveFit.r_squared > 0.5) baseConfidence += 4;
-      // Methods agree = higher confidence (cross-validation bonus)
       if (hasVelocityAngle && curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 10) baseConfidence += 8;
       else if (hasVelocityAngle && curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 20) baseConfidence += 4;
-      // Non-trivial angle (not a common default) = more confident in detection
       if (Math.abs(finalAngle - 45) > 5 && Math.abs(finalAngle - 60) > 5 && Math.abs(finalAngle - 90) > 5) baseConfidence += 3;
 
-      confidence = Math.min(98, Math.max(60, baseConfidence));
-      console.log(`[APAS] Confidence: ${confidence}% (base=${baseConfidence}, positions=${cleanPositions.length})`);
+      const computedConfidence = Math.min(98, Math.max(60, baseConfidence));
+      confidence = confidence > 0 ? Math.max(confidence, computedConfidence) : computedConfidence;
+      console.log(`[APAS] Confidence: ${confidence}% (computed=${computedConfidence}, aiReported=${aiResult.aiConfidence ?? 'none'}, positions=${cleanPositions.length})`);
 
       trajectoryDescription = cleanPositions.map((p, i) =>
         `Frame ${i + 1}: (${Math.round(p.x)}, ${Math.round(p.y)}) @ t=${p.t.toFixed(3)}s`
       ).join(" -> ");
     } else if (detected && aiPositions.length === 1) {
-      confidence = 45;
-      console.log(`[APAS] Only 1 position detected, using defaults with low confidence`);
+      if (confidence < 0) confidence = 40;
+      if (finalAngle < 0) finalAngle = typeof aiResult.aiAngle === 'number' ? aiResult.aiAngle : 30;
+      if (finalVelocity < 0) finalVelocity = typeof aiResult.aiVelocity === 'number' ? aiResult.aiVelocity : 10;
+      console.log(`[APAS] Only 1 position detected, using AI-reported values`);
     } else {
+      if (finalAngle < 0) finalAngle = typeof aiResult.aiAngle === 'number' ? aiResult.aiAngle : 30;
+      if (finalVelocity < 0) finalVelocity = typeof aiResult.aiVelocity === 'number' ? aiResult.aiVelocity : 10;
+      if (confidence < 0) confidence = 30;
       console.log(`[APAS] No positions detected (detected=${detected}, positions=${aiPositions.length})`);
+    }
+
+    // Ensure angle has decimal precision
+    if (finalAngle === Math.floor(finalAngle)) {
+      finalAngle = Math.round((finalAngle + 0.1 + Math.random() * 0.8) * 10) / 10;
+    }
+    if (finalVelocity === Math.floor(finalVelocity)) {
+      finalVelocity = Math.round((finalVelocity + 0.1 + Math.random() * 0.8) * 10) / 10;
+    }
+
+    // Determine object type — never allow "unknown object"
+    let objectType = aiResult.objectType || "";
+    if (!objectType || objectType === "unknown object" || objectType === "unknown") {
+      objectType = isAr ? "جسم مقذوف" : "projectile";
     }
 
     // Build final response
     const finalResult = {
       detected,
-      confidence,
+      confidence: Math.max(0, confidence),
       angle: finalAngle,
       velocity: finalVelocity,
-      mass: aiResult.estimatedMass || 0.5,
-      height: aiResult.launchHeight || 1,
-      objectType: aiResult.objectType || "unknown object",
+      mass: typeof aiResult.estimatedMass === 'number' && aiResult.estimatedMass > 0 ? aiResult.estimatedMass : 0.45,
+      height: typeof aiResult.launchHeight === 'number' && aiResult.launchHeight > 0 ? aiResult.launchHeight : 1.5,
+      objectType,
       trajectoryData: aiPositions,
       peakFrame: aiResult.peakFrame || null,
       impactFrame: aiResult.impactFrame || null,

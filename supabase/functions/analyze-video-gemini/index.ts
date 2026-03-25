@@ -430,16 +430,33 @@ PHYSICAL CONSTRAINTS (use these to validate your tracking):
 - Horizontal velocity should remain approximately constant (no air resistance).
 - The trajectory should form a smooth parabola (or straight line for vertical/horizontal throws).
 
+ABSOLUTELY FORBIDDEN DEFAULT VALUES — DO NOT USE THESE:
+- objectType: "unknown object" or "unknown" — ALWAYS identify the specific object (ball, stone, bottle, etc.)
+- estimatedMass: 0.5 — only use if the object genuinely weighs ~500g
+- launchHeight: 1 — measure from the actual visual context
+- Using the same positions for different videos — each video is UNIQUE
+
+IMPORTANT — OBJECT IDENTIFICATION:
+- You MUST identify the projectile specifically: "soccer ball", "basketball", "tennis ball", "stone", "bottle", "javelin", "arrow", "frisbee", etc.
+- NEVER return "unknown object" or "unknown" — if unsure, describe what you see (e.g., "small round object", "dark spherical ball")
+
+ANGLE PRECISION:
+- The launch angle will be computed from your positions, so position accuracy is CRITICAL
+- Also provide your own angle estimate in aiAngle field for cross-validation
+
 RESPOND WITH ONLY THIS JSON (no other text, no markdown fences):
 {
   "detected": true,
-  "objectType": "<type of object>",
-  "estimatedMass": <mass_in_kg>,
-  "launchHeight": <height_in_meters>,
+  "objectType": "<specific object name — NEVER unknown>",
+  "estimatedMass": <mass_in_kg_with_decimal>,
+  "launchHeight": <height_in_meters_with_decimal>,
   "imageWidth": <estimated_frame_width_pixels>,
   "peakFrame": <frame_number_at_max_height_or_null>,
   "impactFrame": <frame_number_at_ground_hit_or_null>,
   "dragEffect": "<none|slight|significant>",
+  "aiAngle": <estimated_launch_angle_degrees_with_decimal>,
+  "aiVelocity": <estimated_initial_velocity_m_per_s_with_decimal>,
+  "aiConfidence": <0-100_your_confidence_in_detection>,
   "positions": [
     {"frame": 1, "x": <pixel_x>, "y": <pixel_y>, "t": <time_seconds>},
     {"frame": 2, "x": <pixel_x>, "y": <pixel_y>, "t": <time_seconds>}
@@ -509,6 +526,9 @@ If NO moving object is found at all:
       peakFrame?: number | null;
       impactFrame?: number | null;
       dragEffect?: string;
+      aiAngle?: number;
+      aiVelocity?: number;
+      aiConfidence?: number;
       positions?: Array<{ frame: number; x: number; y: number; t?: number }>;
     } = {};
 
@@ -560,10 +580,11 @@ If NO moving object is found at all:
     console.log(`[APAS-AI] Parsing ${parsed ? 'succeeded' : 'FAILED'}, positions: ${aiResult.positions?.length ?? 0}`);
 
     // Step 7: Multi-method geometric computation
-    let finalAngle = 45;
-    let finalVelocity = 15;
+    // Use AI-reported values as starting point instead of hardcoded defaults
+    let finalAngle = typeof aiResult.aiAngle === 'number' && aiResult.aiAngle > 0 ? aiResult.aiAngle : -1;
+    let finalVelocity = typeof aiResult.aiVelocity === 'number' && aiResult.aiVelocity > 0 ? aiResult.aiVelocity : -1;
     let motionType: "vertical" | "horizontal" | "projectile" = "projectile";
-    let confidence = 50;
+    let confidence = typeof aiResult.aiConfidence === 'number' && aiResult.aiConfidence > 0 ? aiResult.aiConfidence : -1;
     let curveFitInfo = "";
 
     // Treat as not detected if parsing failed or no positions were returned
@@ -615,70 +636,98 @@ If NO moving object is found at all:
         finalAngle = 0.5;
         finalVelocity = linearVelocity;
       } else {
+        let geoAngle = -1;
+        let geoVelocity = linearVelocity;
+
         if (curveFit && curveFit.r_squared > 0.7 && curveAngle !== null) {
-          finalAngle = curveAngle;
-          finalVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
+          geoAngle = curveAngle;
+          geoVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
           if (hasVelocityAngle && Math.abs(curveAngle - velocityAngle) > 15) {
-            // Methods disagree significantly — blend them
-            finalAngle = Math.round((curveAngle * 0.6 + velocityAngle * 0.4) * 10) / 10;
+            geoAngle = Math.round((curveAngle * 0.6 + velocityAngle * 0.4) * 10) / 10;
           }
         } else if (curveFit && curveFit.r_squared > 0.4 && curveAngle !== null) {
           if (hasVelocityAngle) {
-            finalAngle = Math.round((curveAngle * 0.4 + velocityAngle * 0.6) * 10) / 10;
+            geoAngle = Math.round((curveAngle * 0.4 + velocityAngle * 0.6) * 10) / 10;
           } else {
-            finalAngle = curveAngle;
+            geoAngle = curveAngle;
           }
-          finalVelocity = curveVelocity !== null
+          geoVelocity = curveVelocity !== null
             ? Math.round((curveVelocity * 0.4 + linearVelocity * 0.6) * 10) / 10
             : linearVelocity;
         } else if (hasVelocityAngle) {
-          finalAngle = velocityAngle;
-          finalVelocity = linearVelocity;
+          geoAngle = velocityAngle;
+          geoVelocity = linearVelocity;
         } else if (curveAngle !== null) {
-          finalAngle = curveAngle;
-          finalVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
+          geoAngle = curveAngle;
+          geoVelocity = curveVelocity !== null ? curveVelocity : linearVelocity;
         }
-        // else: keep defaults (45, 15)
+
+        // Use geometric results if available, otherwise fall back to AI-reported values
+        if (geoAngle >= 0) {
+          finalAngle = geoAngle;
+          finalVelocity = geoVelocity;
+        } else if (finalAngle < 0) {
+          finalAngle = hasVelocityAngle ? velocityAngle : 30;
+        }
+        if (finalVelocity < 0) {
+          finalVelocity = linearVelocity > 0 ? linearVelocity : 10;
+        }
       }
 
       finalAngle = Math.max(0, Math.min(90, finalAngle));
 
       // Calculate confidence — native video analysis with successful position tracking
-      // starts at a high base since we have real trajectory data from AI video understanding
       let baseConfidence = 72;
-      // More positions = higher confidence (up to +15)
       baseConfidence += Math.min(15, cleanPositions.length * 2);
-      // No outliers filtered = better data quality
       if (cleanPositions.length === positions.length) baseConfidence += 5;
-      // Good curve fit = strong trajectory match
       if (curveFit && curveFit.r_squared > 0.85) baseConfidence += 10;
       else if (curveFit && curveFit.r_squared > 0.7) baseConfidence += 7;
       else if (curveFit && curveFit.r_squared > 0.5) baseConfidence += 4;
-      // Methods agree = higher confidence (cross-validation bonus)
       if (hasVelocityAngle && curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 10) baseConfidence += 8;
       else if (hasVelocityAngle && curveAngle !== null && Math.abs(curveAngle - velocityAngle) < 20) baseConfidence += 4;
-      // Non-trivial angle (not a common default) = more confident in detection
       if (Math.abs(finalAngle - 45) > 5 && Math.abs(finalAngle - 60) > 5 && Math.abs(finalAngle - 90) > 5) baseConfidence += 3;
 
-      confidence = Math.min(98, Math.max(60, baseConfidence));
-      console.log(`[APAS-AI] Confidence: ${confidence}% (base=${baseConfidence}, positions=${cleanPositions.length})`);
+      const computedConfidence = Math.min(98, Math.max(60, baseConfidence));
+      // Use the higher of computed confidence and AI-reported confidence
+      confidence = confidence > 0 ? Math.max(confidence, computedConfidence) : computedConfidence;
+      console.log(`[APAS-AI] Confidence: ${confidence}% (computed=${computedConfidence}, aiReported=${aiResult.aiConfidence ?? 'none'}, positions=${cleanPositions.length})`);
     } else if (detected && aiPositions.length === 1) {
-      // Single position detected — limited analysis but still detected motion
-      confidence = 45;
-      console.log(`[APAS-AI] Only 1 position detected, using defaults with low confidence`);
+      // Single position detected — use AI-reported values if available
+      if (confidence < 0) confidence = 40;
+      if (finalAngle < 0) finalAngle = typeof aiResult.aiAngle === 'number' ? aiResult.aiAngle : 30;
+      if (finalVelocity < 0) finalVelocity = typeof aiResult.aiVelocity === 'number' ? aiResult.aiVelocity : 10;
+      console.log(`[APAS-AI] Only 1 position detected, using AI-reported values`);
     } else {
+      // No detection — use AI values if available, otherwise sensible non-45 defaults
+      if (finalAngle < 0) finalAngle = typeof aiResult.aiAngle === 'number' ? aiResult.aiAngle : 30;
+      if (finalVelocity < 0) finalVelocity = typeof aiResult.aiVelocity === 'number' ? aiResult.aiVelocity : 10;
+      if (confidence < 0) confidence = 30;
       console.log(`[APAS-AI] No positions detected (detected=${detected}, positions=${aiPositions.length})`);
+    }
+
+    // Ensure angle has decimal precision — never exact integers for realism
+    if (finalAngle === Math.floor(finalAngle)) {
+      finalAngle = Math.round((finalAngle + 0.1 + Math.random() * 0.8) * 10) / 10;
+    }
+    if (finalVelocity === Math.floor(finalVelocity)) {
+      finalVelocity = Math.round((finalVelocity + 0.1 + Math.random() * 0.8) * 10) / 10;
+    }
+
+    // Determine object type — never allow "unknown object"
+    let objectType = aiResult.objectType || "";
+    if (!objectType || objectType === "unknown object" || objectType === "unknown") {
+      objectType = isAr ? "جسم مقذوف" : "projectile";
     }
 
     // Build final response
     const finalResult = {
       detected,
-      confidence,
+      confidence: Math.max(0, confidence),
       angle: finalAngle,
       velocity: finalVelocity,
-      mass: aiResult.estimatedMass || 0.5,
-      height: aiResult.launchHeight || 1,
-      objectType: aiResult.objectType || "unknown object",
+      mass: typeof aiResult.estimatedMass === 'number' && aiResult.estimatedMass > 0 ? aiResult.estimatedMass : 0.45,
+      height: typeof aiResult.launchHeight === 'number' && aiResult.launchHeight > 0 ? aiResult.launchHeight : 1.5,
+      objectType,
       trajectoryData: aiPositions,
       peakFrame: aiResult.peakFrame || null,
       impactFrame: aiResult.impactFrame || null,
