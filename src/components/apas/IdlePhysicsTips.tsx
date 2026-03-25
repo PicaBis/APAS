@@ -164,44 +164,35 @@ export default function IdlePhysicsTips({ lang }: Props) {
 
   return (
     <div
-      className={`fixed z-40 transition-all duration-500 pointer-events-none ${
-        fadeState === 'in' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'
+      className={`transition-all duration-500 pointer-events-none ${
+        fadeState === 'in' ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
       }`}
-      style={{
-        bottom: '60px',
-        left: isAr ? 'auto' : '80px',
-        right: isAr ? '80px' : 'auto',
-        maxWidth: '280px',
-      }}
+      style={{ maxWidth: '260px' }}
     >
-      {/* Speech bubble next to robot */}
-      <div className="relative bg-white dark:bg-slate-800 border border-border/60 rounded-2xl px-3.5 py-2.5 shadow-lg pointer-events-auto">
-        {/* Bubble tail - pointing left toward the robot */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white dark:bg-slate-800 border-border/60 rotate-45"
-          style={{
-            left: isAr ? 'auto' : '-6px',
-            right: isAr ? '-6px' : 'auto',
-            borderLeft: isAr ? 'none' : '1px solid',
-            borderBottom: isAr ? 'none' : '1px solid',
-            borderRight: isAr ? '1px solid' : 'none',
-            borderTop: isAr ? '1px solid' : 'none',
-            borderColor: 'hsl(var(--border) / 0.6)',
-          }}
-        />
-        
-        {/* Header */}
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-xs">💡</span>
-          <span className="text-[9px] font-bold uppercase tracking-wider text-primary whitespace-nowrap">
-            {isAr ? 'هل تعلم؟' : 'Did you know?'}
-          </span>
+      {/* Thought bubble - cartoon style with small trailing circles */}
+      <div className="relative">
+        {/* Main thought cloud */}
+        <div className="relative bg-white dark:bg-slate-800 border border-border/40 rounded-[20px] px-3.5 py-2.5 shadow-md pointer-events-auto">
+          {/* Header */}
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-xs">💡</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider text-primary whitespace-nowrap">
+              {isAr ? 'هل تعلم؟' : 'Did you know?'}
+            </span>
+          </div>
+          
+          {/* Tip text */}
+          <p className="text-[11px] text-foreground/80 leading-relaxed" dir={isAr ? 'rtl' : 'ltr'}>
+            {tips[tipIndex]}
+          </p>
         </div>
-        
-        {/* Tip text */}
-        <p className="text-[11px] text-foreground/80 leading-relaxed" dir={isAr ? 'rtl' : 'ltr'}>
-          {tips[tipIndex]}
-        </p>
+
+        {/* Thought bubble trailing circles - pointing down toward robot */}
+        <div className="flex justify-center mt-1 gap-1" style={{ direction: isAr ? 'rtl' : 'ltr' }}>
+          <div className="w-3 h-3 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm" />
+          <div className="w-2 h-2 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm mt-1" />
+          <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-slate-800 border border-border/40 shadow-sm mt-2" />
+        </div>
       </div>
     </div>
   );

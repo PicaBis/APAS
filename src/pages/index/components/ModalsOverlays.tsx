@@ -9,7 +9,7 @@ import KeyboardShortcutsHelp from '@/components/apas/KeyboardShortcutsHelp';
 import BugReportButton from '@/components/apas/BugReportButton';
 
 const OnboardingTutorial = lazy(() => import('@/components/apas/OnboardingTutorial'));
-const IdlePhysicsTips = lazy(() => import('@/components/apas/IdlePhysicsTips'));
+// IdlePhysicsTips moved to footer in Index.tsx
 const DocumentationModal = lazy(() => import('@/components/apas/DocumentationModal'));
 const StroboscopicModal = lazy(() => import('@/components/apas/StroboscopicModal'));
 const MultiSimulationModal = lazy(() => import('@/components/apas/MultiSimulationModal'));
@@ -126,9 +126,7 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
         <OnboardingTutorial lang={lang} open={showOnboarding} onClose={() => setShowOnboarding(false)} />
       </Suspense>
 
-      <Suspense fallback={null}>
-        <IdlePhysicsTips lang={lang} />
-      </Suspense>
+      {/* IdlePhysicsTips moved to footer near robot in Index.tsx */}
 
       <EnvironmentSelector
         open={showEnvSelector}

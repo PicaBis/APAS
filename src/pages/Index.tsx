@@ -55,6 +55,7 @@ import CanvasToolbar from '@/components/apas/CanvasToolbar';
 import { AnimatedLoadingSpinner } from '@/components/ui/AnimatedSVG';
 import AcademicAmbient from '@/components/apas/AcademicAmbient';
 import FooterRobot from '@/components/apas/LightModeDecorations';
+const IdlePhysicsTips = lazy(() => import('@/components/apas/IdlePhysicsTips'));
 import SensorLab from '@/components/apas/SensorLab';
 import VideoOverlay from '@/components/apas/VideoOverlay';
 import QuickStartTips from '@/components/apas/QuickStartTips';
@@ -1657,7 +1658,17 @@ const Index = () => {
                 </div>
                 <p className="text-[11px] text-muted-foreground">{T.footerSchool}</p>
                 <p className="text-[10px] font-mono text-muted-foreground/60 mt-2">v1.1 &mdash; 2025/2026</p>
-                <div className="flex flex-col items-center mt-3"><FooterRobot /></div>
+                {/* Robot with thought bubble */}
+                <div className="flex items-start justify-center gap-3 mt-4">
+                  <div className="flex flex-col items-center">
+                    <FooterRobot />
+                  </div>
+                  <div className="pt-2">
+                    <Suspense fallback={null}>
+                      <IdlePhysicsTips lang={lang} />
+                    </Suspense>
+                  </div>
+                </div>
               </div>
             </div>
 
