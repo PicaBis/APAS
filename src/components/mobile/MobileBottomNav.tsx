@@ -1,5 +1,6 @@
 import React from 'react';
-import { Home, Activity, BarChart3, Bookmark, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Home, Activity, BarChart3, Bookmark, Wrench } from 'lucide-react';
 
 type Tab = 'home' | 'simulation' | 'analysis' | 'saved' | 'settings';
 
@@ -10,6 +11,7 @@ interface MobileBottomNavProps {
 }
 
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange, lang }) => {
+  const navigate = useNavigate();
   const isRTL = lang === 'ar';
 
   const tabs: { id: Tab; icon: React.FC<{ className?: string }>; labelAr: string; labelEn: string; labelFr: string }[] = [
@@ -17,7 +19,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
     { id: 'simulation', icon: Activity, labelAr: 'المحاكاة', labelEn: 'Simulate', labelFr: 'Simuler' },
     { id: 'analysis', icon: BarChart3, labelAr: 'التحليل', labelEn: 'Analysis', labelFr: 'Analyse' },
     { id: 'saved', icon: Bookmark, labelAr: 'المحفوظات', labelEn: 'Saved', labelFr: 'Sauvé' },
-    { id: 'settings', icon: Settings, labelAr: 'إعدادات', labelEn: 'Settings', labelFr: 'Réglages' },
+    { id: 'settings', icon: Wrench, labelAr: 'الأدوات', labelEn: 'Tools', labelFr: 'Outils' },
   ];
 
   const getLabel = (tab: typeof tabs[0]) => {
@@ -42,7 +44,13 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
           return (
             <button
               key={tab.id}
-              onClick={() => onTabChange(tab.id)}
+              onClick={() => {
+                if (tab.id === 'home') {
+                  navigate('/home');
+                } else {
+                  onTabChange(tab.id);
+                }
+              }}
               className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-300 min-w-[3.5rem] touch-manipulation ${
                 isActive
                   ? 'text-primary scale-105'

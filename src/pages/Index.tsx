@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense, lazy, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock, Activity } from 'lucide-react';
+import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock, Activity, Play, Pause, RotateCcw, Turtle } from 'lucide-react';
 import { useSimulation } from '@/hooks/useSimulation';
 import { useAdvancedPhysics } from '@/hooks/useAdvancedPhysics';
 import { playClick, playUIClick, playToggle, playSectionToggle, playSliderChange, playSnapshotSound, playModeSwitch, playZoomSound, playNav } from '@/utils/sound';
@@ -72,6 +72,11 @@ import {
 } from '@/components/mobile';
 import type { SavedExperiment } from '@/components/mobile';
 import { useTouchGestures } from '@/hooks/use-touch-gestures';
+import ApasVisionButton from '@/components/apas/ApasVisionButton';
+import ApasVideoButton from '@/components/apas/ApasVideoButton';
+import ApasSubjectReading from '@/components/apas/ApasSubjectReading';
+import ApasVoiceButton from '@/components/apas/ApasVoiceButton';
+import { objectTypeToEmoji } from './index/constants';
 const DynamicAnalyticsDashboard = lazy(() => import('@/components/apas/DynamicAnalyticsDashboard'));
 const EnergyAnalysis = lazy(() => import('@/components/apas/EnergyAnalysis'));
 const MonteCarloPanel = lazy(() => import('@/components/apas/MonteCarloPanel'));
@@ -172,6 +177,31 @@ const Index = () => {
   const [mobileActiveTab, setMobileActiveTab] = useState<'home' | 'simulation' | 'analysis' | 'saved' | 'settings'>('simulation');
   const [showMobileBottomSheet, setShowMobileBottomSheet] = useState(false);
   const [showMobileAI, setShowMobileAI] = useState(false);
+  const [mobileFullscreen, setMobileFullscreen] = useState(false);
+  const [showMobileDisplayOptions, setShowMobileDisplayOptions] = useState(false);
+  const [showMobileVision, setShowMobileVision] = useState(false);
+  const [showMobileVideo, setShowMobileVideo] = useState(false);
+  const [showMobileSubject, setShowMobileSubject] = useState(false);
+  const [showMobileVoice, setShowMobileVoice] = useState(false);
+
+  const handleMobileVisionParams = useCallback((p: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => {
+    if (p.velocity !== undefined) sim.setVelocity(p.velocity);
+    if (p.angle !== undefined) sim.setAngle(p.angle);
+    if (p.height !== undefined) sim.setHeight(p.height);
+    if (p.mass !== undefined) sim.setMass(p.mass);
+    const detectedEmoji = objectTypeToEmoji(p.objectType);
+    if (detectedEmoji) setActivePresetEmoji(detectedEmoji);
+    playClick(sim.isMuted);
+  }, [sim, setActivePresetEmoji]);
+
+  const handleMobileVoiceParams = useCallback((p: { velocity?: number; angle?: number; height?: number; mass?: number; gravity?: number }) => {
+    if (p.velocity !== undefined) sim.setVelocity(p.velocity);
+    if (p.angle !== undefined) sim.setAngle(p.angle);
+    if (p.height !== undefined) sim.setHeight(p.height);
+    if (p.mass !== undefined) sim.setMass(p.mass);
+    if (p.gravity !== undefined) sim.setGravity(p.gravity);
+    playClick(sim.isMuted);
+  }, [sim]);
 
   // ── Touch Gestures ──
   useTouchGestures(canvasContainerRef, {
@@ -443,8 +473,11 @@ const Index = () => {
           {/* Mobile Top Bar */}
           <MobileTopBar
             lang={lang}
-            onOpenSettings={() => setShowSettingsPanel(true)}
             onOpenAI={() => setShowMobileAI(true)}
+            onOpenVision={() => setShowMobileVision(true)}
+            onOpenVideo={() => setShowMobileVideo(true)}
+            onOpenSubject={() => setShowMobileSubject(true)}
+            onOpenVoice={() => setShowMobileVoice(true)}
           />
 
           {/* Mobile Main Content */}
@@ -476,6 +509,11 @@ const Index = () => {
                       <button onClick={() => setShowGrid(g => !g)}
                         className={showGrid ? 'p-1.5 rounded-lg bg-primary text-primary-foreground' : 'p-1.5 rounded-lg text-muted-foreground hover:bg-primary/10'}>
                         <Grid3x3 className="w-3.5 h-3.5" />
+                      </button>
+                      {/* Fullscreen button */}
+                      <button onClick={() => setMobileFullscreen(true)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:bg-primary/10">
+                        <Maximize className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -526,27 +564,121 @@ const Index = () => {
                     </ErrorBoundary>
                   )}
 
-                  {/* Floating Controls */}
-                  <MobileFloatingControls
-                    isAnimating={sim.isAnimating}
-                    isPaused={!!isPaused}
-                    playbackSpeed={sim.playbackSpeed}
-                    onTogglePlay={sim.isAnimating ? sim.pauseAnimation : sim.startAnimation}
-                    onReset={sim.resetAnimation}
-                    onSetPlaybackSpeed={sim.setPlaybackSpeed}
-                    lang={lang}
-                  />
                 </div>
 
-                {/* Quick Results */}
-                {sim.prediction && (
-                  <ResultsSection
-                    lang={lang} T={T} prediction={sim.prediction}
-                    velocity={sim.velocity} angle={sim.angle} height={sim.height}
-                    gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
-                    showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
-                  />
-                )}
+                {/* Controls under canvas (like desktop) */}
+                <div className="flex items-center justify-center gap-2 px-2">
+                  {/* Reset */}
+                  <button
+                    onClick={sim.resetAnimation}
+                    className="p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 active:scale-90 transition-all duration-200 touch-manipulation"
+                    title={lang === 'ar' ? 'إعادة' : 'Reset'}
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                  </button>
+
+                  {/* Play / Pause */}
+                  <button
+                    onClick={sim.isAnimating ? sim.pauseAnimation : sim.startAnimation}
+                    className={`p-3.5 rounded-2xl shadow-lg active:scale-90 transition-all duration-200 touch-manipulation ${
+                      sim.isAnimating
+                        ? 'bg-amber-500 text-white shadow-amber-500/30'
+                        : 'bg-primary text-primary-foreground shadow-primary/30'
+                    }`}
+                    title={sim.isAnimating ? (lang === 'ar' ? 'إيقاف' : 'Pause') : (lang === 'ar' ? 'تشغيل' : 'Play')}
+                  >
+                    {sim.isAnimating ? (
+                      <Pause className="w-6 h-6" />
+                    ) : (
+                      <Play className="w-6 h-6 ml-0.5" />
+                    )}
+                  </button>
+
+                  {/* Slow motion */}
+                  <button
+                    onClick={() => sim.setPlaybackSpeed(sim.playbackSpeed < 1 ? 1 : 0.25)}
+                    className={`p-2.5 rounded-xl active:scale-90 transition-all duration-200 touch-manipulation ${
+                      sim.playbackSpeed < 1
+                        ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+                    }`}
+                    title={lang === 'ar' ? 'حركة بطيئة' : 'Slow Motion'}
+                  >
+                    <Turtle className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Playback speed selector */}
+                <div className="px-2">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-card/60 border border-border/30">
+                    <span className="text-[10px] font-medium text-muted-foreground">{lang === 'ar' ? 'سرعة التشغيل' : 'Speed'}</span>
+                    <div className="flex gap-1">
+                      {[0.25, 0.5, 1, 2, 4].map((speed) => (
+                        <button
+                          key={speed}
+                          onClick={() => sim.setPlaybackSpeed(speed)}
+                          className={`px-2 py-1 text-[10px] font-semibold rounded-md transition-all ${
+                            sim.playbackSpeed === speed
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          {speed}x
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Display Options section */}
+                <div className="rounded-xl border border-border/30 bg-card/60 overflow-hidden">
+                  <button
+                    onClick={() => setShowMobileDisplayOptions(!showMobileDisplayOptions)}
+                    className="w-full flex items-center justify-between p-3 hover:bg-primary/5 transition-all"
+                  >
+                    <span className="text-xs font-semibold text-foreground flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-primary" />
+                      {lang === 'ar' ? 'خيارات العرض' : 'Display Options'}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showMobileDisplayOptions ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showMobileDisplayOptions && (
+                    <div className="px-3 pb-3 space-y-2 border-t border-border/30 pt-2">
+                      {/* Critical Points */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
+                          <Crosshair className="w-3.5 h-3.5" />
+                          {lang === 'ar' ? 'النقاط الحرجة' : 'Critical Points'}
+                        </span>
+                        <Switch checked={sim.showCriticalPoints} onCheckedChange={() => sim.setShowCriticalPoints(!sim.showCriticalPoints)} />
+                      </div>
+                      {/* External Forces */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5" />
+                          {lang === 'ar' ? 'القوى الخارجية' : 'External Forces'}
+                        </span>
+                        <Switch checked={sim.showExternalForces} onCheckedChange={() => sim.setShowExternalForces(!sim.showExternalForces)} />
+                      </div>
+                      {/* Live Data */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
+                          <Eye className="w-3.5 h-3.5" />
+                          {lang === 'ar' ? 'البيانات الحية' : 'Live Data'}
+                        </span>
+                        <Switch checked={showLiveData} onCheckedChange={() => setShowLiveData(!showLiveData)} />
+                      </div>
+                      {/* Grid */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-foreground flex items-center gap-1.5">
+                          <Grid3x3 className="w-3.5 h-3.5" />
+                          {lang === 'ar' ? 'الشبكة' : 'Grid'}
+                        </span>
+                        <Switch checked={showGrid} onCheckedChange={() => setShowGrid(!showGrid)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -591,16 +723,17 @@ const Index = () => {
               </div>
             )}
 
-            {/* ── Analysis Tab ── */}
+            {/* ── Analysis Tab ── (AI Predictions moved from Simulation) */}
             {mobileActiveTab === 'analysis' && (
-              <div className="px-4 py-4">
-                <MobileAnalysisDashboard
-                  prediction={sim.prediction}
-                  velocity={sim.velocity}
-                  angle={sim.angle}
-                  lang={lang}
-                />
-                {!sim.prediction && (
+              <div className="px-4 py-4 space-y-3">
+                {sim.prediction ? (
+                  <ResultsSection
+                    lang={lang} T={T} prediction={sim.prediction}
+                    velocity={sim.velocity} angle={sim.angle} height={sim.height}
+                    gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
+                    showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
+                  />
+                ) : (
                   <div className="py-12 text-center">
                     <Activity className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                     <p className="text-sm text-muted-foreground">{lang === 'ar' ? 'ابدأ المحاكاة لرؤية التحليل' : 'Run simulation to see analysis'}</p>
@@ -633,44 +766,10 @@ const Index = () => {
               </div>
             )}
 
-            {/* ── Settings Tab ── */}
+            {/* ── Tools Tab (formerly Settings) ── */}
             {mobileActiveTab === 'settings' && (
               <div className="px-4 py-4 space-y-3">
-                <h3 className="text-sm font-bold text-foreground">{lang === 'ar' ? 'الإعدادات' : 'Settings'}</h3>
-                {/* Night mode */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
-                  <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'الوضع الليلي' : 'Dark Mode'}</span>
-                  <Switch checked={sim.nightMode} onCheckedChange={(checked) => { sim.setNightMode(checked); playToggle(sim.isMuted, checked); }} />
-                </div>
-                {/* Sound */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
-                  <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'الصوت' : 'Sound'}</span>
-                  <Switch checked={!sim.isMuted} onCheckedChange={(checked) => { sim.setIsMuted(!checked); }} />
-                </div>
-                {/* Language */}
-                <div className="p-3 rounded-xl bg-card/60 border border-border/30">
-                  <span className="text-xs font-medium text-foreground block mb-2">{lang === 'ar' ? 'اللغة' : 'Language'}</span>
-                  <div className="flex gap-2">
-                    {(['ar', 'en', 'fr'] as const).map((l) => (
-                      <button key={l} onClick={() => switchLanguage(l)}
-                        className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-all ${lang === l ? 'bg-primary text-primary-foreground' : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'}`}>
-                        {l === 'ar' ? 'عربي' : l === 'en' ? 'EN' : 'FR'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Integration method */}
-                <div className="p-3 rounded-xl bg-card/60 border border-border/30">
-                  <span className="text-xs font-medium text-foreground block mb-2">{lang === 'ar' ? 'طريقة التكامل' : 'Integration Method'}</span>
-                  <div className="flex gap-2">
-                    {(['euler', 'rk4', 'ai-apas'] as const).map((m) => (
-                      <button key={m} onClick={() => sim.setSelectedIntegrationMethod(m)}
-                        className={`flex-1 px-2 py-2 text-[10px] font-semibold rounded-lg transition-all ${sim.selectedIntegrationMethod === m ? 'bg-primary text-primary-foreground' : 'bg-secondary/50 text-muted-foreground'}`}>
-                        {m.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <h3 className="text-sm font-bold text-foreground">{lang === 'ar' ? 'الأدوات' : 'Tools'}</h3>
                 {/* Air Resistance */}
                 <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
                   <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'مقاومة الهواء' : 'Air Resistance'}</span>
@@ -680,6 +779,18 @@ const Index = () => {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
                   <span className="text-xs font-medium text-foreground">{lang === 'ar' ? 'ارتداد المقذوف' : 'Bouncing'}</span>
                   <Switch checked={sim.enableBounce} onCheckedChange={(checked) => { sim.setEnableBounce(checked); playToggle(sim.isMuted, checked); }} />
+                </div>
+                {/* Integration method */}
+                <div className="p-3 rounded-xl bg-card/60 border border-border/30">
+                  <span className="text-xs font-medium text-foreground block mb-2">{lang === 'ar' ? 'أوضاع التكامل' : 'Integration Modes'}</span>
+                  <div className="flex gap-2">
+                    {(['euler', 'rk4', 'ai-apas'] as const).map((m) => (
+                      <button key={m} onClick={() => sim.setSelectedIntegrationMethod(m)}
+                        className={`flex-1 px-2 py-2 text-[10px] font-semibold rounded-lg transition-all ${sim.selectedIntegrationMethod === m ? 'bg-primary text-primary-foreground' : 'bg-secondary/50 text-muted-foreground'}`}>
+                        {m.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -717,6 +828,130 @@ const Index = () => {
             onTabChange={setMobileActiveTab}
             lang={lang}
           />
+
+          {/* Mobile APAS Feature Modals */}
+          {showMobileVision && createPortal(
+            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileVision(false)}>
+              <div className="bg-background border-t border-border rounded-t-2xl shadow-2xl w-full max-h-[80vh] overflow-y-auto p-4 space-y-3 animate-slideDown" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-foreground">APAS Vision</h3>
+                  <button onClick={() => setShowMobileVision(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X className="w-4 h-4" /></button>
+                </div>
+                <ApasVisionButton lang={lang} onUpdateParams={handleMobileVisionParams} />
+              </div>
+            </div>,
+            document.body
+          )}
+          {showMobileVideo && createPortal(
+            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileVideo(false)}>
+              <div className="bg-background border-t border-border rounded-t-2xl shadow-2xl w-full max-h-[80vh] overflow-y-auto p-4 space-y-3 animate-slideDown" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-foreground">APAS Video</h3>
+                  <button onClick={() => setShowMobileVideo(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X className="w-4 h-4" /></button>
+                </div>
+                <ApasVideoButton lang={lang} onUpdateParams={handleMobileVisionParams} />
+              </div>
+            </div>,
+            document.body
+          )}
+          {showMobileSubject && createPortal(
+            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileSubject(false)}>
+              <div className="bg-background border-t border-border rounded-t-2xl shadow-2xl w-full max-h-[80vh] overflow-y-auto p-4 space-y-3 animate-slideDown" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-foreground">APAS Subject</h3>
+                  <button onClick={() => setShowMobileSubject(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X className="w-4 h-4" /></button>
+                </div>
+                <ApasSubjectReading lang={lang} onUpdateParams={handleMobileVisionParams} />
+              </div>
+            </div>,
+            document.body
+          )}
+          {showMobileVoice && createPortal(
+            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileVoice(false)}>
+              <div className="bg-background border-t border-border rounded-t-2xl shadow-2xl w-full max-h-[80vh] overflow-y-auto p-4 space-y-3 animate-slideDown" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-foreground">APAS Sound</h3>
+                  <button onClick={() => setShowMobileVoice(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><X className="w-4 h-4" /></button>
+                </div>
+                <ApasVoiceButton
+                  lang={lang}
+                  onUpdateParams={handleMobileVoiceParams}
+                  simulationContext={{ velocity: sim.velocity, angle: sim.angle, height: sim.height, gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass }}
+                />
+              </div>
+            </div>,
+            document.body
+          )}
+
+          {/* Mobile Fullscreen Overlay (YouTube-style) */}
+          {mobileFullscreen && createPortal(
+            <div className="fixed inset-0 z-[100] bg-background flex flex-col">
+              {/* Exit fullscreen button */}
+              <button
+                onClick={() => setMobileFullscreen(false)}
+                className="absolute top-4 right-4 z-[101] p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all"
+              >
+                <Minimize className="w-5 h-5" />
+              </button>
+              {/* Canvas takes full screen */}
+              <div className="flex-1 relative">
+                {is3DMode ? (
+                  <ErrorBoundary onError={(err) => { setWebglError(err); setIs3DMode(false); }}>
+                    <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><AnimatedLoadingSpinner /></div>}>
+                      <SimulationCanvas3D
+                        velocity={sim.velocity} angle={sim.angle} gravity={sim.gravity}
+                        height={sim.height} trajectoryData={sim.trajectoryData}
+                        isAnimating={sim.isAnimating} currentTime={sim.currentTime}
+                        airResistance={sim.airResistance} mass={sim.mass} windSpeed={sim.windSpeed}
+                        showCriticalPoints={sim.showCriticalPoints} showExternalForces={sim.showExternalForces}
+                        enableBounce={sim.enableBounce}
+                        bounceCoefficient={sim.bounceCoefficient} phi={sim.phi} showLiveData={showLiveData}
+                        stroboscopicSettings={stroboscopicSettings}
+                        theme={theme3d}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                ) : (
+                  <SimulationCanvas
+                    velocity={sim.velocity} angle={sim.angle} gravity={sim.gravity}
+                    trajectoryData={sim.trajectoryData} prediction={sim.prediction}
+                    currentTime={sim.currentTime} height={sim.height} showCriticalPoints={sim.showCriticalPoints}
+                    showExternalForces={sim.showExternalForces} vectorVisibility={vectorVisibility}
+                    airResistance={sim.airResistance} mass={sim.mass} windSpeed={sim.windSpeed}
+                    comparisonMode={sim.comparisonMode} savedTrajectory={sim.savedTrajectory}
+                    enableBounce={sim.enableBounce} bounceCoefficient={sim.bounceCoefficient}
+                    isAnimating={sim.isAnimating} isFullscreen={true} showLiveData={showLiveData}
+                    zoom={1} showGrid={showGrid}
+                    stroboscopicSettings={stroboscopicSettings}
+                    equationTrajectory={equationTrajectory}
+                    objectEmoji={activePresetEmoji}
+                    calibrationScale={calibrationScale}
+                    environmentId={currentEnvId}
+                    dualTrajectory={dualTrajectory ?? undefined}
+                  />
+                )}
+              </div>
+              {/* Fullscreen controls */}
+              <div className="flex items-center justify-center gap-3 py-3 bg-background/90 border-t border-border/30">
+                <button onClick={sim.resetAnimation} className="p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 active:scale-90 transition-all">
+                  <RotateCcw className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={sim.isAnimating ? sim.pauseAnimation : sim.startAnimation}
+                  className={`p-3.5 rounded-2xl shadow-lg active:scale-90 transition-all ${sim.isAnimating ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}
+                >
+                  {sim.isAnimating ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
+                </button>
+                <button
+                  onClick={() => sim.setPlaybackSpeed(sim.playbackSpeed < 1 ? 1 : 0.25)}
+                  className={`p-2.5 rounded-xl active:scale-90 transition-all ${sim.playbackSpeed < 1 ? 'bg-blue-500/20 text-blue-500' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Turtle className="w-5 h-5" />
+                </button>
+              </div>
+            </div>,
+            document.body
+          )}
 
           {/* PWA Install Prompt */}
           <PWAInstallPrompt lang={lang} />
@@ -812,8 +1047,8 @@ const Index = () => {
                   className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
                 >
                   <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
-                                        <Activity className="w-5 h-5 text-amber-500" />
-                                        {lang === 'ar' ? 'البيانات الديناميكية' : 'Dynamic Analytics'}
+                                                            <Activity className="w-5 h-5 text-primary" />
+                                                            {lang === 'ar' ? 'البيانات الديناميكية' : 'Dynamic Analytics'}
                   </h3>
                   <div className="w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
                     <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${showDynamicDashboard ? 'rotate-180' : ''}`} />

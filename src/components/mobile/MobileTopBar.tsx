@@ -1,14 +1,17 @@
 import React from 'react';
-import { Settings, Bot } from 'lucide-react';
+import { Bot, Aperture, Video, BookOpen, Mic } from 'lucide-react';
 import ApasLogo from '@/components/apas/ApasLogo';
 
 interface MobileTopBarProps {
   lang: string;
-  onOpenSettings: () => void;
   onOpenAI: () => void;
+  onOpenVision: () => void;
+  onOpenVideo: () => void;
+  onOpenSubject: () => void;
+  onOpenVoice: () => void;
 }
 
-const MobileTopBar: React.FC<MobileTopBarProps> = ({ lang, onOpenSettings, onOpenAI }) => {
+const MobileTopBar: React.FC<MobileTopBarProps> = ({ lang, onOpenAI, onOpenVision, onOpenVideo, onOpenSubject, onOpenVoice }) => {
   return (
     <header className="mobile-top-bar fixed top-0 left-0 right-0 z-[55] md:hidden">
       {/* Glass background */}
@@ -27,22 +30,52 @@ const MobileTopBar: React.FC<MobileTopBarProps> = ({ lang, onOpenSettings, onOpe
           </span>
         </div>
 
-        {/* Right actions */}
-        <div className="flex items-center gap-1.5">
+        {/* Right actions - APAS buttons (icon-only) + AI bot (golden) */}
+        <div className="flex items-center gap-1">
+          {/* APAS Vision */}
+          <button
+            onClick={onOpenVision}
+            className="p-2 rounded-lg bg-secondary/50 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary active:scale-95 transition-all duration-200 touch-manipulation"
+            title="APAS Vision"
+          >
+            <Aperture className="w-4 h-4" />
+          </button>
+
+          {/* APAS Video */}
+          <button
+            onClick={onOpenVideo}
+            className="p-2 rounded-lg bg-secondary/50 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary active:scale-95 transition-all duration-200 touch-manipulation"
+            title="APAS Video"
+          >
+            <Video className="w-4 h-4" />
+          </button>
+
+          {/* APAS Subject */}
+          <button
+            onClick={onOpenSubject}
+            className="p-2 rounded-lg bg-secondary/50 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary active:scale-95 transition-all duration-200 touch-manipulation"
+            title="APAS Subject"
+          >
+            <BookOpen className="w-4 h-4" />
+          </button>
+
+          {/* APAS Voice/Sound */}
+          <button
+            onClick={onOpenVoice}
+            className="p-2 rounded-lg bg-secondary/50 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary active:scale-95 transition-all duration-200 touch-manipulation"
+            title="APAS Sound"
+          >
+            <Mic className="w-4 h-4" />
+          </button>
+
+          {/* AI Assistant - Golden/Navy theme */}
           <button
             onClick={onOpenAI}
-            className="relative p-2.5 rounded-xl bg-gradient-to-br from-purple-500/10 to-primary/10 border border-purple-500/20 text-purple-500 hover:bg-purple-500/20 active:scale-95 transition-all duration-200 touch-manipulation"
+            className="relative p-2.5 rounded-xl bg-gradient-to-br from-amber-500/15 to-primary/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all duration-200 touch-manipulation"
             title={lang === 'ar' ? 'مساعد الذكاء الاصطناعي' : 'AI Assistant'}
           >
             <Bot className="w-5 h-5" />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-          </button>
-          <button
-            onClick={onOpenSettings}
-            className="p-2.5 rounded-xl bg-secondary/50 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary active:scale-95 transition-all duration-200 touch-manipulation"
-            title={lang === 'ar' ? 'الإعدادات' : 'Settings'}
-          >
-            <Settings className="w-5 h-5" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ChevronDown, ChevronUp, GripHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronUp, Gauge } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 
 interface Variable {
@@ -80,9 +80,10 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
             onClick={onToggle}
             className="w-full flex flex-col items-center justify-center py-2.5 px-4 touch-manipulation"
           >
-            <GripHorizontal className="w-8 h-1 text-muted-foreground/40 mb-1" />
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mb-2" />
             <div className="flex items-center gap-2 w-full justify-between">
-              <span className="text-xs font-semibold text-foreground">
+              <span className="text-xs font-bold text-foreground flex items-center gap-2">
+                <Gauge className="w-4 h-4 text-primary" />
                 {lang === 'ar' ? 'متغيرات المحاكاة' : lang === 'fr' ? 'Variables de Simulation' : 'Simulation Variables'}
               </span>
               {isOpen ? (
@@ -95,12 +96,14 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
 
           {/* Variables */}
           {isOpen && (
-            <div className="px-4 pb-4 space-y-4 overflow-y-auto max-h-[calc(60vh-3.5rem)] overscroll-contain">
-              {variables.map((v) => (
-                <div key={v.key} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium text-muted-foreground">{v.label}</label>
-                    <div className="flex items-center gap-1.5">
+            <div className="px-4 pb-4 overflow-y-auto max-h-[calc(60vh-3.5rem)] overscroll-contain">
+              <div className="grid grid-cols-2 gap-3">
+                {variables.map((v) => (
+                  <div key={v.key} className="p-2.5 rounded-xl bg-card/60 border border-border/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-semibold text-foreground">{v.label}</label>
+                    </div>
+                    <div className="flex items-center gap-1">
                       <input
                         type="number"
                         value={Number(v.value.toFixed(2))}
@@ -108,22 +111,22 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
                         min={v.min}
                         max={v.max}
                         step={v.step}
-                        className="w-20 text-xs font-mono text-right bg-secondary/50 border border-border/50 rounded-lg px-2 py-1.5 text-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                        className="flex-1 text-xs font-mono text-center bg-secondary/60 border border-border/40 rounded-lg px-1.5 py-1.5 text-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all min-w-0"
                         dir="ltr"
                       />
-                      <span className="text-[10px] font-mono text-muted-foreground min-w-[2rem]">{v.unit}</span>
+                      <span className="text-[9px] font-mono text-muted-foreground shrink-0">{v.unit}</span>
                     </div>
+                    <Slider
+                      value={[v.value]}
+                      min={v.min}
+                      max={v.max}
+                      step={v.step}
+                      onValueChange={([val]) => v.onChange(val)}
+                      className="h-4 touch-manipulation"
+                    />
                   </div>
-                  <Slider
-                    value={[v.value]}
-                    min={v.min}
-                    max={v.max}
-                    step={v.step}
-                    onValueChange={([val]) => v.onChange(val)}
-                    className="h-5 touch-manipulation"
-                  />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
