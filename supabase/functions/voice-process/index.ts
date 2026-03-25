@@ -6,6 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com";
+const GEMINI_CHAT_MODEL = "gemini-2.5-flash";
 const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
 const MISTRAL_CHAT_MODEL = "mistral-large-latest";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -18,10 +20,11 @@ serve(async (req) => {
   try {
     const { transcript, lang, simulationContext } = await req.json();
 
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
     const mistralKey = Deno.env.get("MISTRAL_API_KEY");
     const groqKey = Deno.env.get("GROQ_API_KEY");
-    if (!mistralKey && !groqKey) {
-      throw new Error("No AI provider configured (set MISTRAL_API_KEY and/or GROQ_API_KEY)");
+    if (!geminiKey && !mistralKey && !groqKey) {
+      throw new Error("No AI provider configured (set GEMINI_API_KEY, MISTRAL_API_KEY, and/or GROQ_API_KEY)");
     }
 
     if (!transcript || typeof transcript !== "string" || !transcript.trim()) {
@@ -92,43 +95,72 @@ IMPORTANT:
 - Write units in plain text: m/s, m/s^2, kg, m
 - LANGUAGE REMINDER: Every word must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
-    // Build provider list with fallback
-    const providers: Array<{ name: string; url: string; key: string; model: string }> = [];
-    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_CHAT_MODEL });
-    if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_CHAT_MODEL });
-
-    const requestBody = {
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: transcript },
-      ],
-      temperature: 0.3,
-      max_tokens: 1000,
-      stream: false,
-    };
+    // Build provider list with fallback (Gemini first as primary)
+    const providers: Array<{ name: string; url: string; key: string; model: string; type: "gemini" | "openai" }> = [];
+    if (geminiKey) providers.push({ name: "Gemini", url: GEMINI_API_URL, key: geminiKey, model: GEMINI_CHAT_MODEL, type: "gemini" });
+    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_CHAT_MODEL, type: "openai" });
+    if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_CHAT_MODEL, type: "openai" });
 
     let text = "";
     let usedProvider = "";
     for (const provider of providers) {
       try {
         console.log(`[voice-process] Trying ${provider.name}...`);
-        const response = await fetch(provider.url, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.key}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ ...requestBody, model: provider.model }),
-        });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`[voice-process] ${provider.name} error ${response.status}: ${errorText}`);
-          continue;
+        if (provider.type === "gemini") {
+          // Gemini native API
+          const geminiBody = {
+            contents: [{ parts: [{ text: transcript }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 1000,
+            },
+          };
+          const response = await fetch(
+            `${provider.url}/v1beta/models/${provider.model}:generateContent?key=${provider.key}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(geminiBody),
+            }
+          );
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[voice-process] ${provider.name} error ${response.status}: ${errorText}`);
+            continue;
+          }
+          const data = await response.json();
+          text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        } else {
+          // OpenAI-compatible providers (Mistral, Groq)
+          const requestBody = {
+            model: provider.model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: transcript },
+            ],
+            temperature: 0.3,
+            max_tokens: 1000,
+            stream: false,
+          };
+          const response = await fetch(provider.url, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${provider.key}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+          });
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[voice-process] ${provider.name} error ${response.status}: ${errorText}`);
+            continue;
+          }
+          const data = await response.json();
+          text = data?.choices?.[0]?.message?.content || "";
         }
 
-        const data = await response.json();
-        text = data?.choices?.[0]?.message?.content || "";
         if (!text) {
           console.warn(`[voice-process] ${provider.name} returned empty response`);
           continue;

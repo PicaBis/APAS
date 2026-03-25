@@ -46,7 +46,7 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
       <HeaderWave />
       <div className="max-w-[1600px] mx-auto px-3 sm:px-5 md:px-6 h-12 sm:h-14 flex items-center justify-between gap-2" dir="ltr">
         {/* Left side: Settings for non-Arabic, Home for Arabic */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 relative">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 relative flex-1">
           {lang !== 'ar' && (
             <button onClick={() => { onOpenSettings(); playNav(isMuted); }}
               className="group text-xs font-medium text-muted-foreground dark:text-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300 flex items-center gap-1.5"
@@ -118,7 +118,7 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
         </div>
 
         {/* Right side: Home + Auth buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 relative">
+        <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 shrink-0 relative flex-1">
           <DevPrivilegesButton lang={lang} />
           {isAdmin && (
             <button onClick={() => navigate('/admin')}

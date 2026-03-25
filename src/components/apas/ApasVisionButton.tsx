@@ -695,7 +695,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
               )}
 
               {isAnalyzing && (
-                <div className="space-y-3 w-full max-w-xs">
+                <div className="space-y-3 w-full max-w-xs mx-auto text-center">
                   {/* Step indicator */}
                   <div className="flex items-center gap-1 w-full">
                     {(['upload', 'analyze', 'results'] as const).map((s, i) => {
@@ -719,9 +719,9 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                       );
                     })}
                   </div>
-                  <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center justify-center gap-3 w-full">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    <span className="text-sm text-foreground font-medium">
+                    <span className="text-sm text-foreground font-medium text-center">
                       {analysisStep === 'upload'
                         ? (isAr ? 'جاري تحميل الصورة...' : 'Uploading image...')
                         : analysisStep === 'analyze'
@@ -730,7 +730,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                     </span>
                     <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
                   </div>
-                  <Progress value={progress} className="h-2" />
+                  <Progress value={progress} className="h-2 w-full" />
                 </div>
               )}
 
