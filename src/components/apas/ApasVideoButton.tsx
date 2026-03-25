@@ -611,7 +611,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
               angle: bResult.launchAngle,
               velocity: bResult.initialVelocity,
               mass: prev?.mass ?? bResult.estimatedMass,
-              height: bResult.maxAltitude,
+              height: prev?.height,
               objectType: prev?.objectType,
             }));
           }

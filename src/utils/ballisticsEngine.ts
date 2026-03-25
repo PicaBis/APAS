@@ -589,11 +589,13 @@ export async function runBallisticsEngine(
   const targetWidth = 384;
   const targetHeight = 288;
   const frames: ImageData[] = [];
+  const validTimestamps: number[] = [];
 
   for (let i = 0; i < frameDataUrls.length; i++) {
     try {
       const imgData = await imageDataFromDataUrl(frameDataUrls[i], targetWidth, targetHeight);
       frames.push(imgData);
+      validTimestamps.push(frameTimestamps[i]);
     } catch {
       // Skip frames that fail to load
     }
@@ -611,7 +613,7 @@ export async function runBallisticsEngine(
     targetColor: config?.targetColor ?? null,
   };
 
-  let trackingResult = trackProjectile(frames, frameTimestamps, trackerConfig);
+  let trackingResult = trackProjectile(frames, validTimestamps, trackerConfig);
   let rawTelemetry = trackingResult.telemetry;
   let retryAttempts = 0;
 
@@ -640,7 +642,7 @@ export async function runBallisticsEngine(
       };
     }
 
-    const retryResult = trackProjectile(frames, frameTimestamps, trackerConfig);
+    const retryResult = trackProjectile(frames, validTimestamps, trackerConfig);
     if (retryResult.averageConfidence > trackingResult.averageConfidence) {
       trackingResult = retryResult;
       rawTelemetry = retryResult.telemetry;
@@ -685,8 +687,10 @@ export async function runBallisticsEngine(
     // Launch angle from polynomial: dy/dx at x=0 gives tan(angle)
     // For y = ax² + bx + c: dy/dx = 2ax + b, at x=x0: slope = b (approximately)
     const [fitA, fitB] = polynomialFit.coefficients;
-    if (Math.abs(fitB) > 0.001) {
-      launchAngle = Math.abs(Math.atan(fitB) * 180 / Math.PI);
+    if (Math.abs(fitB) > 0.001 || Math.abs(fitA) > 1e-6) {
+      const x0 = calibratedPoints[0].xM;
+      const slopeAtLaunch = 2 * fitA * x0 + fitB;
+      launchAngle = Math.abs(Math.atan(slopeAtLaunch) * 180 / Math.PI);
       launchAngle = Math.max(1, Math.min(89, launchAngle));
     }
 
