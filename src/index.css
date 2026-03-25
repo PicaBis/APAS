@@ -308,9 +308,9 @@
   animation: resultCardPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.25s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.35s; }
 .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
 .stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
 .stagger-children > *:nth-child(7) { animation-delay: 0.35s; }
@@ -916,4 +916,152 @@ body {
 }
 .nav-btn-animate:hover::after {
   opacity: 1;
+}
+
+/* ═══ Button Micro-Interactions ═══ */
+/* Ripple effect on click */
+.btn-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: hsl(var(--primary-foreground) / 0.25);
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%) scale(0);
+  animation: rippleExpand 0.6s ease-out forwards;
+  pointer-events: none;
+  z-index: 20;
+}
+@keyframes rippleExpand {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.6; }
+  100% { transform: translate(-50%, -50%) scale(40); opacity: 0; }
+}
+/* Scale bounce on click */
+.apas-btn-micro:active {
+  transform: scale(0.95) !important;
+  transition-duration: 80ms !important;
+}
+/* Hover glow */
+.apas-btn-micro:hover {
+  box-shadow: 0 0 12px hsl(var(--primary) / 0.15), 0 4px 12px hsl(0 0% 0% / 0.08);
+}
+
+/* ═══ Circular Play Button ═══ */
+.play-btn-circular {
+  position: relative;
+}
+.play-btn-circular::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: hsl(var(--primary) / 0.2);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.play-btn-circular:hover::before {
+  opacity: 1;
+}
+/* Active glow when playing */
+.play-btn-active {
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.15) !important;
+  animation: playGlow 2s ease-in-out infinite;
+}
+@keyframes playGlow {
+  0%, 100% { box-shadow: 0 0 15px hsl(var(--primary) / 0.3), 0 0 30px hsl(var(--primary) / 0.1); }
+  50% { box-shadow: 0 0 25px hsl(var(--primary) / 0.5), 0 0 50px hsl(var(--primary) / 0.2); }
+}
+/* Icon morph transition */
+.play-icon-morph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.play-btn-circular:active .play-icon-morph {
+  transform: scale(0.85);
+}
+
+/* ═══ Enhanced Slider Styling ═══ */
+/* Slider thumb glow on hover */
+[data-radix-slider-thumb]:hover {
+  box-shadow: 0 0 8px hsl(var(--primary) / 0.4), 0 0 16px hsl(var(--primary) / 0.15);
+  transform: scale(1.15);
+}
+[data-radix-slider-thumb] {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+/* Slider track enhanced */
+[data-orientation="horizontal"] > [data-radix-slider-range] {
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.7), hsl(var(--primary)));
+}
+
+/* ═══ Lightweight Dynamic Background ═══ */
+.apas-dynamic-bg {
+  position: relative;
+  overflow: hidden;
+}
+.apas-dynamic-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--background)) 0%,
+    hsl(var(--primary) / 0.03) 25%,
+    hsl(var(--background)) 50%,
+    hsl(var(--primary) / 0.02) 75%,
+    hsl(var(--background)) 100%
+  );
+  background-size: 400% 400%;
+  animation: bgGradientShift 20s ease-in-out infinite;
+}
+@keyframes bgGradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+}
+
+/* ═══ Glass UI Light Touch ═══ */
+.glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: hsl(var(--card) / 0.75);
+  border: 1px solid hsl(var(--border) / 0.4);
+  box-shadow: 0 4px 24px hsl(0 0% 0% / 0.06), 0 1px 4px hsl(var(--primary) / 0.04);
+}
+.dark .glass-panel {
+  background: hsl(var(--card) / 0.6);
+  border-color: hsl(var(--border) / 0.3);
+  box-shadow: 0 4px 24px hsl(0 0% 0% / 0.2), 0 1px 4px hsl(var(--primary) / 0.06);
+}
+/* Apply glass effect to existing panels */
+.apas-panel {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.dark .apas-panel {
+  background: linear-gradient(145deg, hsl(var(--card) / 0.85) 0%, hsl(var(--card) / 0.7) 100%);
+  border-color: hsl(var(--border) / 0.4);
+  box-shadow: 0 4px 20px hsl(0 0% 0% / 0.15), 0 0 1px hsl(var(--primary) / 0.1);
+}
+:root:not(.dark) .apas-panel {
+  background: linear-gradient(145deg, hsl(var(--card) / 0.9) 0%, hsl(var(--background) / 0.7) 100%);
+  box-shadow: 0 4px 20px hsl(0 0% 0% / 0.04), 0 0 1px hsl(var(--primary) / 0.08);
+}
+
+/* ═══ Value Color by Magnitude ═══ */
+.value-low { color: #60a5fa !important; }
+.value-mid { color: hsl(var(--foreground)) !important; }
+.value-high { color: #f59e0b !important; }
+
+/* ═══ Snap Pulse Animation ═══ */
+@keyframes snapPulse {
+  0% { transform: scale(1); color: hsl(var(--primary)); }
+  50% { transform: scale(1.15); color: hsl(var(--primary)); }
+  100% { transform: scale(1); }
+}
+.snap-pulse {
+  animation: snapPulse 0.3s ease-out;
 }

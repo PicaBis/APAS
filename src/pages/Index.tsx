@@ -431,7 +431,7 @@ const Index = () => {
   if (isMobile) {
     return (
       <PageTransition>
-        <div className={`min-h-screen bg-background relative overflow-hidden ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
+        <div className={`min-h-screen bg-background relative overflow-hidden apas-dynamic-bg ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
           {/* Ambient background */}
           <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
             <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse-slow" />
@@ -765,7 +765,7 @@ const Index = () => {
   // ═══════════════════════════════════════════════
   return (
     <PageTransition>
-      <div className={`min-h-screen bg-background relative overflow-hidden ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
+      <div className={`min-h-screen bg-background relative overflow-hidden apas-dynamic-bg ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
         {/* Ambient background gradient orbs */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
           <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse-slow" />

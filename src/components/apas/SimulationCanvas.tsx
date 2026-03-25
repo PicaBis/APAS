@@ -2,6 +2,14 @@ import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import type { TrajectoryPoint, PredictionResult, ModelData } from '@/utils/physics';
 import { TRANSLATIONS } from '@/constants/translations';
 import type { StroboscopicMark } from '@/components/apas/StroboscopicModal';
+import {
+  spawnParticleBurst, updateAndDrawParticles,
+  spawnRipple, updateAndDrawRipples,
+  triggerFlash, updateAndDrawFlash,
+  drawGradientTrajectory, drawEnhancedProjectile,
+  triggerLaunchAnimation, getLaunchScale,
+  hasActiveEffects, clearParticles,
+} from '@/utils/canvasEffects';
 
 // ── Dynamic Environment Background Renderer ──
 function drawEnvironmentBackground(
@@ -287,6 +295,11 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const panStart = useRef({ x: 0, y: 0 });
+
+  // Track previous animation state for launch/impact detection
+  const prevAnimatingRef = useRef(false);
+  const impactTriggeredRef = useRef(false);
+  const effectsRafRef = useRef<number | null>(null);
 
   // Responsive canvas — use container WIDTH only, fixed aspect ratio
   // This prevents the canvas from expanding/stretching vertically on load
@@ -1141,19 +1154,17 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     const visiblePts = mainAnimIdx >= 0 ? mainTrajData.slice(0, mainAnimIdx + 1) : mainTrajData;
 
     if (visiblePts.length > 1) {
-      ctx.beginPath();
       // Use observer-specific color when relativity is active
+      let trajColor: string;
       if (relativityEnabled && relativityShowDual) {
-        const relColor = isRelObserverSPrime
+        trajColor = isRelObserverSPrime
           ? (relativityMode === 'lorentz' ? '#a855f7' : '#f97316')
           : (nightMode ? '#22c55e' : '#16a34a');
-        ctx.strokeStyle = relColor;
       } else {
-        ctx.strokeStyle = colors.trajectory;
+        trajColor = colors.trajectory;
       }
-      ctx.lineWidth = 3;
-      visiblePts.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y)));
-      ctx.stroke();
+      // Enhanced gradient trajectory with glow
+      drawGradientTrajectory(ctx, visiblePts, toX, toY, trajColor, 3, true);
     }
 
     // Projectile dot — follows active observer's trajectory
@@ -1169,6 +1180,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       const isFinished = !isAnimating && lastPt && currentTime >= lastPt.time - 0.001;
       const dotColor = isAnimating ? '#22c55e' : isFinished ? '#ef4444' : colors.projectile;
       const pulseRadius = 7;
+
+      // Launch scale animation
+      const launchSc = getLaunchScale();
 
       // Draw projectile — use emoji icon if a preset is active
       if (activePresetEmoji === '🏹') {
@@ -1224,13 +1238,14 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         ctx.fillText(activePresetEmoji, 0, 0);
         ctx.restore();
       } else {
-        ctx.beginPath();
-        ctx.fillStyle = dotColor;
-        ctx.arc(bx, by, pulseRadius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = colors.projectileStroke;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        // Enhanced projectile with gradient, motion blur, and launch scale
+        const moveAngle = Math.atan2(-activePt.vy * sY, activePt.vx * sX);
+        const scaledRadius = pulseRadius * launchSc;
+        drawEnhancedProjectile(
+          ctx, bx, by, scaledRadius, dotColor,
+          colors.projectileStroke, isAnimating,
+          activePt.speed, moveAngle,
+        );
       }
 
       // Force & Velocity vectors
@@ -1698,6 +1713,11 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       ctx.restore();
     }
 
+    // ── Visual effects layer (particles, ripples, flash) ──
+    updateAndDrawParticles(ctx);
+    updateAndDrawRipples(ctx);
+    updateAndDrawFlash(ctx, W, H);
+
     // Countdown overlay
     if (countdown !== null) {
       ctx.fillStyle = colors.countdownBg;
@@ -1722,14 +1742,96 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
   useEffect(() => { drawCanvas(); }, [drawCanvas]);
 
-  // Continuous redraw for pulse animation
+  // Continuous redraw for pulse animation + effects
   useEffect(() => {
-    if (!isAnimating) return;
+    if (!isAnimating && !hasActiveEffects()) return;
     let raf: number;
-    const loop = () => { drawCanvas(); raf = requestAnimationFrame(loop); };
+    const loop = () => { drawCanvas(); if (isAnimating || hasActiveEffects()) { raf = requestAnimationFrame(loop); } };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [isAnimating, drawCanvas]);
+
+  // Effects-only redraw loop (for particles/ripples after animation stops)
+  useEffect(() => {
+    if (isAnimating) return; // main loop handles it
+    if (!hasActiveEffects()) return;
+    let raf: number;
+    const loop = () => {
+      drawCanvas();
+      if (hasActiveEffects()) { raf = requestAnimationFrame(loop); }
+    };
+    raf = requestAnimationFrame(loop);
+    effectsRafRef.current = raf;
+    return () => { if (effectsRafRef.current) cancelAnimationFrame(effectsRafRef.current); };
+  }, [isAnimating, drawCanvas]);
+
+  // Detect launch & impact events
+  useEffect(() => {
+    const wasAnimating = prevAnimatingRef.current;
+    prevAnimatingRef.current = isAnimating;
+
+    // Launch: animation just started
+    if (isAnimating && !wasAnimating && trajectoryData.length > 0) {
+      impactTriggeredRef.current = false;
+      clearParticles();
+      triggerLaunchAnimation();
+      // Spawn launch particles at the start position
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const startPt = trajectoryData[0];
+        // Approximate canvas coords — use center-ish position
+        // The actual coords depend on domain, but we can use a rough estimate
+        const W = canvas.width, H = canvas.height;
+        const baseML = 70, baseMT = 35, baseMB = 50, baseMR = 30;
+        const plotW = W - baseML - baseMR, plotH = H - baseMT - baseMB;
+        // Rough domain estimation
+        let rMaxX = 0, rMaxY = height + 1;
+        for (let i = 0; i < trajectoryData.length; i++) {
+          if (trajectoryData[i].x > rMaxX) rMaxX = trajectoryData[i].x;
+          if (trajectoryData[i].y > rMaxY) rMaxY = trajectoryData[i].y;
+        }
+        const padX = (rMaxX || 10) * 0.1;
+        const padY = (rMaxY || 10) * 0.12;
+        const domW = (rMaxX + padX) - (-padX);
+        const domH = (rMaxY + padY) - (-padY * 0.3);
+        const sX = plotW / domW, sY = plotH / domH;
+        const launchX = baseML + (startPt.x - (-padX)) * sX;
+        const launchY = baseMT + plotH - (startPt.y - (-padY * 0.3)) * sY;
+        spawnParticleBurst(launchX, launchY, 8, '#22c55e', 2.5, 30);
+      }
+    }
+
+    // Impact: animation just stopped and we have trajectory data
+    if (!isAnimating && wasAnimating && trajectoryData.length > 0) {
+      if (!impactTriggeredRef.current) {
+        impactTriggeredRef.current = true;
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const lastPt = trajectoryData[trajectoryData.length - 1];
+          const W = canvas.width, H = canvas.height;
+          const baseML = 70, baseMT = 35, baseMB = 50, baseMR = 30;
+          const plotW = W - baseML - baseMR, plotH = H - baseMT - baseMB;
+          let rMaxX = 0, rMaxY = height + 1;
+          for (let i = 0; i < trajectoryData.length; i++) {
+            if (trajectoryData[i].x > rMaxX) rMaxX = trajectoryData[i].x;
+            if (trajectoryData[i].y > rMaxY) rMaxY = trajectoryData[i].y;
+          }
+          const padX = (rMaxX || 10) * 0.1;
+          const padY = (rMaxY || 10) * 0.12;
+          const domW = (rMaxX + padX) - (-padX);
+          const domH = (rMaxY + padY) - (-padY * 0.3);
+          const sX = plotW / domW, sY = plotH / domH;
+          const impactX = baseML + (lastPt.x - (-padX)) * sX;
+          const impactY = baseMT + plotH - (lastPt.y - (-padY * 0.3)) * sY;
+          spawnParticleBurst(impactX, impactY, 15, '#ef4444', 3.5, 35);
+          spawnRipple(impactX, impactY, '#ef4444', 45);
+          triggerFlash('#ef4444');
+          // Trigger one more redraw cycle for effects
+          requestAnimationFrame(() => drawCanvas());
+        }
+      }
+    }
+  }, [isAnimating, trajectoryData, height, drawCanvas]);
 
   // Mouse drag for panning
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
