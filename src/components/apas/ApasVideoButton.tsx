@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { runBallisticsEngine, type BallisticsAnalysisResult } from '@/utils/ballisticsEngine';
 import BallisticsAnalysisReport from '@/components/apas/BallisticsAnalysisReport';
 
-const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-video-gemini`;
+const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-physics-request`;
 
 const CONFIDENCE_THRESHOLD = 60;
 const FRAME_QUALITY = 0.8; // JPEG quality 80% for thumbnail
@@ -437,23 +437,36 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     // Local variable to track thumbnail URL (avoids stale closure over React state)
     let localThumbnailUrl: string | undefined;
 
-    // Upload video to Supabase Storage in parallel for persistent playback in history
+    // Upload video to Vercel Blob for persistent playback and AI analysis
     let persistentVideoUrl: string | undefined;
     const uploadPromise = (async () => {
       try {
-        const ext = file.name.split('.').pop() || 'webm';
-        const storagePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from(SUPABASE_VIDEO_BUCKET)
-          .upload(storagePath, file, { contentType: file.type, upsert: false });
-        if (uploadError) {
-          console.warn('Video upload to storage failed:', uploadError.message);
-          return undefined;
+        const formData = new FormData();
+        formData.append('file', file);
+        const uploadResp = await fetch('/api/videos/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        if (!uploadResp.ok) {
+          // Fallback: try Supabase Storage if Vercel Blob is not configured
+          console.warn('Vercel Blob upload failed, trying Supabase Storage fallback...');
+          const ext = file.name.split('.').pop() || 'webm';
+          const storagePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from(SUPABASE_VIDEO_BUCKET)
+            .upload(storagePath, file, { contentType: file.type, upsert: false });
+          if (uploadError) {
+            console.warn('Supabase Storage fallback also failed:', uploadError.message);
+            return undefined;
+          }
+          const { data: urlData } = supabase.storage
+            .from(SUPABASE_VIDEO_BUCKET)
+            .getPublicUrl(storagePath);
+          return urlData?.publicUrl || undefined;
         }
-        const { data: urlData } = supabase.storage
-          .from(SUPABASE_VIDEO_BUCKET)
-          .getPublicUrl(storagePath);
-        return urlData?.publicUrl || undefined;
+        const blobData = await uploadResp.json();
+        console.log('[APAS] Video uploaded to Vercel Blob:', blobData.url);
+        return blobData.url as string;
       } catch (err) {
         console.warn('Video upload error:', err);
         return undefined;
