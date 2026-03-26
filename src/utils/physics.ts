@@ -513,12 +513,12 @@ export const calculateTrajectory = (
       }
     }
 
-      // For downward launches from ground level, stop when projectile goes too far below
-      // Use 10x initial height (min 100m) as lower bound instead of magic -500
-      const lowerBound = -Math.max(100, height * 10);
-      if (height === 0 && vy0 < 0 && y < lowerBound) {
-        break;
-      }
+    // For downward launches from ground level, stop when projectile goes too far below
+    // Use 10x initial height (min 100m) as lower bound instead of magic -500
+    const lowerBound = -Math.max(100, height * 10);
+    if (height === 0 && vy0 < 0 && y < lowerBound) {
+      break;
+    }
 
     if (y >= 0) wasAboveGround = true;
   }
