@@ -260,80 +260,39 @@ function buildReport(
     calibrationSource: result.calibrationSource,
     aiProvider: result.aiProvider,
     processingTimeMs: result.processingTimeMs,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    projectileInfo: (result as Record<string, unknown>).projectileInfo || null,
   };
   L.push(bt + "json\n" + JSON.stringify(jsonPayload, null, 2) + "\n" + bt);
   L.push("");
 
-  const mtLabel = result.motionType === "vertical" ? (isAr ? "حركة شاقولية" : "Vertical motion")
-    : result.motionType === "horizontal" ? (isAr ? "حركة أفقية" : "Horizontal motion")
-    : (isAr ? "حركة مقذوف" : "Projectile motion");
-  const dLabel = result.dragEffect === "none" ? (isAr ? "لا يوجد" : "None")
-    : result.dragEffect === "slight" ? (isAr ? "طفيف" : "Slight") : (isAr ? "كبير" : "Significant");
-  const methodTag = result.analysisMethod === "calculated"
-    ? (isAr ? "✅ محسوب (Calculated)" : "✅ Calculated")
-    : result.analysisMethod === "estimated"
-    ? (isAr ? "⚠️ مُقدَّر (Estimated)" : "⚠️ Estimated")
-    : (isAr ? "🔄 هجين (Hybrid)" : "🔄 Hybrid");
-
-  L.push(isAr ? "# تقرير التحليل الفيزيائي — APAS V2" : "# Physics Analysis Report — APAS V2");
-  L.push("");
-  L.push(`**${isAr ? "طريقة التحليل" : "Analysis Method"}:** ${methodTag}`);
-  L.push(`**${isAr ? "المحرك" : "Engine"}:** ${result.analysisEngine}`);
-  L.push(`**${isAr ? "المزود" : "Provider"}:** ${result.aiProvider}`);
+  // ── Clean, organized report ──
+  L.push(isAr ? "# 📊 تقرير APAS AI" : "# 📊 APAS AI Report");
   L.push("");
 
-  L.push(isAr ? "## ملخص التحليل" : "## Analysis Summary");
+  // Key metrics summary (only the 4 essentials)
+  L.push(isAr ? "## 📌 النتائج الأساسية" : "## 📌 Key Results");
   L.push("");
-  const h1 = isAr ? "المعلمة" : "Parameter";
+  const h1 = isAr ? "المقياس" : "Metric";
   const h2 = isAr ? "القيمة" : "Value";
   L.push("| " + h1 + " | " + h2 + " |"); L.push("|---|---|");
-  const addRow = (k: string, v: string) => L.push("| **" + k + "** | " + v + " |");
-  addRow(isAr ? "نوع المقذوف" : "Object Type", result.objectType);
-  addRow(isAr ? "نوع الحركة" : "Motion Type", mtLabel);
-  addRow(isAr ? "زاوية الإطلاق" : "Launch Angle", result.angle + "°");
-  addRow(isAr ? "السرعة الابتدائية" : "Initial Velocity", result.velocity + " m/s");
-  addRow(isAr ? "ارتفاع الإطلاق" : "Launch Height", result.height + " m");
-  addRow(isAr ? "الكتلة" : "Mass", result.mass + " kg");
-  addRow(isAr ? "أقصى ارتفاع" : "Max Height", result.maxAltitude + " m");
-  addRow(isAr ? "المدى الأفقي" : "Range", result.horizontalRange + " m");
-  addRow(isAr ? "زمن التحليق" : "Time of Flight", result.timeOfFlight + " s");
-  addRow(isAr ? "سرعة الاصطدام" : "Impact Velocity", result.impactVelocity + " m/s");
-  addRow(isAr ? "مقاومة الهواء" : "Air Resistance", dLabel);
-  addRow(isAr ? "نسبة الثقة" : "Confidence", result.confidence + "%");
+  L.push("| " + (isAr ? "📐 زاوية الإطلاق" : "📐 Launch Angle") + " | **" + result.angle + "°** |");
+  L.push("| " + (isAr ? "💨 السرعة الابتدائية" : "💨 Initial Speed") + " | **" + result.velocity + " m/s** |");
+  L.push("| " + (isAr ? "📏 أقصى ارتفاع" : "📏 Max Height") + " | **" + result.maxAltitude + " m** |");
+  L.push("| " + (isAr ? "⏱️ زمن الطيران" : "⏱️ Flight Time") + " | **" + result.timeOfFlight + " s** |");
   L.push("");
 
-  if (detailedReport) { L.push("---"); L.push(""); L.push(detailedReport); L.push(""); }
-
-  // Physics equations
-  L.push("---"); L.push("");
-  L.push(isAr ? "## المعادلات الفيزيائية" : "## Governing Equations"); L.push("");
-  L.push("> **" + (isAr ? "معادلة المسار" : "Trajectory equation") + "**");
-  L.push("> y = x * tan(θ) - g * x² / (2 * v₀² * cos²(θ))"); L.push("");
-  L.push("> **" + (isAr ? "مركبات السرعة" : "Velocity components") + "**");
-  L.push("> v₀x = " + result.velocity + " * cos(" + result.angle + "°) = **" + result.v0x + " m/s**");
-  L.push("> v₀y = " + result.velocity + " * sin(" + result.angle + "°) = **" + result.v0y + " m/s**"); L.push("");
-  L.push("> **" + (isAr ? "أقصى ارتفاع" : "Maximum height") + "**");
-  L.push("> H = h₀ + v₀y² / (2g) = **" + result.maxAltitude + " m**"); L.push("");
-  L.push("> **" + (isAr ? "المدى" : "Range") + "**");
-  L.push("> R = v₀x × T = **" + result.horizontalRange + " m**"); L.push("");
-
-  // Confidence & methodology
-  L.push("---"); L.push("");
-  L.push(isAr ? "## المنهجية" : "## Methodology"); L.push("");
-  if (isAr) {
-    L.push("تم التحليل بواسطة APAS V2 (نظام تحليل الفيزياء المتقدم):");
-    L.push("1. **استخراج المواضع:** رؤية حاسوبية (Gemini) لاستخراج إحداثيات المسار");
-    L.push("2. **المحرك الفيزيائي:** مطابقة منحنى القطع المكافئ + حساب الزاوية والسرعة");
-    L.push("3. **التحقق الرياضي:** تطبيق معادلات الحركة للتأكد من الدقة");
-    L.push("4. **التصنيف:** " + methodTag);
-  } else {
-    L.push("Analysis by APAS V2 (Advanced Physics Analysis System):");
-    L.push("1. **Position Extraction:** Computer vision (Gemini) for trajectory coordinates");
-    L.push("2. **Physics Engine:** Parabolic curve fitting + angle/velocity computation");
-    L.push("3. **Math Verification:** Kinematics equations applied for accuracy");
-    L.push("4. **Classification:** " + methodTag);
+  // Detailed AI report (environment, projectile, motion analysis)
+  if (detailedReport) {
+    L.push("---");
+    L.push("");
+    L.push(detailedReport);
+    L.push("");
   }
-  L.push(""); L.push("*APAS V2 — Advanced Physics Analysis System*");
+
+  L.push("---");
+  L.push("");
+  L.push("*APAS V2 — " + (isAr ? "نظام تحليل الفيزياء المتقدم" : "Advanced Physics Analysis System") + "*");
 
   return L.join("\n");
 }
@@ -437,11 +396,34 @@ RESPONSE FORMAT — Return ONLY this JSON:
     ...
   ],
   "calibrationHint": "<reference object for scale>",
-  "videoSummary": "<brief description in ${langLabel}>"
+  "videoSummary": "<brief description in ${langLabel}>",
+  "projectileInfo": {
+    "name": "<exact name of the projectile if recognized>",
+    "type": "<category: ball/rocket/stone/bottle/javelin/other>",
+    "typicalMass": <kg if known>,
+    "typicalDiameter": <meters if known>,
+    "dragCoefficient": <Cd if known>,
+    "description": "<brief technical description of the projectile>"
+  }
 }
 \`\`\`
 
-Then provide a DETAILED physics analysis report in ${langLabel}.
+Then provide a WELL-ORGANIZED report in ${langLabel} with these sections ONLY:
+
+## 1. ${isAr ? "وصف البيئة" : "Environment Description"}
+Describe the environment/scene: location type, lighting, weather, surface, background objects.
+
+## 2. ${isAr ? "وصف المقذوف" : "Projectile Description"}
+Describe the projectile: what is it exactly, its type, color, size estimate, how it was launched/thrown.
+If you recognize the projectile (e.g., soccer ball, basketball, tennis ball, javelin, etc.), provide:
+- Its standard specifications (mass, diameter, material)
+- Typical physics behavior (drag coefficient, spin effects)
+- Any relevant information you know about this type of projectile
+
+## 3. ${isAr ? "تحليل الحركة" : "Motion Analysis"}
+Briefly describe the trajectory observed: launch direction, peak point, landing.
+
+Keep the report clean, organized, and concise. Do NOT include raw physics equations or lengthy tables.
 Use gravity = ${gVal} m/s².
 
 RULES:
@@ -540,7 +522,9 @@ Return ONLY: {"angle": <deg>, "velocity": <m/s>, "confidence": <0-100>}`,
 
   // ── Stage 5: Merge results — physics engine > Mistral > AI vision ──
   const objectType = aiData?.objectType || (isAr ? "مقذوف" : "projectile");
-  const mass = typeof aiData?.estimatedMass === "number" ? aiData.estimatedMass : 0.45;
+  const projectileInfo = aiData?.projectileInfo || null;
+  // Use projectile info mass if available, then estimatedMass, then default
+  const mass = projectileInfo?.typicalMass ?? (typeof aiData?.estimatedMass === "number" ? aiData.estimatedMass : 0.45);
   const heightAI = typeof aiData?.launchHeight === "number" ? aiData.launchHeight : 1.5;
   const dragEffect = aiData?.dragEffect || "none";
   const videoSummary = aiData?.videoSummary || "";
@@ -590,8 +574,9 @@ Return ONLY: {"angle": <deg>, "velocity": <m/s>, "confidence": <0-100>}`,
 
   const processingTimeMs = Date.now() - startTime;
 
-  // Build result
-  const result: PhysicsResult = {
+  // Build result (with projectileInfo attached for frontend consumption)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: PhysicsResult & { projectileInfo?: Record<string, unknown> } = {
     detected: aiData?.detected !== false,
     confidence: Math.max(0, finalConfidence),
     angle: finalAngle,
@@ -619,6 +604,7 @@ Return ONLY: {"angle": <deg>, "velocity": <m/s>, "confidence": <0-100>}`,
     aiProvider,
     processingTimeMs,
     reportText: "",
+    projectileInfo: projectileInfo || undefined,
   };
 
   // Build report

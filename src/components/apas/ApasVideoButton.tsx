@@ -45,6 +45,15 @@ interface Props {
   onDismiss?: () => void;
 }
 
+interface ProjectileInfo {
+  name?: string;
+  type?: string;
+  typicalMass?: number;
+  typicalDiameter?: number;
+  dragCoefficient?: number;
+  description?: string;
+}
+
 interface AnalysisData {
   detected: boolean;
   confidence?: number;
@@ -53,6 +62,9 @@ interface AnalysisData {
   mass?: number;
   height?: number;
   objectType?: string;
+  maxAltitude?: number;
+  timeOfFlight?: number;
+  projectileInfo?: ProjectileInfo;
 }
 
 interface HistoryEntry {
@@ -437,9 +449,10 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     // Local variable to track thumbnail URL (avoids stale closure over React state)
     let localThumbnailUrl: string | undefined;
 
-    // Upload video to Vercel Blob for persistent playback and AI analysis
+    // Upload video to Vercel Blob FIRST for persistent playback and AI analysis
     let persistentVideoUrl: string | undefined;
     const uploadPromise = (async () => {
+      // Primary: Vercel Blob upload via API route
       try {
         const formData = new FormData();
         formData.append('file', file);
@@ -447,28 +460,34 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           method: 'POST',
           body: formData,
         });
-        if (!uploadResp.ok) {
-          // Fallback: try Supabase Storage if Vercel Blob is not configured
-          console.warn('Vercel Blob upload failed, trying Supabase Storage fallback...');
-          const ext = file.name.split('.').pop() || 'webm';
-          const storagePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-          const { error: uploadError } = await supabase.storage
-            .from(SUPABASE_VIDEO_BUCKET)
-            .upload(storagePath, file, { contentType: file.type, upsert: false });
-          if (uploadError) {
-            console.warn('Supabase Storage fallback also failed:', uploadError.message);
-            return undefined;
-          }
-          const { data: urlData } = supabase.storage
-            .from(SUPABASE_VIDEO_BUCKET)
-            .getPublicUrl(storagePath);
-          return urlData?.publicUrl || undefined;
+        if (uploadResp.ok) {
+          const blobData = await uploadResp.json();
+          console.log('[APAS] Video uploaded to Vercel Blob (primary):', blobData.url);
+          return blobData.url as string;
         }
-        const blobData = await uploadResp.json();
-        console.log('[APAS] Video uploaded to Vercel Blob:', blobData.url);
-        return blobData.url as string;
+        console.warn('[APAS] Vercel Blob upload failed (HTTP', uploadResp.status, '), trying Supabase fallback...');
       } catch (err) {
-        console.warn('Video upload error:', err);
+        console.warn('[APAS] Vercel Blob upload error:', err, '— trying Supabase fallback...');
+      }
+
+      // Fallback: Supabase Storage
+      try {
+        const ext = file.name.split('.').pop() || 'webm';
+        const storagePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from(SUPABASE_VIDEO_BUCKET)
+          .upload(storagePath, file, { contentType: file.type, upsert: false });
+        if (uploadError) {
+          console.warn('[APAS] Supabase Storage fallback also failed:', uploadError.message);
+          return undefined;
+        }
+        const { data: urlData } = supabase.storage
+          .from(SUPABASE_VIDEO_BUCKET)
+          .getPublicUrl(storagePath);
+        console.log('[APAS] Video uploaded to Supabase (fallback):', urlData?.publicUrl);
+        return urlData?.publicUrl || undefined;
+      } catch (err) {
+        console.warn('[APAS] All upload methods failed:', err);
         return undefined;
       }
     })();
@@ -484,7 +503,23 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     const parseAIResponse = (text: string) => {
       const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
       let result: AnalysisData | null = null;
-      if (jsonMatch) try { result = JSON.parse(jsonMatch[1].trim()); } catch { /* ignore parse errors */ }
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1].trim());
+          result = {
+            detected: parsed.detected ?? false,
+            confidence: parsed.confidence,
+            angle: parsed.angle,
+            velocity: parsed.velocity,
+            mass: parsed.projectileInfo?.typicalMass ?? parsed.mass,
+            height: parsed.height,
+            objectType: parsed.objectType,
+            maxAltitude: parsed.maxAltitude,
+            timeOfFlight: parsed.timeOfFlight,
+            projectileInfo: parsed.projectileInfo ?? undefined,
+          };
+        } catch { /* ignore parse errors */ }
+      }
       const cleanText = text.replace(/```json[\s\S]*?```\s*/, '').trim();
       return { result, cleanText };
     };
@@ -523,12 +558,15 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         }
 
         if (result.detected && confidence >= CONFIDENCE_THRESHOLD) {
+          // Apply recognized projectile data to simulation
+          const effectiveMass = result.projectileInfo?.typicalMass ?? result.mass;
+          const effectiveType = result.projectileInfo?.name ?? result.objectType;
           onUpdateParams({
             velocity: result.velocity,
             angle: result.angle,
-            mass: result.mass,
+            mass: effectiveMass,
             height: result.height,
-            objectType: result.objectType,
+            objectType: effectiveType,
           });
           // Propagate detected media data to APAS calculations
           if (onDetectedMedia) {
@@ -1281,15 +1319,15 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                   {analysisData.detected && (
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { label: isAr ? 'الزاوية' : 'Angle', value: analysisData.angle, unit: '°' },
-                        { label: isAr ? 'السرعة' : 'Velocity', value: analysisData.velocity, unit: ' m/s' },
-                        { label: isAr ? 'الكتلة' : 'Mass', value: analysisData.mass, unit: ' kg' },
-                        { label: isAr ? 'الارتفاع' : 'Height', value: analysisData.height, unit: ' m' },
+                        { label: isAr ? 'الزاوية' : 'Angle', value: analysisData.angle, unit: '°', icon: '📐' },
+                        { label: isAr ? 'السرعة' : 'Speed', value: analysisData.velocity, unit: ' m/s', icon: '💨' },
+                        { label: isAr ? 'أقصى ارتفاع' : 'Max Height', value: ballisticsResult?.maxAltitude ?? analysisData.height, unit: ' m', icon: '📏' },
+                        { label: isAr ? 'زمن الطيران' : 'Flight Time', value: ballisticsResult?.timeOfFlight, unit: ' s', icon: '⏱️' },
                       ].map(item => (
                         <div key={item.label} className="border border-border rounded-lg p-2.5 text-center bg-secondary/30">
-                          <p className="text-[10px] text-muted-foreground mb-0.5">{item.label}</p>
+                          <p className="text-[10px] text-muted-foreground mb-0.5">{item.icon} {item.label}</p>
                           <p className="text-sm font-semibold font-mono text-foreground">
-                            {item.value != null ? `${item.value}${item.unit}` : '—'}
+                            {item.value != null ? `${typeof item.value === 'number' ? item.value.toFixed(1) : item.value}${item.unit}` : '—'}
                           </p>
                         </div>
                       ))}
