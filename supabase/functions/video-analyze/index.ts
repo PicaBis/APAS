@@ -296,7 +296,7 @@ async function callGroqVideoAnalysis(
   }, "Groq-Video");
 }
 
-// Stage 1: Analyze video with fallback chain Groq Llama 3 -> Gemini 2.0 Flash -> Mistral Large
+// Stage 1: Analyze video with Groq Llama 3 only (no Gemini)
 async function analyzeVideoFrames(
   frames: Array<{ data: string; timestamp: number }>,
 ): Promise<{ response: string; provider: string }> {
@@ -310,15 +310,6 @@ async function analyzeVideoFrames(
   }
 
   try {
-    console.log("[video-analyze] Falling back to Gemini 2.0 Flash for video analysis...");
-    const response = await callGeminiVideoAnalysis(frames);
-    console.log("[video-analyze] Gemini video analysis succeeded, length:", response.length);
-    return { response, provider: "Gemini" };
-  } catch (err) {
-    console.warn("[video-analyze] Gemini video analysis failed:", (err as Error).message);
-  }
-
-  try {
     console.log("[video-analyze] Falling back to Mistral Large for video analysis...");
     const response = await callMistralVideoAnalysis(frames);
     console.log("[video-analyze] Mistral video analysis succeeded, length:", response.length);
@@ -327,7 +318,7 @@ async function analyzeVideoFrames(
     console.warn("[video-analyze] Mistral video analysis failed:", (err as Error).message);
   }
 
-  throw new Error("All video analysis providers failed (Groq, Gemini, Mistral)");
+  throw new Error("All video analysis providers failed (Groq, Mistral)");
 }
 
 // ── Stage 2 Providers: Solve physics from extracted data ──

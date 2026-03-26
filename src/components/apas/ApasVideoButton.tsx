@@ -119,12 +119,14 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       await new Promise<void>((resolve) => {
         videoEl.onseeked = () => resolve();
       });
+      let thumbnailUrl: string | undefined;
       if (thumbCtx) {
         const scale = Math.min(1, 200 / Math.max(videoEl.videoWidth, videoEl.videoHeight));
         thumbCanvas.width = Math.round(videoEl.videoWidth * scale);
         thumbCanvas.height = Math.round(videoEl.videoHeight * scale);
         thumbCtx.drawImage(videoEl, 0, 0, thumbCanvas.width, thumbCanvas.height);
         const thumbUrl = thumbCanvas.toDataURL('image/jpeg', 0.7);
+        thumbnailUrl = thumbUrl;
         setPreview(thumbUrl);
         if (onMediaAnalyzed) onMediaAnalyzed(thumbUrl);
       }
@@ -223,7 +225,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         onAnalysisComplete({
           type: 'video',
           report: reportText,
-          mediaSrc: preview || undefined,
+          mediaSrc: thumbnailUrl,
           mediaType: 'video',
           params: extractedParams,
         });
@@ -240,7 +242,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     } finally {
       setLoading(false);
     }
-  }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, preview]);
+  }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

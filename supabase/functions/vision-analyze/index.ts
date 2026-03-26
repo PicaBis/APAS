@@ -239,7 +239,7 @@ async function callGroqExtract(
   }, "Groq-Extract");
 }
 
-// Stage 1: Extract with fallback chain Groq Llama 3 -> Mistral Large -> Gemini 2.0 Flash
+// Stage 1: Extract with Groq Llama 3 only (no Gemini)
 async function extractFromImage(
   imageBase64: string,
   mimeType: string,
@@ -263,16 +263,7 @@ async function extractFromImage(
     console.warn("[vision-analyze] Mistral extraction failed:", (err as Error).message);
   }
 
-  try {
-    console.log("[vision-analyze] Falling back to Gemini 2.0 Flash for extraction...");
-    const response = await callGeminiExtract(imageBase64, mimeType, lang);
-    console.log("[vision-analyze] Gemini extraction succeeded, length:", response.length);
-    return { response, provider: "Gemini" };
-  } catch (err) {
-    console.warn("[vision-analyze] Gemini extraction failed:", (err as Error).message);
-  }
-
-  throw new Error("All extraction providers failed (Groq, Mistral, Gemini)");
+  throw new Error("All extraction providers failed (Groq, Mistral)");
 }
 
 // ── Stage 2 Providers: Solve physics problem ──
