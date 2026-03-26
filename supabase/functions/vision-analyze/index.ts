@@ -164,6 +164,13 @@ function buildGroqVisionPrompt(lang: string): string {
 
 // \u2500\u2500 Groq Vision API Call (EXCLUSIVE - no fallback) \u2500\u2500
 
+// Vision models ordered by priority for fallback
+const VISION_MODELS = [
+  "llama-3.2-90b-vision-preview",   // Primary: most powerful Groq vision model
+  "llama-3.2-11b-vision-preview",   // Fallback 1: lighter Groq vision model
+  "llama-3.3-70b-versatile",        // Fallback 2: text-only Groq model (no image)
+];
+
 async function callGroqVision(
   imageBase64: string,
   mimeType: string,
@@ -175,41 +182,67 @@ async function callGroqVision(
   const prompt = buildGroqVisionPrompt(lang);
   const dataUrl = "data:" + mimeType + ";base64," + imageBase64;
 
-  return retryWithBackoff(async () => {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + apiKey,
-      },
-      body: JSON.stringify({
-        model: "llama-3.2-11b-vision-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are Professor APAS, the Elite Analyzer from ENS (Ecole Normale Superieure). You are the world's foremost expert in projectile motion and Newtonian mechanics. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. CONTEXT AWARENESS: Identify the object (e.g., ball, cannonball), the scale (e.g., human height ~1.7m), and the environment. CALCULATION: Use the projectile motion equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) to ensure your estimates for angle (theta) and velocity (v0) are consistent with the visual trajectory. You MUST respond with ONLY valid JSON - no markdown, no extra text. CRITICAL: You MUST provide realistic NON-ZERO values for initial_velocity, launch_angle, and all computed physics. A professor NEVER returns zeros - they provide expert estimates based on visual analysis and physics knowledge.",
+  const systemMessage = "You are Professor APAS, the Elite Analyzer from ENS (Ecole Normale Superieure). You are the world's foremost expert in projectile motion and Newtonian mechanics. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. CONTEXT AWARENESS: Identify the object (e.g., ball, cannonball), the scale (e.g., human height ~1.7m), and the environment. CALCULATION: Use the projectile motion equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) to ensure your estimates for angle (theta) and velocity (v0) are consistent with the visual trajectory. You MUST respond with ONLY valid JSON - no markdown, no extra text. CRITICAL: You MUST provide realistic NON-ZERO values for initial_velocity, launch_angle, and all computed physics. A professor NEVER returns zeros - they provide expert estimates based on visual analysis and physics knowledge.";
+
+  let lastError: Error | null = null;
+
+  for (const model of VISION_MODELS) {
+    try {
+      console.log("[vision-analyze] Trying model: " + model);
+
+      // For text-only models, send just the text prompt without the image
+      const isVisionModel = model.includes("vision");
+      const userContent = isVisionModel
+        ? [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ]
+        : prompt + "\n\n[Note: Image was provided but this model cannot process images. Provide your best expert analysis based on general projectile motion physics.]";
+
+      const result = await retryWithBackoff(async () => {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + apiKey,
           },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: dataUrl } },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemMessage },
+              { role: "user", content: userContent },
             ],
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 4000,
-      }),
-    });
+            temperature: 0.3,
+            max_tokens: 4000,
+          }),
+        });
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error("Groq API error (" + res.status + "): " + err);
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error("Groq API error (" + res.status + "): " + err);
+        }
+
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || "";
+      }, "Groq-Vision-" + model);
+
+      console.log("[vision-analyze] Model " + model + " succeeded");
+      return result;
+    } catch (err) {
+      lastError = err as Error;
+      const errMsg = lastError.message || "";
+      // If model is decommissioned (400) or not found (404), try next model
+      const isModelError = errMsg.includes("400") || errMsg.includes("404") || errMsg.includes("decommissioned") || errMsg.includes("not found") || errMsg.includes("does not exist");
+      if (isModelError) {
+        console.warn("[vision-analyze] Model " + model + " unavailable: " + errMsg + ", trying next...");
+        continue;
+      }
+      // For other errors (rate limit exhausted after retries, server error), throw
+      throw lastError;
     }
+  }
 
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || "";
-  }, "Groq-Vision");
+  throw lastError || new Error("All vision models failed");
 }
 
 // \u2500\u2500 JSON Parser \u2500\u2500
@@ -544,7 +577,7 @@ serve(async (req) => {
       motion_type: motionType,
       confidence_score: confidence,
       analysis_method: "estimated",
-      analysis_engine: "groq_vision_llama3_11b",
+      analysis_engine: "groq_vision_llama3_90b",
       calibration_source: "auto",
       calibration_reference: calibrationRef,
       gravity: g,

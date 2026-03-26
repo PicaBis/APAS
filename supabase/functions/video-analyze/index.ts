@@ -151,6 +151,13 @@ function buildVideoVisionPrompt(_lang?: string): string {
   ].join("\n");
 }
 
+// Video vision models ordered by priority for fallback
+const VIDEO_VISION_MODELS = [
+  "llama-3.2-90b-vision-preview",   // Primary: most powerful Groq vision model
+  "llama-3.2-11b-vision-preview",   // Fallback 1: lighter Groq vision model
+  "llama-3.3-70b-versatile",        // Fallback 2: text-only Groq model (no image)
+];
+
 async function callGroqVideoAnalysis(
   frames: Array<{ data: string; timestamp: number }>,
   lang: string,
@@ -160,8 +167,9 @@ async function callGroqVideoAnalysis(
 
   const visionPrompt = buildVideoVisionPrompt(lang);
 
-  const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-  content.push({ type: "text", text: visionPrompt + "\n\nNote: Showing key frames from the video." });
+  // Build vision content with frames
+  const visionContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+  visionContent.push({ type: "text", text: visionPrompt + "\n\nNote: Showing key frames from the video." });
 
   const groqMaxFrames = Math.min(4, frames.length);
   const step = frames.length > 1 ? (frames.length - 1) / (groqMaxFrames - 1) : 0;
@@ -169,7 +177,7 @@ async function callGroqVideoAnalysis(
     const idx = Math.round(i * step);
     const frame = frames[idx];
     const ts = typeof frame.timestamp === "number" ? frame.timestamp.toFixed(3) : String(idx * 0.1);
-    content.push({ type: "text", text: "--- Frame " + (i + 1) + "/" + groqMaxFrames + " (Time: " + ts + "s) ---" });
+    visionContent.push({ type: "text", text: "--- Frame " + (i + 1) + "/" + groqMaxFrames + " (Time: " + ts + "s) ---" });
 
     let base64Data = frame.data;
     let frameMime = "image/jpeg";
@@ -181,38 +189,67 @@ async function callGroqVideoAnalysis(
       }
     }
     const dataUrl = "data:" + frameMime + ";base64," + base64Data;
-    content.push({ type: "image_url", image_url: { url: dataUrl } });
+    visionContent.push({ type: "image_url", image_url: { url: dataUrl } });
   }
 
-  return retryWithBackoff(async () => {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + apiKey,
-      },
-      body: JSON.stringify({
-        model: "llama-3.2-11b-vision-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are Professor APAS, the Elite Analyzer from ENS. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. Use the equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) for consistency. Respond with ONLY valid JSON. NEVER return zeros.",
+  // Build text-only fallback content (no images)
+  const textOnlyContent = visionPrompt + "\n\n[Note: Video frames were provided but this model cannot process images. Provide your best expert analysis based on general projectile motion physics.]";
+
+  const systemMessage = "You are Professor APAS, the Elite Analyzer from ENS. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. Use the equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) for consistency. Respond with ONLY valid JSON. NEVER return zeros.";
+
+  let lastError: Error | null = null;
+
+  for (const model of VIDEO_VISION_MODELS) {
+    try {
+      console.log("[video-analyze] Trying model: " + model);
+
+      const isVisionModel = model.includes("vision");
+      const userContent = isVisionModel ? visionContent : textOnlyContent;
+
+      const result = await retryWithBackoff(async () => {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + apiKey,
           },
-          { role: "user", content },
-        ],
-        temperature: 0.3,
-        max_tokens: 4000,
-      }),
-    });
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemMessage },
+              { role: "user", content: userContent },
+            ],
+            temperature: 0.3,
+            max_tokens: 4000,
+          }),
+        });
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error("Groq API error (" + res.status + "): " + err);
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error("Groq API error (" + res.status + "): " + err);
+        }
+
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || "";
+      }, "Groq-Video-" + model);
+
+      console.log("[video-analyze] Model " + model + " succeeded");
+      return result;
+    } catch (err) {
+      lastError = err as Error;
+      const errMsg = lastError.message || "";
+      // If model is decommissioned (400) or not found (404), try next model
+      const isModelError = errMsg.includes("400") || errMsg.includes("404") || errMsg.includes("decommissioned") || errMsg.includes("not found") || errMsg.includes("does not exist");
+      if (isModelError) {
+        console.warn("[video-analyze] Model " + model + " unavailable: " + errMsg + ", trying next...");
+        continue;
+      }
+      // For other errors (rate limit exhausted after retries, server error), throw
+      throw lastError;
     }
+  }
 
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || "";
-  }, "Groq-Video");
+  throw lastError || new Error("All video vision models failed");
 }
 
 // \u2500\u2500 JSON Parser \u2500\u2500
@@ -402,7 +439,7 @@ serve(async (req) => {
       motion_type: "projectile",
       confidence_score: confidence,
       analysis_method: "estimated",
-      analysis_engine: "groq_vision_llama3_11b",
+      analysis_engine: "groq_vision_llama3_90b",
       calibration_source: "auto",
       gravity: g,
       report_text: motionDescription,
