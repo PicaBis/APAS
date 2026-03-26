@@ -6,6 +6,7 @@ import {
   AlertTriangle, FlaskConical, ChevronDown, ChevronUp,
   HelpCircle, ArrowRight,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { playClick } from '@/utils/sound';
 import { cleanLatex } from '@/utils/cleanLatex';
 
@@ -581,7 +582,10 @@ CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no extra text
   }, [simulationContext, isAr]);
 
   const handleOpen = () => {
-    if (!isUnlocked) return;
+    if (!isUnlocked) {
+      toast.info(isAr ? 'يجب عليك تحميل صورة أو فيديو أولاً أو تشغيل المحاكاة' : 'You must upload an image or video first, or run the simulation');
+      return;
+    }
     playClick(muted);
     setOpen(true);
     if (cards.length === 0 && !loading) {

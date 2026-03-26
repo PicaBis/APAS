@@ -20,6 +20,8 @@ import type { BallisticsAnalysisResult, CalibratedPoint } from '@/utils/ballisti
 interface Props {
   result: BallisticsAnalysisResult;
   lang: string;
+  hideProfessionalReport?: boolean;
+  hideConfidenceHeader?: boolean;
 }
 
 /** Localization helper */
@@ -161,7 +163,7 @@ function generateProfessionalReport(result: BallisticsAnalysisResult, lang: stri
   return lines.filter(l => l !== '').join('\n');
 }
 
-export default function BallisticsAnalysisReport({ result, lang }: Props) {
+export default function BallisticsAnalysisReport({ result, lang, hideProfessionalReport, hideConfidenceHeader }: Props) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     report: true,
     physics: true,
@@ -248,61 +250,65 @@ export default function BallisticsAnalysisReport({ result, lang }: Props) {
   return (
     <div className="space-y-3" dir={isAr ? 'rtl' : 'ltr'}>
       {/* ═══ HEADER: CONFIDENCE SCORE ═══ */}
-      <div className={`p-3 rounded-xl border ${confidenceBg(verification.confidenceScore)} flex items-center justify-between`}>
-        <div className="flex items-center gap-2">
-          <Shield className={`w-5 h-5 ${confidenceColor(verification.confidenceScore)}`} />
-          <div>
-            <p className="text-xs font-bold text-foreground">
-              {tl(lang, 'محرك التحليل الباليستي', 'Ballistics Intelligence Engine')}
-              <span className="text-[9px] font-normal text-muted-foreground ml-2">v{result.engineVersion}</span>
-            </p>
-            <p className="text-[9px] text-muted-foreground">
-              {tl(lang, `معالجة في ${result.processingTimeMs}ms | ${result.trackingResult.detectedFrames}/${result.trackingResult.totalFrames} إطار`, 
-                  `Processed in ${result.processingTimeMs}ms | ${result.trackingResult.detectedFrames}/${result.trackingResult.totalFrames} frames tracked`)}
-            </p>
-          </div>
-        </div>
-        <div className="text-center">
-          <p className={`text-2xl font-black font-mono ${confidenceColor(verification.confidenceScore)}`}>
-            {verification.confidenceScore}%
-          </p>
-          <p className="text-[8px] text-muted-foreground">
-            {tl(lang, 'درجة الثقة', 'Confidence')}
-          </p>
-        </div>
-      </div>
-
-      {/* ═══ PROFESSIONAL REPORT ═══ */}
-      <div>
-        <SectionHeader
-          icon={<FileText className="w-4 h-4 text-indigo-500" />}
-          title={tl(lang, 'التقرير المهني', 'Professional Report')}
-          badge="MD + LaTeX"
-          badgeColor="bg-indigo-500/10 text-indigo-600"
-          expanded={expandedSections.report}
-          onToggle={() => toggleSection('report')}
-        />
-        {expandedSections.report && (
-          <div className="px-1 pb-2">
-            <div className="relative rounded-lg border border-border/50 bg-card/30 overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/30 border-b border-border/30">
-                <span className="text-[9px] text-muted-foreground font-mono">report.md</span>
-                <button
-                  onClick={copyReport}
-                  className="flex items-center gap-1 text-[9px] px-2 py-0.5 rounded hover:bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
-                  title={isAr ? 'نسخ التقرير' : 'Copy Report'}
-                >
-                  {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                  {copied ? (isAr ? 'تم النسخ' : 'Copied') : (isAr ? 'نسخ' : 'Copy')}
-                </button>
-              </div>
-              <pre className="p-3 text-[9px] font-mono text-foreground/90 whitespace-pre-wrap overflow-x-auto max-h-[400px] overflow-y-auto leading-relaxed">
-                {reportText}
-              </pre>
+      {!hideConfidenceHeader && (
+        <div className={`p-3 rounded-xl border ${confidenceBg(verification.confidenceScore)} flex items-center justify-between`}>
+          <div className="flex items-center gap-2">
+            <Shield className={`w-5 h-5 ${confidenceColor(verification.confidenceScore)}`} />
+            <div>
+              <p className="text-xs font-bold text-foreground">
+                {tl(lang, 'محرك التحليل الباليستي', 'Ballistics Intelligence Engine')}
+                <span className="text-[9px] font-normal text-muted-foreground ml-2">v{result.engineVersion}</span>
+              </p>
+              <p className="text-[9px] text-muted-foreground">
+                {tl(lang, `معالجة في ${result.processingTimeMs}ms | ${result.trackingResult.detectedFrames}/${result.trackingResult.totalFrames} إطار`, 
+                    `Processed in ${result.processingTimeMs}ms | ${result.trackingResult.detectedFrames}/${result.trackingResult.totalFrames} frames tracked`)}
+              </p>
             </div>
           </div>
-        )}
-      </div>
+          <div className="text-center">
+            <p className={`text-2xl font-black font-mono ${confidenceColor(verification.confidenceScore)}`}>
+              {verification.confidenceScore}%
+            </p>
+            <p className="text-[8px] text-muted-foreground">
+              {tl(lang, 'درجة الثقة', 'Confidence')}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ PROFESSIONAL REPORT ═══ */}
+      {!hideProfessionalReport && (
+        <div>
+          <SectionHeader
+            icon={<FileText className="w-4 h-4 text-indigo-500" />}
+            title={tl(lang, 'التقرير المهني', 'Professional Report')}
+            badge="MD + LaTeX"
+            badgeColor="bg-indigo-500/10 text-indigo-600"
+            expanded={expandedSections.report}
+            onToggle={() => toggleSection('report')}
+          />
+          {expandedSections.report && (
+            <div className="px-1 pb-2">
+              <div className="relative rounded-lg border border-border/50 bg-card/30 overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/30 border-b border-border/30">
+                  <span className="text-[9px] text-muted-foreground font-mono">report.md</span>
+                  <button
+                    onClick={copyReport}
+                    className="flex items-center gap-1 text-[9px] px-2 py-0.5 rounded hover:bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
+                    title={isAr ? 'نسخ التقرير' : 'Copy Report'}
+                  >
+                    {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                    {copied ? (isAr ? 'تم النسخ' : 'Copied') : (isAr ? 'نسخ' : 'Copy')}
+                  </button>
+                </div>
+                <pre className="p-3 text-[9px] font-mono text-foreground/90 whitespace-pre-wrap overflow-x-auto max-h-[400px] overflow-y-auto leading-relaxed">
+                  {reportText}
+                </pre>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═══ PHYSICS METRICS ═══ */}
       <div>

@@ -10,6 +10,98 @@ import { supabase } from '@/integrations/supabase/client';
 import { runBallisticsEngine, type BallisticsAnalysisResult } from '@/utils/ballisticsEngine';
 import BallisticsAnalysisReport from '@/components/apas/BallisticsAnalysisReport';
 
+/* ------------------------------------------------------------------ */
+/*  ReportRenderer – renders text with equations in styled blocks      */
+/* ------------------------------------------------------------------ */
+function isEquationLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  const hasEquals = trimmed.includes('=');
+  const hasMathSymbols = /[+\-*/\u221A\u00B2\u00B3\u2074\u2070\u00B9\u2075\u2076\u2077\u2078\u2079\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089\u03B1\u03B2\u03B3\u03B8\u03B4\u03C9\u03C0\u03C3\u03C1\u03BC\u03BB\u03B5\u03C6\u03C8\u03C4\u03B7\u03BD\u0394\u03A9\u03A3\u2248\u2264\u2265\u221E\u00B1\u00B7\u00D7\u00F7\u2202\u2207\u2211\u222B\u21D2\u2192]/.test(trimmed);
+  const startsWithMathVar = /^[a-zA-Z][\s_\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089\u2093]*[\s(=]/.test(trimmed);
+  const hasParenMath = /\([^)]*[+\-*/^\u221A]\s*[^)]*\)/.test(trimmed);
+  if (hasEquals && hasMathSymbols) return true;
+  if (hasEquals && startsWithMathVar) return true;
+  if (hasEquals && hasParenMath) return true;
+  if (/^[xyRHTvVaghmFKE][\s_\u2080\u2081\u2082]*([\s(=])/.test(trimmed)) return true;
+  if (/^[\u03B8\u03B1\u03B2][\s_]*=/.test(trimmed)) return true;
+  if (trimmed.startsWith('$$') && trimmed.endsWith('$$')) return true;
+  if (trimmed.startsWith('$') && trimmed.endsWith('$') && trimmed.length > 2) return true;
+  return false;
+}
+
+function VideoReportRenderer({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const blocks: { type: 'text' | 'equation' | 'heading' | 'table'; content: string }[] = [];
+  let currentText: string[] = [];
+  let tableLines: string[] = [];
+
+  const flushText = () => {
+    if (currentText.length > 0) {
+      blocks.push({ type: 'text', content: currentText.join('\n') });
+      currentText = [];
+    }
+  };
+  const flushTable = () => {
+    if (tableLines.length > 0) {
+      blocks.push({ type: 'table', content: tableLines.join('\n') });
+      tableLines = [];
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#')) {
+      flushText(); flushTable();
+      blocks.push({ type: 'heading', content: trimmed });
+    } else if (trimmed.startsWith('|')) {
+      flushText();
+      tableLines.push(line);
+    } else if (isEquationLine(line)) {
+      flushText(); flushTable();
+      blocks.push({ type: 'equation', content: trimmed });
+    } else {
+      flushTable();
+      currentText.push(line);
+    }
+  }
+  flushText(); flushTable();
+
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, i) => {
+        if (block.type === 'equation') {
+          return (
+            <div key={i} className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto" dir="ltr">
+              {block.content.replace(/^\$+/, '').replace(/\$+$/, '')}
+            </div>
+          );
+        }
+        if (block.type === 'heading') {
+          const level = block.content.match(/^#+/)?.[0].length ?? 1;
+          const headingText = block.content.replace(/^#+\s*/, '');
+          const cls = level === 1 ? 'text-sm font-bold' : level === 2 ? 'text-xs font-semibold' : 'text-[11px] font-medium';
+          return <p key={i} className={`${cls} text-foreground mt-2 mb-1`}>{headingText}</p>;
+        }
+        if (block.type === 'table') {
+          return (
+            <div key={i} className="overflow-x-auto rounded-lg border border-border/40 bg-white dark:bg-slate-800 shadow-sm">
+              <div className="prose prose-sm max-w-none text-xs [&_table]:w-full [&_table]:text-[10px] [&_th]:p-1.5 [&_th]:bg-secondary/50 [&_th]:text-start [&_td]:p-1.5 [&_td]:border-t [&_td]:border-border/30">
+                <ReactMarkdown>{block.content}</ReactMarkdown>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div key={i} className="text-xs leading-relaxed text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+            <ReactMarkdown>{block.content}</ReactMarkdown>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const EDGE_VIDEO_ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-physics-request`;
 
 const CONFIDENCE_THRESHOLD = 60;
@@ -254,6 +346,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
   // Ballistics engine result
   const [ballisticsResult, setBallisticsResult] = useState<BallisticsAnalysisResult | null>(null);
   const [showBallisticsReport, setShowBallisticsReport] = useState(true);
+  // Calculation method toggle
+  const [showCalcMethod, setShowCalcMethod] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -449,10 +543,31 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     // Local variable to track thumbnail URL (avoids stale closure over React state)
     let localThumbnailUrl: string | undefined;
 
-    // Upload video to Vercel Blob FIRST for persistent playback and AI analysis
+    // Upload video to Supabase Storage FIRST (reliable), Vercel Blob as fallback
     let persistentVideoUrl: string | undefined;
     const uploadPromise = (async () => {
-      // Primary: Vercel Blob upload via API route
+      // Primary: Supabase Storage (no CORS issues, reliable)
+      try {
+        const ext = file.name.split('.').pop() || 'webm';
+        const storagePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from(SUPABASE_VIDEO_BUCKET)
+          .upload(storagePath, file, { contentType: file.type, upsert: false });
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from(SUPABASE_VIDEO_BUCKET)
+            .getPublicUrl(storagePath);
+          if (urlData?.publicUrl) {
+            console.log('[APAS] Video uploaded to Supabase (primary):', urlData.publicUrl);
+            return urlData.publicUrl;
+          }
+        }
+        console.warn('[APAS] Supabase Storage upload failed:', uploadError?.message, '— trying Vercel Blob fallback...');
+      } catch (err) {
+        console.warn('[APAS] Supabase Storage error:', err, '— trying Vercel Blob fallback...');
+      }
+
+      // Fallback: Vercel Blob upload via API route
       try {
         const formData = new FormData();
         formData.append('file', file);
@@ -462,34 +577,14 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         });
         if (uploadResp.ok) {
           const blobData = await uploadResp.json();
-          console.log('[APAS] Video uploaded to Vercel Blob (primary):', blobData.url);
+          console.log('[APAS] Video uploaded to Vercel Blob (fallback):', blobData.url);
           return blobData.url as string;
         }
-        console.warn('[APAS] Vercel Blob upload failed (HTTP', uploadResp.status, '), trying Supabase fallback...');
-      } catch (err) {
-        console.warn('[APAS] Vercel Blob upload error:', err, '— trying Supabase fallback...');
-      }
-
-      // Fallback: Supabase Storage
-      try {
-        const ext = file.name.split('.').pop() || 'webm';
-        const storagePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from(SUPABASE_VIDEO_BUCKET)
-          .upload(storagePath, file, { contentType: file.type, upsert: false });
-        if (uploadError) {
-          console.warn('[APAS] Supabase Storage fallback also failed:', uploadError.message);
-          return undefined;
-        }
-        const { data: urlData } = supabase.storage
-          .from(SUPABASE_VIDEO_BUCKET)
-          .getPublicUrl(storagePath);
-        console.log('[APAS] Video uploaded to Supabase (fallback):', urlData?.publicUrl);
-        return urlData?.publicUrl || undefined;
+        console.warn('[APAS] Vercel Blob fallback also failed (HTTP', uploadResp.status, ')');
       } catch (err) {
         console.warn('[APAS] All upload methods failed:', err);
-        return undefined;
       }
+      return undefined;
     })();
 
     // Smart quality check on file size
@@ -720,6 +815,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
 
       const edgeResp = await fetch(EDGE_VIDEO_ANALYZE_URL, {
         method: 'POST',
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
@@ -1334,7 +1430,46 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                     </div>
                   )}
 
-                  {/* Ballistics Intelligence Engine Report */}
+                  {/* How APAS Calculation Was Done */}
+                  {analysisData.detected && (
+                    <div className="border border-primary/20 rounded-lg bg-primary/5 overflow-hidden">
+                      <button
+                        onClick={() => setShowCalcMethod(prev => !prev)}
+                        className="w-full flex items-center justify-between p-3 hover:bg-primary/10 transition-all duration-200"
+                      >
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-2">
+                          📐 {isAr ? 'كيف تم حساب APAS' : 'How APAS Calculated'}
+                        </span>
+                        <span className={`text-xs text-muted-foreground transition-transform duration-200 ${showCalcMethod ? 'rotate-180' : ''}`}>▼</span>
+                      </button>
+                      {showCalcMethod && (
+                        <div className="p-3 border-t border-primary/20 space-y-2">
+                          <div className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto" dir="ltr">
+                            x(t) = v₀ · cos(θ) · t
+                          </div>
+                          <div className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto" dir="ltr">
+                            y(t) = h₀ + v₀ · sin(θ) · t - ½g·t²
+                          </div>
+                          <div className="text-[10px] text-muted-foreground space-y-1">
+                            <p>• v₀ = {analysisData.velocity ?? '—'} m/s</p>
+                            <p>• θ = {analysisData.angle ?? '—'}°</p>
+                            <p>• h₀ = {analysisData.height ?? 0} m</p>
+                            <p>• m = {analysisData.mass ?? '—'} kg</p>
+                            <p>• g = 9.81 m/s²</p>
+                            {ballisticsResult && (
+                              <>
+                                <p>• {isAr ? 'أقصى ارتفاع' : 'Max Height'} = {ballisticsResult.maxAltitude.toFixed(2)} m</p>
+                                <p>• {isAr ? 'المدى' : 'Range'} = {ballisticsResult.range.toFixed(2)} m</p>
+                                <p>• {isAr ? 'زمن الطيران' : 'Flight Time'} = {ballisticsResult.timeOfFlight.toFixed(2)} s</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Ballistics Intelligence Engine Report (without professional report section) */}
                   {ballisticsResult && (
                     <div className="border border-border rounded-lg bg-secondary/20 overflow-hidden">
                       <button
@@ -1351,13 +1486,13 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                       </button>
                       {showBallisticsReport && (
                         <div className="p-3 border-t border-border/50">
-                          <BallisticsAnalysisReport result={ballisticsResult} lang={lang} />
+                          <BallisticsAnalysisReport result={ballisticsResult} lang={lang} hideProfessionalReport hideConfidenceHeader />
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Detailed Physics Report */}
+                  {/* Detailed Physics Report - beautifully formatted */}
                   {analysisText && (
                     <div className="border border-border rounded-lg bg-secondary/20 overflow-hidden">
                       <button
@@ -1372,8 +1507,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                         </span>
                       </button>
                       {showDetailedReport && (
-                        <div className="p-4 border-t border-border/50 prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed [&_h1]:text-base [&_h1]:font-bold [&_h1]:mb-3 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-4 [&_h3]:text-xs [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-1 [&_table]:text-[10px] [&_table]:w-full [&_th]:p-1.5 [&_th]:bg-secondary/50 [&_td]:p-1.5 [&_td]:border-t [&_td]:border-border/30 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:text-[11px] [&_blockquote]:text-muted-foreground [&_hr]:my-3 [&_hr]:border-border/30 [&_strong]:text-foreground">
-                          <ReactMarkdown>{analysisText}</ReactMarkdown>
+                        <div className="p-4 border-t border-border/50">
+                          <VideoReportRenderer text={cleanLatex(analysisText)} />
                         </div>
                       )}
                     </div>
