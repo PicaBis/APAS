@@ -50,6 +50,13 @@ ${simulationContext ? `- Velocity: ${simulationContext.velocity} m/s
 - Gravity: ${simulationContext.gravity} m/s²
 - Mass: ${simulationContext.mass} kg` : "No current context available"}
 
+TRANSCRIPT CLEANING (CRITICAL — the transcript comes from speech recognition and may contain artifacts):
+- The spoken text may contain repeated words, stuttering, or noise artifacts (e.g., "Speed 30 Speed 30 Speed 30" or "حسنا حسنا السرعة 30 حسنا السرعة 30")
+- ALWAYS normalize repeated commands to a single clean command (e.g., "Speed 30 Speed 30" → "Speed 30")
+- Ignore filler words, hesitations, and environmental noise artifacts
+- Extract the FINAL clean intent from the transcript, not every repeated fragment
+- If Arabic text appears garbled or has stuck-together words, do your best to parse the intended meaning
+
 INSTRUCTIONS:
 1. Parse the user's spoken text for physics parameters related to projectile motion
 2. Extract any of these parameters if mentioned:

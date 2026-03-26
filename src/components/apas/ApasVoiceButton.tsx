@@ -249,31 +249,76 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = lang === 'ar' ? 'ar-SA' : lang === 'fr' ? 'fr-FR' : 'en-US';
     recognition.interimResults = true;
-    recognition.continuous = true;
+    recognition.continuous = false; // Single utterance mode — stops on silence automatically
     recognition.maxAlternatives = 1;
 
     let finalTranscript = '';
     let lastInterim = '';
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let silenceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Clean up repeated/broken characters common in Arabic speech recognition
+    // Aggressive transcript cleaning for Arabic and all languages
     const cleanTranscript = (text: string): string => {
       if (!text) return text;
-      // Remove consecutive duplicate words
-      const words = text.split(/\s+/);
-      const cleaned: string[] = [];
+      let t = text;
+      // 1. Remove consecutive duplicate characters (3+)
+      t = t.replace(/(.)\1{2,}/g, '$1$1');
+      // 2. Split into words
+      const words = t.split(/\s+/).filter(Boolean);
+      // 3. Remove consecutive duplicate words
+      const deduped: string[] = [];
       for (let i = 0; i < words.length; i++) {
         if (i === 0 || words[i] !== words[i - 1]) {
-          cleaned.push(words[i]);
+          deduped.push(words[i]);
         }
       }
-      // Remove consecutive duplicate characters (more than 2)
-      return cleaned.join(' ').replace(/(.)\1{2,}/g, '$1$1');
+      t = deduped.join(' ');
+      // 4. Remove repeated phrases (2-5 word patterns repeated consecutively)
+      for (let phraseLen = 5; phraseLen >= 2; phraseLen--) {
+        const phraseWords = t.split(/\s+/);
+        const result: string[] = [];
+        let i = 0;
+        while (i < phraseWords.length) {
+          const phrase = phraseWords.slice(i, i + phraseLen).join(' ');
+          let j = i + phraseLen;
+          while (j + phraseLen <= phraseWords.length) {
+            const next = phraseWords.slice(j, j + phraseLen).join(' ');
+            if (next === phrase) { j += phraseLen; } else { break; }
+          }
+          result.push(...phraseWords.slice(i, i + phraseLen));
+          i = j > i + phraseLen ? j : i + phraseLen;
+          if (i > phraseWords.length) break;
+        }
+        // Add any remaining words
+        const usedLen = result.length;
+        if (usedLen < phraseWords.length) {
+          result.push(...phraseWords.slice(usedLen));
+        }
+        t = result.join(' ');
+      }
+      // 5. Remove stuck-together repeated Arabic words (e.g., "حسناحسناحسنا" → "حسنا")
+      t = t.replace(/([؀-ۿ]{2,})\1+/g, '$1');
+      return t.trim();
     };
 
-    recognition.onstart = () => setIsListening(true);
+    // Reset silence timer whenever speech activity is detected
+    const resetSilenceTimer = () => {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        // Auto-stop after 1.5s of no new results
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch { /* ignore */ }
+        }
+      }, 1500);
+    };
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      resetSilenceTimer();
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
+      resetSilenceTimer(); // Reset silence timer on every result
       let interim = '';
       finalTranscript = '';
       for (let i = 0; i < event.results.length; i++) {
@@ -305,6 +350,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
       }
     };
     recognition.onerror = (e: Event & { error?: string }) => {
+      if (silenceTimer) clearTimeout(silenceTimer);
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       setIsListening(false);
       recognitionRef.current = null;
@@ -314,6 +360,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
       setIsListening(false);
       recognitionRef.current = null;
       if (debounceTimer) clearTimeout(debounceTimer);
+      if (silenceTimer) clearTimeout(silenceTimer);
       const cleaned = cleanTranscript(finalTranscript).trim();
       if (cleaned) {
         processVoiceInput(cleaned);
