@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,7 +8,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ── Retry Utilities ──
+// \u2500\u2500 Retry Utilities \u2500\u2500
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -37,15 +38,13 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
-// ── Frame Limiting ──
-// Limit frames to reduce token consumption and avoid rate limits.
+// \u2500\u2500 Frame Limiting \u2500\u2500
 const MAX_FRAMES = 8;
 
 function limitFrames(
   frames: Array<{ data: string; timestamp: number }>,
 ): Array<{ data: string; timestamp: number }> {
   if (frames.length <= MAX_FRAMES) return frames;
-
   console.log("[video-analyze] Limiting frames from " + frames.length + " to " + MAX_FRAMES + " (evenly sampled)");
   const limited: Array<{ data: string; timestamp: number }> = [];
   const step = (frames.length - 1) / (MAX_FRAMES - 1);
@@ -56,29 +55,37 @@ function limitFrames(
   return limited;
 }
 
-// ── Vision Prompt ──
+// \u2500\u2500 Groq Vision for Video (EXCLUSIVE) \u2500\u2500
 
 function buildVideoVisionPrompt(): string {
   return [
-    "You are APAS Video Analyzer. Watch these video frames carefully and analyze the projectile motion.",
+    "You are Professor APAS - a world-renowned expert in Mechanical Physics from ENS (Ecole Normale Superieure, Paris).",
+    "You specialize in projectile motion analysis from video footage.",
+    "Your tone is authoritative, analytical, and professional.",
     "",
-    "YOUR TASK:",
-    "1. Watch ALL frames sequentially to understand the motion",
-    "2. Identify the moving object (ball, rocket, stone, etc.) - be SPECIFIC",
-    "3. Track the object position across frames",
-    "4. Based ONLY on what you SEE, estimate:",
-    "   - Launch angle (from horizontal)",
-    "   - Initial velocity (use reference objects for scale)",
-    "   - Launch height",
-    "   - Object type and mass",
+    "TASK: Analyze these video frames for projectile motion.",
     "",
-    "VISUAL ESTIMATION RULES:",
+    "STEP 1 - DETECT PROJECTILE:",
+    "Watch ALL frames sequentially. Look for ANY object being launched, thrown, shot, or in mid-flight.",
+    "Valid projectiles: ball (basketball, football, tennis, etc.), rocket, stone, bullet, grenade, arrow, javelin, any thrown/launched object.",
+    "If NO clear projectile motion is visible, respond with ONLY:",
+    '{"detected": false, "error": "No projectile motion detected in this video."}',
+    "",
+    "STEP 2 - TRACK AND ANALYZE:",
+    "- Identify the projectile object specifically",
+    "- Track the object position across frames",
     "- Use reference objects for scale: person ~1.7m, door ~2m, car ~1.5m tall, basketball hoop 3.05m",
-    "- Estimate angle from the initial direction of motion relative to horizontal",
-    "- Estimate velocity from how fast the object moves between frames",
-    "- Most real throws are 20-70 degrees. Near 90 is VERY rare.",
-    "- Track the SAME object across ALL frames. Do NOT switch objects.",
-    "- The trajectory should form a smooth parabolic curve",
+    "- Estimate launch angle from trajectory arc",
+    "- Estimate initial velocity from frame-to-frame displacement",
+    "- Estimate launch height from ground reference",
+    "- Estimate mass from object type",
+    "",
+    "STEP 3 - COMPUTE PHYSICS:",
+    "- v0x = v0 * cos(angle), v0y = v0 * sin(angle)",
+    "- Max height: H = h0 + v0y^2 / (2*g)",
+    "- Time of flight: solve y(t) = 0",
+    "- Range: R = v0x * T",
+    "- Impact velocity: v_impact = sqrt(v0x^2 + (v0y - g*T)^2)",
     "",
     "RESPOND WITH ONLY valid JSON (no markdown fences):",
     "{",
@@ -90,79 +97,19 @@ function buildVideoVisionPrompt(): string {
     '  "height": 0,',
     '  "mass": 0.5,',
     '  "gravity": 9.81,',
+    '  "v0x": 0,',
+    '  "v0y": 0,',
+    '  "maxHeight": 0,',
+    '  "maxRange": 0,',
+    '  "totalTime": 0,',
+    '  "impactVelocity": 0,',
     '  "calibrationRef": "reference object used for scale",',
     '  "motionDescription": "description of the motion observed",',
-    '  "positions": [',
-    '    {"frame": 1, "x": 0, "y": 0, "t": 0}',
-    "  ]",
+    '  "analysis_summary_ar": "Arabic summary of the analysis"',
     "}",
   ].join("\n");
 }
 
-// ── Stage 1 Providers: Analyze video frames ──
-
-// Provider 1: Mistral Pixtral (vision fallback for video frames)
-async function callMistralVideoAnalysis(
-  frames: Array<{ data: string; timestamp: number }>,
-): Promise<string> {
-  const apiKey = Deno.env.get("MISTRAL_API_KEY");
-  if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
-
-  const visionPrompt = buildVideoVisionPrompt();
-
-  // Build content array with text + images
-  const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-  content.push({ type: "text", text: visionPrompt });
-
-  for (let i = 0; i < frames.length; i++) {
-    const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(3) : String(i * 0.1);
-    content.push({ type: "text", text: "--- Frame " + (i + 1) + "/" + frames.length + " (Time: " + ts + "s) ---" });
-
-    let base64Data = frames[i].data;
-    let frameMime = "image/jpeg";
-    if (base64Data.startsWith("data:")) {
-      const match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        frameMime = match[1];
-        base64Data = match[2];
-      }
-    }
-    const dataUrl = "data:" + frameMime + ";base64," + base64Data;
-    content.push({ type: "image_url", image_url: { url: dataUrl } });
-  }
-
-  return retryWithBackoff(async () => {
-    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + apiKey,
-      },
-      body: JSON.stringify({
-        model: "pixtral-large-latest",
-        messages: [
-          {
-            role: "system",
-            content: "You are a precise video physics analyzer. Watch the frames carefully. Track the moving object. Estimate physics values from visual context ONLY. Output valid JSON only.",
-          },
-          { role: "user", content },
-        ],
-        temperature: 0.2,
-        max_tokens: 4000,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error("Mistral API error (" + res.status + "): " + err);
-    }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || "";
-  }, "Mistral-Video");
-}
-
-// Provider 3: Groq Vision (fallback for video frames)
 async function callGroqVideoAnalysis(
   frames: Array<{ data: string; timestamp: number }>,
 ): Promise<string> {
@@ -171,11 +118,9 @@ async function callGroqVideoAnalysis(
 
   const visionPrompt = buildVideoVisionPrompt();
 
-  // Groq vision supports single image; send the first and last frames with context
   const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
   content.push({ type: "text", text: visionPrompt + "\n\nNote: Showing key frames from the video." });
 
-  // Send up to 4 evenly-spaced frames for Groq (limited vision context)
   const groqMaxFrames = Math.min(4, frames.length);
   const step = frames.length > 1 ? (frames.length - 1) / (groqMaxFrames - 1) : 0;
   for (let i = 0; i < groqMaxFrames; i++) {
@@ -209,7 +154,7 @@ async function callGroqVideoAnalysis(
         messages: [
           {
             role: "system",
-            content: "You are a precise video physics analyzer. Watch the frames carefully. Track the moving object. Estimate physics values from visual context ONLY. Output valid JSON only.",
+            content: "You are Professor APAS from ENS. Analyze video frames for projectile motion with scientific rigor. Respond with ONLY valid JSON.",
           },
           { role: "user", content },
         ],
@@ -228,164 +173,7 @@ async function callGroqVideoAnalysis(
   }, "Groq-Video");
 }
 
-// Stage 1: Analyze video with Groq Llama 3 only (no Gemini)
-async function analyzeVideoFrames(
-  frames: Array<{ data: string; timestamp: number }>,
-): Promise<{ response: string; provider: string }> {
-  try {
-    console.log("[video-analyze] Trying Groq Llama 3 for video analysis...");
-    const response = await callGroqVideoAnalysis(frames);
-    console.log("[video-analyze] Groq video analysis succeeded, length:", response.length);
-    return { response, provider: "Groq" };
-  } catch (err) {
-    console.warn("[video-analyze] Groq video analysis failed:", (err as Error).message);
-  }
-
-  try {
-    console.log("[video-analyze] Falling back to Mistral Large for video analysis...");
-    const response = await callMistralVideoAnalysis(frames);
-    console.log("[video-analyze] Mistral video analysis succeeded, length:", response.length);
-    return { response, provider: "Mistral" };
-  } catch (err) {
-    console.warn("[video-analyze] Mistral video analysis failed:", (err as Error).message);
-  }
-
-  throw new Error("All video analysis providers failed (Groq, Mistral)");
-}
-
-// ── Stage 2 Providers: Solve physics from extracted data ──
-
-function buildVideoSolvePrompt(extractedJson: string, lang: string): string {
-  const isAr = lang === "ar";
-  return [
-    "You are APAS Physics Solver. Given the video analysis data, compute all projectile motion values.",
-    "",
-    "VIDEO ANALYSIS DATA:",
-    extractedJson,
-    "",
-    "COMPUTE:",
-    "1. v0x = v0 * cos(angle), v0y = v0 * sin(angle)",
-    "2. Max height: H = h0 + v0y^2 / (2*g)",
-    "3. Time of flight: solve y(t) = 0",
-    "4. Range: R = v0x * T",
-    "5. Impact velocity: v_impact = sqrt(v0x^2 + (v0y - g*T)^2)",
-    "6. Energy at launch: KE + PE = 0.5*m*v0^2 + m*g*h0",
-    "",
-    "Show step-by-step calculations.",
-    "RESPOND IN " + (isAr ? "ARABIC" : "ENGLISH") + ".",
-    "",
-    "FORMAT AS valid JSON (no markdown fences):",
-    "{",
-    '  "v0x": 0, "v0y": 0,',
-    '  "maxHeight": 0, "totalTime": 0,',
-    '  "maxRange": 0, "impactVelocity": 0,',
-    '  "kineticEnergy": 0, "potentialEnergy": 0,',
-    '  "stepByStepSolution": "detailed solution"',
-    "}",
-  ].join("\n");
-}
-
-async function callMistralSolve(extractedJson: string, lang: string): Promise<string> {
-  const apiKey = Deno.env.get("MISTRAL_API_KEY");
-  if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
-
-  const solvePrompt = buildVideoSolvePrompt(extractedJson, lang);
-
-  return retryWithBackoff(async () => {
-    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + apiKey,
-      },
-      body: JSON.stringify({
-        model: "mistral-large-latest",
-        messages: [
-          {
-            role: "system",
-            content: "You are a precise physics solver. Compute projectile motion values step by step. Respond with valid JSON only.",
-          },
-          { role: "user", content: solvePrompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 3000,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error("Mistral API error (" + res.status + "): " + err);
-    }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || "";
-  }, "Mistral-Solve");
-}
-
-async function callGroqSolve(extractedJson: string, lang: string): Promise<string> {
-  const apiKey = Deno.env.get("GROQ_API_KEY");
-  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
-
-  const solvePrompt = buildVideoSolvePrompt(extractedJson, lang);
-
-  return retryWithBackoff(async () => {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + apiKey,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: "You are a precise physics solver. Compute projectile motion values step by step. Respond with valid JSON only.",
-          },
-          { role: "user", content: solvePrompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 3000,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error("Groq API error (" + res.status + "): " + err);
-    }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || "";
-  }, "Groq-Solve");
-}
-
-// Stage 2: Solve with fallback chain Groq -> Mistral (matching video fallback order)
-async function solvePhysics(
-  extractedJson: string,
-  lang: string,
-): Promise<{ response: string; provider: string }> {
-  try {
-    console.log("[video-analyze] Trying Groq for solving...");
-    const response = await callGroqSolve(extractedJson, lang);
-    console.log("[video-analyze] Groq solving succeeded, length:", response.length);
-    return { response, provider: "Groq" };
-  } catch (err) {
-    console.warn("[video-analyze] Groq solving failed:", (err as Error).message);
-  }
-
-  try {
-    console.log("[video-analyze] Falling back to Mistral for solving...");
-    const response = await callMistralSolve(extractedJson, lang);
-    console.log("[video-analyze] Mistral solving succeeded, length:", response.length);
-    return { response, provider: "Mistral" };
-  } catch (err) {
-    console.warn("[video-analyze] Mistral solving failed:", (err as Error).message);
-  }
-
-  throw new Error("All solving providers failed (Groq, Mistral)");
-}
-
-// ── Utilities ──
+// \u2500\u2500 JSON Parser \u2500\u2500
 
 function parseJsonFromText(text: string): Record<string, unknown> {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -399,7 +187,8 @@ function parseJsonFromText(text: string): Record<string, unknown> {
   return {};
 }
 
-// Energy conservation verification
+// \u2500\u2500 Energy Conservation Verification \u2500\u2500
+
 function verifyWithEnergy(r: {
   velocity?: number; angle?: number; height?: number;
   gravity?: number; maxHeight?: number; impactVelocity?: number;
@@ -420,13 +209,42 @@ function verifyWithEnergy(r: {
   return { verified: false, energyError: errorImpact, note: "Energy conservation failed (>15% error)" };
 }
 
+// \u2500\u2500 Upsert Analysis to Database \u2500\u2500
+
+async function upsertAnalysis(
+  supabase: ReturnType<typeof createClient>,
+  analysisData: Record<string, unknown>,
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("analyses")
+      .insert(analysisData)
+      .select("id")
+      .single();
+
+    if (error) {
+      console.warn("[video-analyze] DB upsert failed:", error.message);
+      return null;
+    }
+
+    return data?.id || null;
+  } catch (err) {
+    console.warn("[video-analyze] DB upsert error:", (err as Error).message);
+    return null;
+  }
+}
+
+// \u2500\u2500 Main Handler \u2500\u2500
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+
   try {
-    const { frames, lang, videoName } = await req.json();
+    const { frames, lang, videoName, userId } = await req.json();
 
     if (!frames || !Array.isArray(frames) || frames.length === 0) {
       return new Response(JSON.stringify({ error: "No frames provided" }), {
@@ -438,23 +256,28 @@ serve(async (req) => {
     console.log("[video-analyze] Received " + frames.length + " frames for analysis");
     const isAr = lang === "ar";
 
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Limit frames to reduce token consumption
     const limitedFrames = limitFrames(frames);
     console.log("[video-analyze] Using " + limitedFrames.length + " frames (limited from " + frames.length + ")");
 
-    // Stage 1: Vision analysis with fallback chain
-    console.log("[video-analyze] Stage 1: Video analysis with fallback chain...");
-    const extraction = await analyzeVideoFrames(limitedFrames);
-    console.log("[video-analyze] Stage 1 complete via", extraction.provider);
+    // Call Groq Vision (EXCLUSIVE - no fallback)
+    console.log("[video-analyze] Calling Groq Vision (exclusive provider)...");
+    const rawResponse = await callGroqVideoAnalysis(limitedFrames);
+    console.log("[video-analyze] Groq response length:", rawResponse.length);
 
-    const visionData = parseJsonFromText(extraction.response);
+    const visionData = parseJsonFromText(rawResponse);
 
     if (!(visionData as { detected?: boolean }).detected) {
       const noDetectReport = isAr
         ? "# \u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u062d\u0631\u0643\u0629\n\n\u0644\u0645 \u064a\u062a\u0645 \u0627\u0644\u0639\u062b\u0648\u0631 \u0639\u0644\u0649 \u062c\u0633\u0645 \u0645\u062a\u062d\u0631\u0643 \u0641\u064a \u0627\u0644\u0641\u064a\u062f\u064a\u0648. \u062d\u0627\u0648\u0644 \u0631\u0641\u0639 \u0641\u064a\u062f\u064a\u0648 \u064a\u0638\u0647\u0631 \u0641\u064a\u0647 \u0645\u0642\u0630\u0648\u0641 \u0648\u0627\u0636\u062d."
         : "# No Motion Detected\n\nNo moving projectile was found in the video. Try uploading a video with a clear projectile.";
       return new Response(
-        JSON.stringify({ text: noDetectReport }),
+        JSON.stringify({ text: noDetectReport, detected: false }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -466,36 +289,30 @@ serve(async (req) => {
     const g = (visionData as { gravity?: number }).gravity || 9.81;
     const objectType = (visionData as { objectType?: string }).objectType || "projectile";
     const confidence = (visionData as { confidence?: number }).confidence || 60;
+    const analysisSummaryAr = String((visionData as { analysis_summary_ar?: string }).analysis_summary_ar || "");
+    const motionDescription = String((visionData as { motionDescription?: string }).motionDescription || "");
 
-    // Stage 2: Physics solving with fallback chain
-    console.log("[video-analyze] Stage 2: Physics solving with fallback chain...");
-    const solveInput = JSON.stringify({ velocity: v0, angle, height: h0, mass, gravity: g, objectType });
-    const solution = await solvePhysics(solveInput, lang);
-    console.log("[video-analyze] Stage 2 complete via", solution.provider);
-
-    const computed = parseJsonFromText(solution.response);
-    const stepSolution = (computed as { stepByStepSolution?: string }).stepByStepSolution || "";
-
-    // Fill computed values
+    // Compute/verify physics values
     const rad = angle * Math.PI / 180;
-    const v0x = (computed as { v0x?: number }).v0x || Math.round(v0 * Math.cos(rad) * 100) / 100;
-    const v0y = (computed as { v0y?: number }).v0y || Math.round(v0 * Math.sin(rad) * 100) / 100;
-    const maxHeight = (computed as { maxHeight?: number }).maxHeight || Math.round((h0 + (v0y * v0y) / (2 * g)) * 100) / 100;
+    const v0x = (visionData as { v0x?: number }).v0x || Math.round(v0 * Math.cos(rad) * 100) / 100;
+    const v0y = (visionData as { v0y?: number }).v0y || Math.round(v0 * Math.sin(rad) * 100) / 100;
+    const maxHeight = (visionData as { maxHeight?: number }).maxHeight || Math.round((h0 + (v0y * v0y) / (2 * g)) * 100) / 100;
     const tUp = v0y / g;
     const tDown = Math.sqrt(Math.max(0, 2 * maxHeight / g));
-    const totalTime = (computed as { totalTime?: number }).totalTime || Math.round((tUp + tDown) * 100) / 100;
-    const maxRange = (computed as { maxRange?: number }).maxRange || Math.round(v0x * totalTime * 100) / 100;
+    const totalTime = (visionData as { totalTime?: number }).totalTime || Math.round((tUp + tDown) * 100) / 100;
+    const maxRange = (visionData as { maxRange?: number }).maxRange || Math.round(v0x * totalTime * 100) / 100;
     const vyEnd = g * totalTime - v0y;
-    const impactVelocity = (computed as { impactVelocity?: number }).impactVelocity || Math.round(Math.sqrt(v0x * v0x + vyEnd * vyEnd) * 100) / 100;
+    const impactVelocity = (visionData as { impactVelocity?: number }).impactVelocity || Math.round(Math.sqrt(v0x * v0x + vyEnd * vyEnd) * 100) / 100;
 
-    // Stage 3: Energy verification
-    console.log("[video-analyze] Stage 3: Energy verification...");
+    // Energy verification
     const verification = verifyWithEnergy({
       velocity: v0, angle, height: h0, gravity: g,
       maxHeight, impactVelocity,
     });
 
-    const finalJson = {
+    const processingTime = Date.now() - startTime;
+
+    const finalJson: Record<string, unknown> = {
       detected: true, confidence, angle, velocity: v0,
       mass, height: h0, objectType, gravity: g,
       v0x, v0y, maxHeight, maxRange, totalTime, impactVelocity,
@@ -503,8 +320,46 @@ serve(async (req) => {
       energyError: Math.round(verification.energyError * 10000) / 100,
       framesUsed: limitedFrames.length,
       framesReceived: frames.length,
-      providers: { extraction: extraction.provider, solving: solution.provider },
+      analysisSummaryAr: analysisSummaryAr,
+      providers: { extraction: "Groq", solving: "Groq" },
+      processingTimeMs: processingTime,
     };
+
+    // Upsert to Supabase analyses table
+    console.log("[video-analyze] Upserting analysis to database...");
+    const dbRecord: Record<string, unknown> = {
+      source_type: "video",
+      source_filename: videoName || "video",
+      initial_velocity: v0,
+      launch_angle: angle,
+      launch_height: h0,
+      max_altitude: maxHeight,
+      horizontal_range: maxRange,
+      time_of_flight: totalTime,
+      impact_velocity: impactVelocity,
+      v0x: v0x,
+      v0y: v0y,
+      object_type: objectType,
+      estimated_mass: mass,
+      motion_type: "projectile",
+      confidence_score: confidence,
+      analysis_method: "estimated",
+      analysis_engine: "groq_vision_llama3",
+      calibration_source: "auto",
+      gravity: g,
+      report_text: motionDescription,
+      report_lang: isAr ? "ar" : "en",
+      analysis_summary_ar: analysisSummaryAr,
+      ai_provider: "Groq",
+      processing_time_ms: processingTime,
+      user_id: userId || null,
+    };
+
+    const analysisId = await upsertAnalysis(supabase, dbRecord);
+    if (analysisId) {
+      console.log("[video-analyze] Analysis saved with ID:", analysisId);
+      finalJson.analysisId = analysisId;
+    }
 
     // Build report
     const report = [
@@ -531,23 +386,17 @@ serve(async (req) => {
       (isAr ? "\u0627\u0644\u0645\u062f\u0649 = " : "Range = ") + maxRange + " m",
       (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0637\u064a\u0631\u0627\u0646 = " : "Time of flight = ") + totalTime + " s",
       (isAr ? "\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0635\u0637\u062f\u0627\u0645 = " : "Impact velocity = ") + impactVelocity + " m/s",
-    ];
-
-    if (stepSolution) {
-      report.push("", isAr ? "## \u0627\u0644\u062d\u0644 \u062e\u0637\u0648\u0629 \u0628\u062e\u0637\u0648\u0629" : "## Step-by-Step Solution", stepSolution);
-    }
-
-    report.push(
       "",
       isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check",
       (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
       "",
-      (isAr ? "\u0645\u0632\u0648\u062f\u0627\u062a \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Providers: ") + "Extraction=" + extraction.provider + ", Solving=" + solution.provider,
+      (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Groq (Exclusive)",
       (isAr ? "\u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a: " : "Frames: ") + limitedFrames.length + "/" + frames.length + " used",
-    );
+      (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",
+    ];
 
     return new Response(
-      JSON.stringify({ text: report.join("\n") }),
+      JSON.stringify({ text: report.join("\n"), analysis: finalJson }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {

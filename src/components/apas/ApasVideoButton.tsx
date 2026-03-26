@@ -4,6 +4,7 @@ import { Video, Loader2, X, Upload, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, getIssueMessage } from '@/utils/mediaQuality';
+import { useAuth } from '@/contexts/AuthContext';
 import ReportRenderer from './ReportRenderer';
 
 /* ------------------------------------------------------------------ */
@@ -58,6 +59,7 @@ function extractFrames(video: HTMLVideoElement, count: number): Promise<Array<{ 
 }
 
 export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, autoOpen, onDismiss }: Props) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(autoOpen || false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -158,6 +160,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           frames,
           lang,
           videoName: file.name,
+          userId: user?.id || null,
         }),
       });
 

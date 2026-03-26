@@ -4,6 +4,7 @@ import { Camera, Loader2, X, Upload, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, getIssueMessage } from '@/utils/mediaQuality';
+import { useAuth } from '@/contexts/AuthContext';
 import ReportRenderer from './ReportRenderer';
 
 /* ------------------------------------------------------------------ */
@@ -24,6 +25,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, autoOpen, onDismiss }: Props) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(autoOpen || false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -114,6 +116,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
           imageBase64,
           mimeType,
           lang,
+          userId: user?.id || null,
         }),
       });
 
