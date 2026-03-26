@@ -23,13 +23,20 @@ interface SubjectData {
   recognized: boolean;
   type?: string;
   extractedData?: {
-    velocity?: number;
-    angle?: number;
-    height?: number;
-    mass?: number;
-    range?: number;
-    gravity?: number;
+    velocity?: number | null;
+    angle?: number | null;
+    height?: number | null;
+    mass?: number | null;
+    range?: number | null;
+    gravity?: number | null;
   };
+  toFind?: string[];
+  graphData?: {
+    hasGraph?: boolean;
+    graphType?: string | null;
+    readValues?: string | null;
+  };
+  diagrams?: string | null;
   explanation?: string;
   solution?: string;
   isProjectileMotion?: boolean;
@@ -165,6 +172,9 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
 
     const extracted = jsonData.extractedData as SubjectData['extractedData'] | undefined;
     const isProjectile = Boolean(jsonData.isProjectileMotion);
+    const toFind = Array.isArray(jsonData.toFind) ? jsonData.toFind as string[] : undefined;
+    const graphData = jsonData.graphData as SubjectData['graphData'] | undefined;
+    const diagrams = typeof jsonData.diagrams === 'string' ? jsonData.diagrams : undefined;
 
     // Split clean text into explanation and solution parts
     const solutionSeparators = [
@@ -194,6 +204,9 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
       recognized: true,
       type: typeof jsonData.type === 'string' ? jsonData.type : undefined,
       extractedData: extracted,
+      toFind,
+      graphData,
+      diagrams,
       explanation,
       solution: solution || (isAr ? 'لا يتوفر حل تفصيلي لهذا التمرين.' : 'No detailed solution available for this exercise.'),
       isProjectileMotion: isProjectile,
@@ -615,9 +628,12 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
                     </div>
                   </div>
 
-                  {/* Extracted data */}
+                  {/* Extracted data - only explicitly given values */}
                   {subjectData.recognized && subjectData.extractedData && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                        {isAr ? 'المعطيات المستخرجة' : 'Extracted Given Data'}
+                      </p>
                       {[
                         { label: isAr ? 'السرعة' : 'Velocity', value: subjectData.extractedData.velocity, unit: ' m/s' },
                         { label: isAr ? 'الزاوية' : 'Angle', value: subjectData.extractedData.angle, unit: '°' },
@@ -625,13 +641,45 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
                         { label: isAr ? 'الكتلة' : 'Mass', value: subjectData.extractedData.mass, unit: ' kg' },
                         { label: isAr ? 'المدى' : 'Range', value: subjectData.extractedData.range, unit: ' m' },
                         { label: isAr ? 'الجاذبية' : 'Gravity', value: subjectData.extractedData.gravity, unit: ' m/s²' },
-                      ].filter(item => item.value != null).map(item => (
-                        <div key={item.label} className="border border-border rounded-lg p-2 text-center bg-secondary/30">
-                          <p className="text-[9px] text-muted-foreground mb-0.5">{item.label}</p>
-                          <p className="text-xs font-semibold font-mono text-foreground">
-                            {item.value}{item.unit}
+                      ].filter(item => item.value != null).length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: isAr ? 'السرعة' : 'Velocity', value: subjectData.extractedData.velocity, unit: ' m/s' },
+                            { label: isAr ? 'الزاوية' : 'Angle', value: subjectData.extractedData.angle, unit: '°' },
+                            { label: isAr ? 'الارتفاع' : 'Height', value: subjectData.extractedData.height, unit: ' m' },
+                            { label: isAr ? 'الكتلة' : 'Mass', value: subjectData.extractedData.mass, unit: ' kg' },
+                            { label: isAr ? 'المدى' : 'Range', value: subjectData.extractedData.range, unit: ' m' },
+                            { label: isAr ? 'الجاذبية' : 'Gravity', value: subjectData.extractedData.gravity, unit: ' m/s²' },
+                          ].filter(item => item.value != null).map(item => (
+                            <div key={item.label} className="border border-border rounded-lg p-2 text-center bg-secondary/30">
+                              <p className="text-[9px] text-muted-foreground mb-0.5">{item.label}</p>
+                              <p className="text-xs font-semibold font-mono text-foreground">
+                                {item.value}{item.unit}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                            {isAr ? 'لم يتم العثور على معطيات رقمية صريحة في التمرين' : 'No explicit numerical data found in the exercise'}
                           </p>
                         </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Values to find */}
+                  {subjectData.recognized && subjectData.toFind && subjectData.toFind.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-full mb-0.5">
+                        {isAr ? 'المطلوب حسابه' : 'To Calculate'}
+                      </p>
+                      {subjectData.toFind.map((item, i) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">
+                          {item}
+                        </span>
                       ))}
                     </div>
                   )}
