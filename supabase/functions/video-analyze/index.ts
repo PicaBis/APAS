@@ -82,7 +82,7 @@ function limitFrames(
   return limited;
 }
 
-// \u2500\u2500 Groq Vision for Video (EXCLUSIVE) \u2500\u2500
+// \u2500\u2500 Mistral Vision for Video (EXCLUSIVE) \u2500\u2500
 
 function buildVideoVisionPrompt(_lang?: string): string {
   return [
@@ -100,7 +100,7 @@ function buildVideoVisionPrompt(_lang?: string): string {
     '{"detected": false, "error": "No projectile motion detected in this video."}',
     "",
     "STEP 2 - TRACK AND ANALYZE:",
-    "- Identify the projectile object specifically",
+    "- Identify the projectile object SPECIFICALLY from its visual appearance (color, shape, size, texture) - DO NOT default to cannonball",
     "- Track the object position across frames",
     "- Use reference objects for scale: person ~1.7m, door ~2m, car ~1.5m tall, basketball hoop 3.05m",
     "- Estimate launch angle from trajectory arc",
@@ -151,19 +151,19 @@ function buildVideoVisionPrompt(_lang?: string): string {
   ].join("\n");
 }
 
-// Video vision models ordered by priority for fallback
-const VIDEO_VISION_MODELS = [
-  "llama-3.2-90b-vision-preview",   // Primary: most powerful Groq vision model
-  "llama-3.2-11b-vision-preview",   // Fallback 1: lighter Groq vision model
-  "llama-3.3-70b-versatile",        // Fallback 2: text-only Groq model (no image)
+// Mistral vision models ordered by priority for fallback
+const MISTRAL_VIDEO_VISION_MODELS = [
+  "pixtral-large-latest",    // Primary: most powerful Mistral vision model (124B)
+  "pixtral-12b-2409",        // Fallback 1: lighter Mistral vision model (12B)
+  "mistral-small-latest",    // Fallback 2: Mistral Small with vision capabilities
 ];
 
-async function callGroqVideoAnalysis(
+async function callMistralVideoAnalysis(
   frames: Array<{ data: string; timestamp: number }>,
   lang: string,
 ): Promise<string> {
-  const apiKey = Deno.env.get("GROQ_API_KEY");
-  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
+  const apiKey = Deno.env.get("MISTRAL_API_KEY");
+  if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
 
   const visionPrompt = buildVideoVisionPrompt(lang);
 
@@ -171,13 +171,13 @@ async function callGroqVideoAnalysis(
   const visionContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
   visionContent.push({ type: "text", text: visionPrompt + "\n\nNote: Showing key frames from the video." });
 
-  const groqMaxFrames = Math.min(4, frames.length);
-  const step = frames.length > 1 ? (frames.length - 1) / (groqMaxFrames - 1) : 0;
-  for (let i = 0; i < groqMaxFrames; i++) {
+  const mistralMaxFrames = Math.min(6, frames.length);
+  const step = frames.length > 1 ? (frames.length - 1) / (mistralMaxFrames - 1) : 0;
+  for (let i = 0; i < mistralMaxFrames; i++) {
     const idx = Math.round(i * step);
     const frame = frames[idx];
     const ts = typeof frame.timestamp === "number" ? frame.timestamp.toFixed(3) : String(idx * 0.1);
-    visionContent.push({ type: "text", text: "--- Frame " + (i + 1) + "/" + groqMaxFrames + " (Time: " + ts + "s) ---" });
+    visionContent.push({ type: "text", text: "--- Frame " + (i + 1) + "/" + mistralMaxFrames + " (Time: " + ts + "s) ---" });
 
     let base64Data = frame.data;
     let frameMime = "image/jpeg";
@@ -192,22 +192,18 @@ async function callGroqVideoAnalysis(
     visionContent.push({ type: "image_url", image_url: { url: dataUrl } });
   }
 
-  // Build text-only fallback content (no images)
-  const textOnlyContent = visionPrompt + "\n\n[Note: Video frames were provided but this model cannot process images. Provide your best expert analysis based on general projectile motion physics.]";
-
-  const systemMessage = "You are Professor APAS, the Elite Analyzer from ENS. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. Use the equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) for consistency. Respond with ONLY valid JSON. NEVER return zeros.";
+  const systemMessage = "You are Professor APAS, the Elite Analyzer from ENS. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. " +
+    "CRITICAL: Identify the ACTUAL object in the video frames - DO NOT default to cannonball. Look at colors, shapes, textures, and context. " +
+    "Use the equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) for consistency. Respond with ONLY valid JSON. NEVER return zeros.";
 
   let lastError: Error | null = null;
 
-  for (const model of VIDEO_VISION_MODELS) {
+  for (const model of MISTRAL_VIDEO_VISION_MODELS) {
     try {
-      console.log("[video-analyze] Trying model: " + model);
-
-      const isVisionModel = model.includes("vision");
-      const userContent = isVisionModel ? visionContent : textOnlyContent;
+      console.log("[video-analyze] Trying Mistral model: " + model);
 
       const result = await retryWithBackoff(async () => {
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -217,23 +213,23 @@ async function callGroqVideoAnalysis(
             model,
             messages: [
               { role: "system", content: systemMessage },
-              { role: "user", content: userContent },
+              { role: "user", content: visionContent },
             ],
-            temperature: 0.3,
+            temperature: 0.2,
             max_tokens: 4000,
           }),
         });
 
         if (!res.ok) {
           const err = await res.text();
-          throw new Error("Groq API error (" + res.status + "): " + err);
+          throw new Error("Mistral API error (" + res.status + "): " + err);
         }
 
         const data = await res.json();
         return data.choices?.[0]?.message?.content || "";
-      }, "Groq-Video-" + model);
+      }, "Mistral-Video-" + model);
 
-      console.log("[video-analyze] Model " + model + " succeeded");
+      console.log("[video-analyze] Mistral model " + model + " succeeded");
       return result;
     } catch (err) {
       lastError = err as Error;
@@ -241,7 +237,7 @@ async function callGroqVideoAnalysis(
       // If model is decommissioned (400) or not found (404), try next model
       const isModelError = errMsg.includes("400") || errMsg.includes("404") || errMsg.includes("decommissioned") || errMsg.includes("not found") || errMsg.includes("does not exist");
       if (isModelError) {
-        console.warn("[video-analyze] Model " + model + " unavailable: " + errMsg + ", trying next...");
+        console.warn("[video-analyze] Mistral model " + model + " unavailable: " + errMsg + ", trying next...");
         continue;
       }
       // For other errors (rate limit exhausted after retries, server error), throw
@@ -249,7 +245,7 @@ async function callGroqVideoAnalysis(
     }
   }
 
-  throw lastError || new Error("All video vision models failed");
+  throw lastError || new Error("All Mistral video vision models failed");
 }
 
 // \u2500\u2500 JSON Parser \u2500\u2500
@@ -344,10 +340,10 @@ serve(async (req) => {
     const limitedFrames = limitFrames(frames);
     console.log("[video-analyze] Using " + limitedFrames.length + " frames (limited from " + frames.length + ")");
 
-    // Call Groq Vision (EXCLUSIVE - no fallback)
-    console.log("[video-analyze] Calling Groq Vision (exclusive provider)...");
-    const rawResponse = await callGroqVideoAnalysis(limitedFrames, lang || "ar");
-    console.log("[video-analyze] Groq response length:", rawResponse.length);
+    // Call Mistral Vision (EXCLUSIVE - no Groq/LLaMA fallback)
+    console.log("[video-analyze] Calling Mistral Vision (exclusive provider)...");
+    const rawResponse = await callMistralVideoAnalysis(limitedFrames, lang || "ar");
+    console.log("[video-analyze] Mistral response length:", rawResponse.length);
 
     const visionData = parseJsonFromText(rawResponse);
 
@@ -416,7 +412,7 @@ serve(async (req) => {
       framesUsed: limitedFrames.length,
       framesReceived: frames.length,
       analysisSummaryAr: analysisSummaryAr,
-      providers: { extraction: "Groq", solving: "Groq" },
+      providers: { extraction: "Mistral", solving: "Mistral" },
       processingTimeMs: processingTime,
     };
 
@@ -439,13 +435,13 @@ serve(async (req) => {
       motion_type: "projectile",
       confidence_score: confidence,
       analysis_method: "estimated",
-      analysis_engine: "groq_vision_llama3_90b",
+      analysis_engine: "mistral_pixtral_vision",
       calibration_source: "auto",
       gravity: g,
       report_text: motionDescription,
       report_lang: isAr ? "ar" : "en",
       analysis_summary_ar: analysisSummaryAr,
-      ai_provider: "Groq",
+      ai_provider: "Mistral",
       processing_time_ms: processingTime,
       user_id: userId || null,
     };
@@ -485,7 +481,7 @@ serve(async (req) => {
       isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check",
       (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
       "",
-      (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Providers: ") + "Extraction=Groq (Llama), Solving=Groq (Llama)",
+      (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Mistral AI (Pixtral Vision)",
       (isAr ? "\u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a: " : "Frames: ") + limitedFrames.length + "/" + frames.length + " used",
       (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",
     ];

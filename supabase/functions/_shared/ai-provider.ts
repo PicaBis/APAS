@@ -1,12 +1,12 @@
 /**
- * Shared AI Provider — Groq EXCLUSIVE for all tasks.
+ * Shared AI Provider — Mistral EXCLUSIVE for all tasks.
  *
  * Strategy:
- * - Vision tasks: Groq Llama (exclusive)
- * - Math/logic tasks: Groq Llama (exclusive)
- * - Chat: Groq Llama (exclusive)
+ * - Vision tasks: Mistral Pixtral (exclusive) — handled in vision-analyze/video-analyze
+ * - Math/logic tasks: Mistral (exclusive)
+ * - Chat: Mistral (exclusive)
  *
- * No Mistral fallback — Groq only with retry + backoff.
+ * No Groq/LLaMA fallback — Mistral only with retry + backoff.
  */
 
 type ModelType = "chat" | "vision" | "math";
@@ -50,17 +50,17 @@ interface AIRequestOptions {
   max_tokens?: number;
 }
 
-// ── Groq API (EXCLUSIVE Provider) ──
+// ── Mistral API (EXCLUSIVE Provider) ──
 
-async function callGroq(
+async function callMistral(
   messages: ChatMessage[],
   temperature = 0.3,
   maxTokens = 4000,
 ): Promise<string> {
-  const apiKey = Deno.env.get("GROQ_API_KEY");
-  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
+  const apiKey = Deno.env.get("MISTRAL_API_KEY");
+  if (!apiKey) throw new Error("MISTRAL_API_KEY is not configured");
 
-  const groqMessages = messages.map((msg) => {
+  const mistralMessages = messages.map((msg) => {
     if (typeof msg.content === "string") {
       return { role: msg.role, content: msg.content };
     }
@@ -72,15 +72,15 @@ async function callGroq(
   });
 
   return retryWithBackoff(async () => {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: groqMessages,
+        model: "mistral-large-latest",
+        messages: mistralMessages,
         temperature,
         max_tokens: maxTokens,
       }),
@@ -88,18 +88,18 @@ async function callGroq(
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Groq API error (${res.status}): ${errText}`);
+      throw new Error(`Mistral API error (${res.status}): ${errText}`);
     }
 
     const data = await res.json();
     return data.choices?.[0]?.message?.content || "";
-  }, "Groq");
+  }, "Mistral");
 }
 
 // ── Public API ──
 
 /**
- * Non-streaming AI completion — Groq EXCLUSIVE for all task types.
+ * Non-streaming AI completion — Mistral EXCLUSIVE for all task types.
  * No fallback to other providers.
  */
 export async function aiComplete(
@@ -107,14 +107,14 @@ export async function aiComplete(
 ): Promise<{ text: string; provider: string }> {
   const { messages, temperature, max_tokens } = options;
 
-  console.log("[AI] Using Groq (exclusive) for task...");
-  const text = await callGroq(messages, temperature, max_tokens);
-  console.log("[AI] Groq succeeded, response length:", text.length);
-  return { text, provider: "Groq" };
+  console.log("[AI] Using Mistral (exclusive) for task...");
+  const text = await callMistral(messages, temperature, max_tokens);
+  console.log("[AI] Mistral succeeded, response length:", text.length);
+  return { text, provider: "Mistral" };
 }
 
 /**
- * Streaming AI completion — Groq EXCLUSIVE.
+ * Streaming AI completion — Mistral EXCLUSIVE.
  * Last resort: falls back to aiComplete-then-wrap if streaming fails.
  */
 export async function aiStream(
@@ -132,16 +132,16 @@ export async function aiStream(
     return { role: msg.role, content: textParts };
   });
 
-  const apiKey = Deno.env.get("GROQ_API_KEY");
-  if (!apiKey) throw new Error("GROQ_API_KEY is not configured for streaming");
+  const apiKey = Deno.env.get("MISTRAL_API_KEY");
+  if (!apiKey) throw new Error("MISTRAL_API_KEY is not configured for streaming");
 
   try {
-    console.log("[aiStream] Trying Groq streaming...");
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    console.log("[aiStream] Trying Mistral streaming...");
+    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "mistral-large-latest",
         messages: textOnlyMessages,
         temperature,
         max_tokens,
@@ -151,13 +151,13 @@ export async function aiStream(
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Groq streaming failed (${res.status}): ${errText}`);
+      throw new Error(`Mistral streaming failed (${res.status}): ${errText}`);
     }
 
-    console.log("[aiStream] Groq streaming connected");
-    return { body: res.body!, provider: "Groq" };
+    console.log("[aiStream] Mistral streaming connected");
+    return { body: res.body!, provider: "Mistral" };
   } catch (err) {
-    console.warn("[aiStream] Groq streaming error:", (err as Error).message);
+    console.warn("[aiStream] Mistral streaming error:", (err as Error).message);
   }
 
   // Last resort: fall back to non-streaming aiComplete, then wrap as SSE
@@ -176,7 +176,7 @@ export async function aiStream(
 }
 
 /**
- * Direct Groq call for mathematical verification and curve fitting.
+ * Direct Mistral call for mathematical verification and curve fitting.
  */
 export async function mathVerify(
   prompt: string,
