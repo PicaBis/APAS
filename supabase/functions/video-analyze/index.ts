@@ -296,26 +296,17 @@ async function callGroqVideoAnalysis(
   }, "Groq-Video");
 }
 
-// Stage 1: Analyze video with fallback chain Gemini -> Mistral -> Groq
+// Stage 1: Analyze video with fallback chain Gemini 2.0 Flash -> Groq -> Mistral
 async function analyzeVideoFrames(
   frames: Array<{ data: string; timestamp: number }>,
 ): Promise<{ response: string; provider: string }> {
   try {
-    console.log("[video-analyze] Trying Gemini for video analysis...");
+    console.log("[video-analyze] Trying Gemini 2.0 Flash for video analysis...");
     const response = await callGeminiVideoAnalysis(frames);
     console.log("[video-analyze] Gemini video analysis succeeded, length:", response.length);
     return { response, provider: "Gemini" };
   } catch (err) {
     console.warn("[video-analyze] Gemini video analysis failed:", (err as Error).message);
-  }
-
-  try {
-    console.log("[video-analyze] Falling back to Mistral Pixtral for video analysis...");
-    const response = await callMistralVideoAnalysis(frames);
-    console.log("[video-analyze] Mistral video analysis succeeded, length:", response.length);
-    return { response, provider: "Mistral" };
-  } catch (err) {
-    console.warn("[video-analyze] Mistral video analysis failed:", (err as Error).message);
   }
 
   try {
@@ -327,7 +318,16 @@ async function analyzeVideoFrames(
     console.warn("[video-analyze] Groq video analysis failed:", (err as Error).message);
   }
 
-  throw new Error("All video analysis providers failed (Gemini, Mistral, Groq)");
+  try {
+    console.log("[video-analyze] Falling back to Mistral Pixtral for video analysis...");
+    const response = await callMistralVideoAnalysis(frames);
+    console.log("[video-analyze] Mistral video analysis succeeded, length:", response.length);
+    return { response, provider: "Mistral" };
+  } catch (err) {
+    console.warn("[video-analyze] Mistral video analysis failed:", (err as Error).message);
+  }
+
+  throw new Error("All video analysis providers failed (Gemini, Groq, Mistral)");
 }
 
 // ── Stage 2 Providers: Solve physics from extracted data ──
@@ -436,22 +436,13 @@ async function callGroqSolve(extractedJson: string, lang: string): Promise<strin
   }, "Groq-Solve");
 }
 
-// Stage 2: Solve with fallback chain Mistral -> Groq
+// Stage 2: Solve with fallback chain Groq -> Mistral (matching video fallback order)
 async function solvePhysics(
   extractedJson: string,
   lang: string,
 ): Promise<{ response: string; provider: string }> {
   try {
-    console.log("[video-analyze] Trying Mistral for solving...");
-    const response = await callMistralSolve(extractedJson, lang);
-    console.log("[video-analyze] Mistral solving succeeded, length:", response.length);
-    return { response, provider: "Mistral" };
-  } catch (err) {
-    console.warn("[video-analyze] Mistral solving failed:", (err as Error).message);
-  }
-
-  try {
-    console.log("[video-analyze] Falling back to Groq for solving...");
+    console.log("[video-analyze] Trying Groq for solving...");
     const response = await callGroqSolve(extractedJson, lang);
     console.log("[video-analyze] Groq solving succeeded, length:", response.length);
     return { response, provider: "Groq" };
@@ -459,7 +450,16 @@ async function solvePhysics(
     console.warn("[video-analyze] Groq solving failed:", (err as Error).message);
   }
 
-  throw new Error("All solving providers failed (Mistral, Groq)");
+  try {
+    console.log("[video-analyze] Falling back to Mistral for solving...");
+    const response = await callMistralSolve(extractedJson, lang);
+    console.log("[video-analyze] Mistral solving succeeded, length:", response.length);
+    return { response, provider: "Mistral" };
+  } catch (err) {
+    console.warn("[video-analyze] Mistral solving failed:", (err as Error).message);
+  }
+
+  throw new Error("All solving providers failed (Groq, Mistral)");
 }
 
 // ── Utilities ──

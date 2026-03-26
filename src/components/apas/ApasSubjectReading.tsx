@@ -7,7 +7,9 @@ import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeImageQuality, getIssueMessage } from '@/utils/mediaQuality';
 import { cleanLatex } from '@/utils/cleanLatex';
 
-const EDGE_SUBJECT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subject-reading`;
+const SUPABASE_EDGE_URL = 'https://zjdtvderwryjnwdimbbm.supabase.co';
+const SUPABASE_EDGE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqZHR2ZGVyd3J5am53ZGltYmJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMzU3NzgsImV4cCI6MjA4OTcxMTc3OH0.BmeA5eqF85lpOr7P57NJJOaNxNsG4f-UaQ2S-SwKjXg';
+const EDGE_SUBJECT_URL = `${SUPABASE_EDGE_URL}/functions/v1/subject-reading`;
 
 interface Props {
   lang: string;
@@ -210,8 +212,8 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          apikey: SUPABASE_EDGE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_EDGE_ANON_KEY}`,
         },
         body: JSON.stringify({
           imageBase64: base64,

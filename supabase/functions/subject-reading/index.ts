@@ -137,10 +137,10 @@ IMPORTANT RULES:
 - If gravity is not specified, use g = 9.81 m/s^2 (or 10 m/s^2 if the exercise says so)
 - LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
-    // Build provider list with fallback
+    // Build provider list with fallback — Mistral Pixtral is primary for subject reading
     const providers: Array<{ name: string; url: string; key: string; model: string; imageUrlFormat: 'object' | 'string'; isGemini?: boolean }> = [];
-    if (geminiKey) providers.push({ name: "Gemini", url: `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`, key: geminiKey, model: GEMINI_MODEL, imageUrlFormat: 'object', isGemini: true });
     if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_VISION_MODEL, imageUrlFormat: 'string' });
+    if (geminiKey) providers.push({ name: "Gemini", url: `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`, key: geminiKey, model: GEMINI_MODEL, imageUrlFormat: 'object', isGemini: true });
     if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_VISION_MODEL, imageUrlFormat: 'object' });
 
     const userText = isAr

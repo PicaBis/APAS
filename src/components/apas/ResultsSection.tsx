@@ -1,7 +1,9 @@
 import React from 'react';
+import { Lock } from 'lucide-react';
 import AnimatedValue from '@/components/apas/AnimatedValue';
 import CollapsibleSection from '@/components/apas/CollapsibleSection';
 import type { PredictionResult } from '@/utils/physics';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ResultsSectionProps {
   lang: string;
@@ -15,12 +17,36 @@ interface ResultsSectionProps {
   mass: number;
   showPathInfo: boolean;
   onTogglePathInfo: () => void;
+  hasModelAnalysis?: boolean;
 }
 
 const ResultsSection: React.FC<ResultsSectionProps> = ({
   lang, T, prediction, velocity, angle, height, gravity,
-  showPathInfo, onTogglePathInfo,
+  showPathInfo, onTogglePathInfo, hasModelAnalysis = true,
 }) => {
+  const { isGuest, user } = useAuth();
+  const predictionsLocked = isGuest || (!hasModelAnalysis && !user);
+
+  if (predictionsLocked) {
+    return (
+      <div data-tour="below-canvas" className="relative rounded-xl p-[2px] overflow-visible backdrop-blur-sm">
+        <div className="relative rounded-xl p-6 bg-gradient-to-br from-card/80 to-muted/20 shadow-lg border border-border/40 overflow-hidden backdrop-blur-sm">
+          <div className="flex flex-col items-center justify-center gap-3 py-4">
+            <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+              <Lock className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-sm font-bold text-foreground">{T.aiPredictions}</h3>
+            <p className="text-xs text-muted-foreground text-center max-w-xs">
+              {isGuest
+                ? (lang === 'ar' ? 'قم بتسجيل الدخول وتحليل نموذج لتفعيل التوقعات' : lang === 'fr' ? 'Connectez-vous et analysez un modèle pour activer les prédictions' : 'Sign in and analyze a model to activate predictions')
+                : (lang === 'ar' ? 'يرجى رفع نموذج للتحليل أولاً' : lang === 'fr' ? 'Veuillez d\'abord analyser un modèle' : 'Please upload a model for prediction')}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div data-tour="below-canvas" className="relative rounded-xl p-[2px] overflow-visible backdrop-blur-sm animate-smooth-reveal ai-predictions-border">
       <div className="relative rounded-xl p-4 bg-gradient-to-br from-card/80 to-primary/5 shadow-lg shadow-primary/5 overflow-hidden backdrop-blur-sm">

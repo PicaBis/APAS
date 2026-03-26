@@ -28,57 +28,60 @@ const DynamicAnalyticsDashboard: React.FC<DynamicAnalyticsDashboardProps> = ({
   // Velocity vs Time data
   const velocityData = useMemo(() => {
     return visibleData.map(p => {
-      let vx = p.vx;
-      const vy = p.vy;
+      if (!p) return null;
+      let vx = p.vx ?? 0;
+      const vy = p.vy ?? 0;
       // If moving observer, subtract frame velocity from horizontal component
       if (observerType === 'moving' && frameVelocity !== 0) {
-        vx = p.vx - frameVelocity;
+        vx = (p.vx ?? 0) - frameVelocity;
       }
       return {
-        time: +p.time.toFixed(3),
-        vx: +vx.toFixed(2),
-        vy: +vy.toFixed(2),
-        speed: +Math.sqrt(vx * vx + vy * vy).toFixed(2),
+        time: +((p.time ?? 0).toFixed(3)),
+        vx: +(vx.toFixed(2)),
+        vy: +(vy.toFixed(2)),
+        speed: +(Math.sqrt(vx * vx + vy * vy).toFixed(2)),
       };
-    });
+    }).filter((d): d is NonNullable<typeof d> => d != null);
   }, [visibleData, observerType, frameVelocity]);
 
   // Height vs Distance data
   const trajectoryChartData = useMemo(() => {
     return visibleData.map(p => {
-      let x = p.x;
+      if (!p) return null;
+      let x = p.x ?? 0;
       // If moving observer, transform x position
       if (observerType === 'moving' && frameVelocity !== 0) {
-        x = p.x - frameVelocity * p.time;
+        x = (p.x ?? 0) - frameVelocity * (p.time ?? 0);
       }
       return {
-        x: +x.toFixed(3),
-        y: +p.y.toFixed(3),
+        x: +(x.toFixed(3)),
+        y: +((p.y ?? 0).toFixed(3)),
       };
-    });
+    }).filter((d): d is NonNullable<typeof d> => d != null);
   }, [visibleData, observerType, frameVelocity]);
 
   // Energy data
   const energyData = useMemo(() => {
     return visibleData.map(p => {
-      let vx = p.vx;
-      const vy = p.vy;
+      if (!p) return null;
+      let vx = p.vx ?? 0;
+      const vy = p.vy ?? 0;
       if (observerType === 'moving' && frameVelocity !== 0) {
-        vx = p.vx - frameVelocity;
+        vx = (p.vx ?? 0) - frameVelocity;
       }
       const speed = Math.sqrt(vx * vx + vy * vy);
       const ke = 0.5 * mass * speed * speed;
-      const pe = mass * gravity * Math.max(0, p.y);
+      const pe = mass * gravity * Math.max(0, p.y ?? 0);
       return {
-        time: +p.time.toFixed(3),
-        KE: +ke.toFixed(2),
-        PE: +pe.toFixed(2),
-        Total: +(ke + pe).toFixed(2),
+        time: +((p.time ?? 0).toFixed(3)),
+        KE: +(ke.toFixed(2)),
+        PE: +(pe.toFixed(2)),
+        Total: +((ke + pe).toFixed(2)),
       };
-    });
+    }).filter((d): d is NonNullable<typeof d> => d != null);
   }, [visibleData, mass, gravity, observerType, frameVelocity]);
 
-  const fmtTick = (v: number) => typeof v === 'number' ? (Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1)) : '';
+  const fmtTick = (v: number) => v != null && typeof v === 'number' && !isNaN(v) ? (Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1)) : '0';
 
   const chartStyle = {
     backgroundColor: 'hsl(var(--background))',

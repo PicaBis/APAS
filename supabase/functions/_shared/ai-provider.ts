@@ -222,7 +222,7 @@ async function callGroq(
 
 /**
  * Non-streaming AI completion with provider fallback chain.
- * - vision: Gemini -> Groq (fallback)
+ * - vision: Gemini 1.5 Flash -> Mistral Large -> Groq Llama 3 (fallback)
  * - math: Mistral -> Gemini (fallback)
  * - chat: Groq -> Mistral (fallback)
  */
@@ -233,7 +233,7 @@ export async function aiComplete(
 
   if (modelType === "vision") {
     try {
-      console.log("[AI] Trying Gemini for vision task...");
+      console.log("[AI] Trying Gemini 1.5 Flash for vision task...");
       const text = await callGemini(messages, temperature, max_tokens);
       console.log("[AI] Gemini succeeded, response length:", text.length);
       return { text, provider: "Gemini" };
@@ -241,14 +241,14 @@ export async function aiComplete(
       console.warn("[AI] Gemini failed:", (err as Error).message);
     }
     try {
-      console.log("[AI] Falling back to Mistral for vision...");
+      console.log("[AI] Falling back to Mistral Large for vision...");
       const text = await callMistral(messages, temperature, max_tokens);
       return { text, provider: "Mistral" };
     } catch (err) {
       console.warn("[AI] Mistral failed:", (err as Error).message);
     }
     try {
-      console.log("[AI] Falling back to Groq...");
+      console.log("[AI] Falling back to Groq Llama 3...");
       const text = await callGroq(messages, temperature, max_tokens);
       return { text, provider: "Groq" };
     } catch (err) {
