@@ -81,25 +81,34 @@ export async function decryptData(encryptedBase64: string): Promise<string> {
     atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
   );
 
-  // New format: version byte (0x02) + salt + IV + ciphertext
-  // Legacy format (no version byte): IV + ciphertext
-  const isNewFormat = combined.length > 0 && combined[0] === 0x02;
-  let salt: Uint8Array;
-  let iv: Uint8Array;
-  let ciphertext: Uint8Array;
+  // Try new format first (version byte 0x02 + salt + IV + ciphertext),
+  // then fall back to legacy format (IV + ciphertext) if decryption fails.
+  // This avoids false-positives when legacy data's random IV starts with 0x02.
+  const passphrase = getPassphrase();
 
-  if (isNewFormat) {
-    salt = combined.slice(1, 1 + SALT_LENGTH);
-    iv = combined.slice(1 + SALT_LENGTH, 1 + SALT_LENGTH + IV_LENGTH);
-    ciphertext = combined.slice(1 + SALT_LENGTH + IV_LENGTH);
-  } else {
-    // Legacy fallback: hardcoded salt
-    salt = new TextEncoder().encode('apas-salt-v1');
-    iv = combined.slice(0, IV_LENGTH);
-    ciphertext = combined.slice(IV_LENGTH);
+  // Attempt new format if the first byte is the version marker and length is sufficient
+  if (combined.length > 0 && combined[0] === 0x02 && combined.length >= 1 + SALT_LENGTH + IV_LENGTH + 1) {
+    try {
+      const salt = combined.slice(1, 1 + SALT_LENGTH);
+      const iv = combined.slice(1 + SALT_LENGTH, 1 + SALT_LENGTH + IV_LENGTH);
+      const ciphertext = combined.slice(1 + SALT_LENGTH + IV_LENGTH);
+      const key = await deriveKey(passphrase, salt);
+      const plaintext = await crypto.subtle.decrypt(
+        { name: ALGORITHM, iv },
+        key,
+        ciphertext
+      );
+      return new TextDecoder().decode(plaintext);
+    } catch {
+      // New format decryption failed — likely a legacy entry whose IV starts with 0x02
+    }
   }
 
-  const key = await deriveKey(getPassphrase(), salt);
+  // Legacy fallback: hardcoded salt, IV is first 12 bytes
+  const salt = new TextEncoder().encode('apas-salt-v1');
+  const iv = combined.slice(0, IV_LENGTH);
+  const ciphertext = combined.slice(IV_LENGTH);
+  const key = await deriveKey(passphrase, salt);
 
   const plaintext = await crypto.subtle.decrypt(
     { name: ALGORITHM, iv },
