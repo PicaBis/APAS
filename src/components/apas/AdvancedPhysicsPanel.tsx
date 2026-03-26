@@ -3,20 +3,25 @@
  * Provides UI controls for all advanced physics features
  */
 
-import React, { useState } from 'react';
-import { ChevronDown, Cloud, Zap, Droplets, RotateCw, Atom, Thermometer } from 'lucide-react';
+import React, { useState, Suspense, lazy } from 'react';
+import { ChevronDown, Cloud, Zap, Droplets, RotateCw, Thermometer } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { useAdvancedPhysics, type UseAdvancedPhysicsReturn } from '@/hooks/useAdvancedPhysics';
+import type { UseRelativityReturn } from '@/hooks/useRelativity';
 import { toast } from 'sonner';
 import { playSectionToggle, playToggle, playSliderChange } from '@/utils/sound';
+
+const RelativityPanel = lazy(() => import('@/components/apas/RelativityPanel'));
 
 interface AdvancedPhysicsPanelProps {
   lang: string;
   onPhysicsChange?: () => void;
   advancedPhysicsInstance?: UseAdvancedPhysicsReturn;
   environmentId?: string;
+  relativity?: UseRelativityReturn;
+  muted?: boolean;
 }
 
 const translations = {
@@ -34,7 +39,6 @@ const translations = {
     hydrodynamicDrag: 'السحب الهيدروديناميكي',
     fluidPressure: 'تأثيرات ضغط المائع',
     underwater: 'بيئة تحت الماء',
-    relativistic: 'النسبية الخاصة',
     environmentCoupling: 'اقتران الفيزياء البيئية',
     latitude: 'خط العرض',
     longitude: 'خط الطول',
@@ -69,7 +73,6 @@ const translations = {
     sectionRotational: 'التأثيرات الدورانية وغير القصورية',
     sectionHydrodynamic: 'التأثيرات الهيدروديناميكية',
     sectionRotDynamics: 'ديناميكا الدوران',
-    sectionRelativistic: 'الحركة النسبية',
     sectionEnvironmental: 'اقتران البيئة',
     radPerSec: 'راد/ث',
     ms2: 'م/ث²',
@@ -90,7 +93,6 @@ const translations = {
     hydrodynamicDrag: 'Hydrodynamic Drag',
     fluidPressure: 'Fluid Pressure Effects',
     underwater: 'Underwater Environment',
-    relativistic: 'Special Relativity',
     environmentCoupling: 'Environmental Physics Coupling',
     latitude: 'Latitude',
     longitude: 'Longitude',
@@ -125,7 +127,6 @@ const translations = {
     sectionRotational: 'Rotational & Non-Inertial Effects',
     sectionHydrodynamic: 'Hydrodynamic Effects',
     sectionRotDynamics: 'Rotational Dynamics',
-    sectionRelativistic: 'Relativistic Motion',
     sectionEnvironmental: 'Environmental Coupling',
     radPerSec: 'rad/s',
     ms2: 'm/s²',
@@ -146,7 +147,6 @@ const translations = {
     hydrodynamicDrag: 'Traînée Hydrodynamique',
     fluidPressure: 'Effets de Pression du Fluide',
     underwater: 'Environnement Sous-marin',
-    relativistic: 'Relativité Restreinte',
     environmentCoupling: 'Couplage Physique Environnemental',
     latitude: 'Latitude',
     longitude: 'Longitude',
@@ -181,7 +181,6 @@ const translations = {
     sectionRotational: 'Effets Rotationnels et Non-Inertiels',
     sectionHydrodynamic: 'Effets Hydrodynamiques',
     sectionRotDynamics: 'Dynamique de Rotation',
-    sectionRelativistic: 'Mouvement Relativiste',
     sectionEnvironmental: 'Couplage Environnemental',
     radPerSec: 'rad/s',
     ms2: 'm/s²',
@@ -202,21 +201,20 @@ const SectionHeader: React.FC<{
 }> = ({ icon, label, open, onToggle }) => (
   <button
     onClick={onToggle}
-    className="w-full flex items-center gap-1.5 py-2.5 px-3 text-[11px] font-semibold text-foreground uppercase tracking-wide rounded-lg border border-border/50 hover:bg-primary/10 hover:border-primary/20 hover:shadow-md transition-all duration-300"
+    className="group w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium text-foreground rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200"
   >
-    {icon}
-    <span className="flex-1 text-left">{label}</span>
+    <span className="transition-transform duration-200 group-hover:scale-110">{icon}</span>
+    <span>{label}</span>
     <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
   </button>
 );
 
-export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth' }) => {
+export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang, onPhysicsChange, advancedPhysicsInstance, environmentId = 'earth', relativity, muted = false }) => {
   const isWaterEnvironment = environmentId === 'underwater';
   const [isExpanded, setIsExpanded] = useState(false);
   const [sectionRotational, setSectionRotational] = useState(false);
   const [sectionHydro, setSectionHydro] = useState(false);
   const [sectionRotDyn, setSectionRotDyn] = useState(false);
-  const [sectionRelativistic, setSectionRelativistic] = useState(false);
   const [sectionEnv, setSectionEnv] = useState(false);
   const internalAdvanced = useAdvancedPhysics();
   const advanced = advancedPhysicsInstance ?? internalAdvanced;
@@ -243,20 +241,22 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
   };
 
   return (
-    <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+    <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/[0.08] dark:border-border/30">
       <button
             onClick={() => { setIsExpanded(!isExpanded); playSectionToggle(false); }}
-            className="w-full px-3 sm:px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+            className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-          <Zap className="w-4 h-4 text-primary" />
+        <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
+          <Zap className="w-5 h-5 text-primary" />
           {T('advancedPhysics', lang)}
         </h3>
-        <ChevronDown
-          className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${
-            isExpanded ? 'rotate-180' : ''
-          }`}
-        />
+        <div className="w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+          />
+        </div>
       </button>
 
       {isExpanded && (
@@ -492,31 +492,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
             </div>
           )}
 
-          {/* ═══ SECTION 4: Relativistic Motion ═══ */}
-          <SectionHeader
-            icon={<Atom className="w-3.5 h-3.5 text-amber-500" />}
-            label={T('sectionRelativistic', lang)}
-            open={sectionRelativistic}
-            onToggle={() => { setSectionRelativistic(!sectionRelativistic); playSectionToggle(false); }}
-          />
-          {sectionRelativistic && (
-            <div className="space-y-3 pl-1 animate-slideDown">
-              <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-border/50 hover:bg-primary/5 hover:border-primary/20 transition-all duration-200">
-                <span className="text-xs font-medium text-foreground">{T('relativistic', lang)}</span>
-                <Switch
-                  checked={advanced.enableRelativistic}
-                  onCheckedChange={() => handleToggle(advanced.setEnableRelativistic, advanced.enableRelativistic)}
-                />
-              </div>
-              {advanced.enableRelativistic && (
-                <div className="pl-2 border-l-2 border-amber-500 text-[10px] text-muted-foreground">
-                  <p>{lang === 'ar' ? 'تصحيحات لتحويل السرعة النسبية وتمدد الزمن' : lang === 'fr' ? 'Corrections pour la transformation de vitesse relativiste et la dilatation du temps' : 'Relativistic velocity transformations and time dilation corrections'}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ═══ SECTION 5: Environmental Coupling ═══ */}
+          {/* ═══ SECTION 4: Environmental Coupling ═══ */}
           <SectionHeader
             icon={<Thermometer className="w-3.5 h-3.5 text-green-500" />}
             label={T('sectionEnvironmental', lang)}
@@ -628,6 +604,13 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 onValueChange={([v]) => { advanced.setDragCoefficient(v); handleParamChange(); }} />
             </div>
           </div>
+
+          {/* Relativity & Reference Frames (embedded) */}
+          {relativity && (
+            <Suspense fallback={null}>
+              <RelativityPanel lang={lang} relativity={relativity} onPhysicsChange={onPhysicsChange} muted={muted} />
+            </Suspense>
+          )}
 
           {/* Info */}
           <div className="text-[9px] text-muted-foreground text-center border-t border-border pt-2">

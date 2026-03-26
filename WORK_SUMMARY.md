@@ -229,7 +229,7 @@ C_d(Re) = {
 - **Status:** ✅ Ready for deployment
 
 ### Vercel Deployment
-- **URL:** https://aipas.vercel.app
+- **URL:** https://a-p-a-s.vercel.app
 - **Status:** ✅ Ready to deploy
 - **Instructions:** Push to main branch to auto-deploy
 

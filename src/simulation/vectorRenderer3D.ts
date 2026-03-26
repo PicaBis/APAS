@@ -19,7 +19,7 @@ function makeArrow(
 ): THREE.ArrowHelper | null {
   const n = dir.clone().normalize();
   if (n.length() < 0.001) return null;
-  return new THREE.ArrowHelper(n, origin, length, color, length * 0.18, length * 0.09);
+  return new THREE.ArrowHelper(n, origin, length, color, Math.max(length * 0.22, 0.08), Math.max(length * 0.13, 0.05));
 }
 
 export function buildVectorArrows(
@@ -53,7 +53,7 @@ export function buildVectorArrows(
   // Vx (blue)
   if (visibility.Vx && vectors.velocityX.magnitude > 0.005) {
     const dir = new THREE.Vector3(vectors.velocityX.x, 0, 0);
-    const len = Math.max(minVel, Math.min(velScale * 0.85, Math.abs(vectors.velocityX.x) * velScale / Math.max(refSpeed * 2, 5)));
+    const len = Math.max(minVel, Math.min(velScale, Math.abs(vectors.velocityX.x) * velScale / Math.max(refSpeed * 2, 5)));
     const a = makeArrow(origin, dir, len, 0x3b82f6);
     if (a) { scene.add(a); arrows.push(a); }
   }
@@ -61,7 +61,7 @@ export function buildVectorArrows(
   // Vy (green)
   if (visibility.Vy && vectors.velocityY.magnitude > 0.005) {
     const dir = new THREE.Vector3(0, vectors.velocityY.y, 0);
-    const len = Math.max(minVel, Math.min(velScale * 0.85, Math.abs(vectors.velocityY.y) * velScale / Math.max(refSpeed * 2, 5)));
+    const len = Math.max(minVel, Math.min(velScale, Math.abs(vectors.velocityY.y) * velScale / Math.max(refSpeed * 2, 5)));
     const a = makeArrow(origin, dir, len, 0x22c55e);
     if (a) { scene.add(a); arrows.push(a); }
   }

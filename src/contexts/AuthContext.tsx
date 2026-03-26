@@ -49,10 +49,9 @@ interface AuthContextType {
 function getAdminEmails(): string[] {
   const envEmails = import.meta.env.VITE_ADMIN_EMAILS;
   if (envEmails) return envEmails.split(',').map((e: string) => e.trim().toLowerCase());
-  try {
-    const stored = localStorage.getItem('apas_admin_emails');
-    if (stored) return JSON.parse(stored);
-  } catch { /* ignore */ }
+  // SECURITY: Removed localStorage fallback — admin emails must be set via
+  // the VITE_ADMIN_EMAILS env var at build time. The previous localStorage
+  // fallback allowed any user to grant themselves admin access via DevTools.
   return [];
 }
 
@@ -66,7 +65,7 @@ function hashDevInput(str: string): string {
   return 'dv_' + Math.abs(h).toString(36);
 }
 // Pre-computed hash of the developer code — the plain text is never stored in the bundle
-const DEV_CODE_HASH = import.meta.env.VITE_DEV_CODE_HASH || 'dv_k1y9k';
+const DEV_CODE_HASH = import.meta.env.VITE_DEV_CODE_HASH || 'dv_qz1cfc';
 const PROFILES_KEY = 'apas_user_profiles';
 const GUEST_KEY = 'apas_guest_mode';
 const DEV_PRIV_KEY = 'apas_dev_privileges';
@@ -232,6 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const activateDevPrivileges = (code: string): boolean => {
+    // Dev privilege activation via code hash comparison
     if (hashDevInput(code) === DEV_CODE_HASH) {
       setDevPrivileges(true);
       localStorage.setItem(DEV_PRIV_KEY, DEV_CODE_HASH);

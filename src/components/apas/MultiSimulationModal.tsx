@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Wind, Compass, Globe2, Brain, Calculator } from 'lucide-react';
+import { X, Wind, Compass, Globe2, Brain, Calculator, ArrowRight, ChevronLeft, Sparkles, TrendingUp, Clock, Ruler } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { calculateTrajectory, type TrajectoryPoint } from '@/utils/physics';
 
@@ -52,7 +52,7 @@ const ENVIRONMENTS = [
   { name: { ar: 'الزهرة', en: 'Venus', fr: 'Vénus' }, gravity: 8.87, emoji: '🟡' },
 ];
 
-const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6'];
+const COLORS = ['#ef4444', '#c9a84c', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#4a6fa5'];
 
 export default function MultiSimulationModal({
   open, onClose, lang, velocity, angle, height, gravity, airResistance, mass,
@@ -288,74 +288,117 @@ export default function MultiSimulationModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-200">
-      <div className="relative w-[95vw] max-w-5xl max-h-[90vh] bg-background border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+      <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="relative w-[95vw] max-w-5xl max-h-[90vh] bg-background border border-border/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-secondary/30">
-          <div>
-            <h2 className="text-base font-bold text-foreground">
-              {t('لوحة المحاكاة المتعددة', 'Multi-Simulation Panel', 'Panneau Multi-Simulation')}
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-              {t(
-                'تشغيل محاكاات متعددة مع الحفاظ على معاملات النمذجة الحالية وجميع المتغيرات الفيزيائية',
-                'Run multiple simulations while preserving the current modeling parameters and all physical variables',
-                'Exécuter plusieurs simulations en préservant les paramètres de modélisation actuels'
-              )}
-            </p>
+        <div className="relative px-6 py-5 border-b border-border/50 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent overflow-hidden">
+          <div className="absolute top-0 end-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground">
+                  {t('لوحة المحاكاة المتعددة', 'Multi-Simulation Panel', 'Panneau Multi-Simulation')}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">
+                  {t(
+                    'تشغيل محاكاات متعددة مع الحفاظ على معاملات النمذجة الحالية',
+                    'Run multiple simulations preserving current parameters',
+                    'Exécuter plusieurs simulations en préservant les paramètres actuels'
+                  )}
+                </p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary/80 transition-all duration-200 text-muted-foreground hover:text-foreground">
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary transition-all duration-200 text-muted-foreground hover:text-foreground">
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
           {!activeMode ? (
-            /* Button Selection Grid */
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {buttons.map((btn, i) => (
-                <button
-                  key={btn.id}
-                  disabled={btn.disabled}
-                  onClick={() => setActiveMode(btn.id)}
-                  className={`group text-start p-4 rounded-xl border transition-all duration-200 ${
-                    btn.disabled
-                      ? 'border-border/50 bg-secondary/20 opacity-60 cursor-not-allowed'
-                      : 'border-border hover:border-foreground/30 hover:bg-secondary/50 hover:shadow-md cursor-pointer'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2.5 rounded-lg shrink-0 ${btn.disabled ? 'bg-secondary/50 text-muted-foreground' : 'bg-foreground/10 text-foreground group-hover:bg-foreground/20'}`}>
-                      {btn.icon}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground mb-1">{btn.label}</p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">{btn.description}</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
+            /* Mode Selection Grid */
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {buttons.map((btn, i) => {
+                  const gradients = [
+                    'from-emerald-500/10 to-emerald-500/5',
+                    'from-blue-500/10 to-blue-500/5',
+                    'from-orange-500/10 to-orange-500/5',
+                    'from-purple-500/10 to-purple-500/5',
+                    'from-cyan-500/10 to-cyan-500/5',
+                  ];
+                  const iconColors = [
+                    'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                    'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+                    'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+                    'bg-purple-500/15 text-purple-600 dark:text-purple-400',
+                    'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+                  ];
+                  const borderColors = [
+                    'hover:border-emerald-500/30',
+                    'hover:border-blue-500/30',
+                    'hover:border-orange-500/30',
+                    'hover:border-purple-500/30',
+                    'hover:border-cyan-500/30',
+                  ];
+                  return (
+                    <button
+                      key={btn.id}
+                      disabled={btn.disabled}
+                      onClick={() => setActiveMode(btn.id)}
+                      className={`group text-start p-4 rounded-xl border transition-all duration-300 ${
+                        btn.disabled
+                          ? 'border-border/30 bg-secondary/10 opacity-50 cursor-not-allowed'
+                          : `border-border/50 ${borderColors[i]} bg-gradient-to-br ${gradients[i]} hover:shadow-lg hover:scale-[1.01] cursor-pointer`
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2.5 rounded-xl shrink-0 transition-all duration-300 ${btn.disabled ? 'bg-secondary/50 text-muted-foreground' : iconColors[i] + ' group-hover:scale-110'}`}>
+                          {btn.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-foreground">{btn.label}</p>
+                            {!btn.disabled && (
+                              <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-300 shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">{btn.description}</p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             /* Results View */
             <div className="space-y-4">
-              {/* Back button */}
-              <button
-                onClick={() => setActiveMode(null)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-all duration-200 flex items-center gap-1"
-              >
-                ← {t('العودة إلى القائمة', 'Back to menu', 'Retour au menu')}
-              </button>
-
-              {/* Mode title */}
-              <h3 className="text-sm font-bold text-foreground">
-                {buttons.find(b => b.id === activeMode)?.label}
-              </h3>
+              {/* Back button & Mode title */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setActiveMode(null)}
+                  className="p-2 rounded-xl hover:bg-secondary/80 transition-all duration-200 text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronLeft className={`w-5 h-5 ${lang === 'ar' ? 'rotate-180' : ''}`} />
+                </button>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">
+                    {buttons.find(b => b.id === activeMode)?.label}
+                  </h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {t('اضغط للعودة إلى القائمة', 'Click to return to menu', 'Cliquez pour revenir au menu')}
+                  </p>
+                </div>
+              </div>
 
               {/* Angle inputs for multi-angle mode */}
               {activeMode === 'multi-angle' && (
-                <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/30 rounded-lg border border-border">
-                  <span className="text-xs text-muted-foreground font-medium">
+                <div className="flex flex-wrap items-center gap-2.5 p-3.5 bg-gradient-to-r from-blue-500/5 to-transparent rounded-xl border border-blue-500/20">
+                  <span className="text-xs text-foreground font-semibold">
                     {t('زوايا الإطلاق:', 'Launch Angles:', 'Angles de Lancement:')}
                   </span>
                   {customAngles.map((a, i) => (
@@ -370,7 +413,7 @@ export default function MultiSimulationModal({
                           newAngles[i] = Number(e.target.value);
                           setCustomAngles(newAngles);
                         }}
-                        className="w-14 text-xs text-center font-mono py-1 rounded border border-border bg-background"
+                        className="w-14 text-xs text-center font-mono py-1.5 rounded-lg border border-border/60 bg-background/80 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all"
                         dir="ltr"
                       />
                       <span className="text-xs text-muted-foreground">°</span>
@@ -381,18 +424,18 @@ export default function MultiSimulationModal({
 
               {/* Chart */}
               {comparisonData && (
-                <div className="bg-secondary/20 rounded-xl border border-border p-4">
+                <div className="bg-gradient-to-b from-secondary/10 to-secondary/5 rounded-xl border border-border/50 p-4 shadow-sm">
                   <ResponsiveContainer width="100%" height={350}>
                     <AreaChart data={comparisonData.chartData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
                       <defs>
                         {comparisonData.series.map((s) => (
                           <linearGradient key={s.key} id={`grad_${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={s.color} stopOpacity={0.2} />
+                            <stop offset="5%" stopColor={s.color} stopOpacity={0.25} />
                             <stop offset="95%" stopColor={s.color} stopOpacity={0.02} />
                           </linearGradient>
                         ))}
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                       <XAxis
                         dataKey="x"
                         type="number"
@@ -410,12 +453,13 @@ export default function MultiSimulationModal({
                         contentStyle={{
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',
-                          borderRadius: 8,
+                          borderRadius: 10,
                           color: 'hsl(var(--foreground))',
                           fontSize: 11,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                         }}
                       />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                       {comparisonData.series.map((s) => (
                         <Area
                           key={s.key}
@@ -423,7 +467,7 @@ export default function MultiSimulationModal({
                           dataKey={s.key}
                           name={s.name}
                           stroke={s.color}
-                          strokeWidth={2}
+                          strokeWidth={2.5}
                           fill={`url(#grad_${s.key})`}
                           dot={false}
                           isAnimationActive={false}
@@ -439,26 +483,35 @@ export default function MultiSimulationModal({
               {comparisonData?.type === 'vacuum-vs-air' && comparisonData.stats && (
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: t('فراغ (بدون مقاومة)', 'Vacuum (No Drag)'), data: (comparisonData.stats as Record<string, StatData>).vacuum, color: '#22c55e' },
-                    { label: t('مع مقاومة الهواء', 'With Air Resistance'), data: (comparisonData.stats as Record<string, StatData>).air, color: '#ef4444' },
+                    { label: t('فراغ (بدون مقاومة)', 'Vacuum (No Drag)'), data: (comparisonData.stats as Record<string, StatData>).vacuum, color: '#22c55e', bgClass: 'from-emerald-500/10 to-emerald-500/5' },
+                    { label: t('مع مقاومة الهواء', 'With Air Resistance'), data: (comparisonData.stats as Record<string, StatData>).air, color: '#ef4444', bgClass: 'from-red-500/10 to-red-500/5' },
                   ].map((item) => (
-                    <div key={item.label} className="p-3 rounded-lg border border-border bg-secondary/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-xs font-semibold text-foreground">{item.label}</span>
+                    <div key={item.label} className={`p-4 rounded-xl border border-border/50 bg-gradient-to-br ${item.bgClass}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
+                        <span className="text-xs font-bold text-foreground">{item.label}</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-[10px]">
-                        <div className="text-center">
-                          <p className="text-muted-foreground">{t('المدى', 'Range')}</p>
-                          <p className="font-mono font-bold text-foreground">{item.data.range.toFixed(2)} m</p>
+                      <div className="grid grid-cols-3 gap-3 text-[10px]">
+                        <div className="text-center p-2 rounded-lg bg-background/50">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <Ruler className="w-3 h-3 text-muted-foreground" />
+                            <p className="text-muted-foreground">{t('المدى', 'Range')}</p>
+                          </div>
+                          <p className="font-mono font-bold text-foreground text-xs">{item.data.range.toFixed(2)} m</p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-muted-foreground">{t('أقصى ارتفاع', 'Max H')}</p>
-                          <p className="font-mono font-bold text-foreground">{item.data.maxH.toFixed(2)} m</p>
+                        <div className="text-center p-2 rounded-lg bg-background/50">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <TrendingUp className="w-3 h-3 text-muted-foreground" />
+                            <p className="text-muted-foreground">{t('أقصى ارتفاع', 'Max H')}</p>
+                          </div>
+                          <p className="font-mono font-bold text-foreground text-xs">{item.data.maxH.toFixed(2)} m</p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-muted-foreground">{t('زمن الطيران', 'Flight T')}</p>
-                          <p className="font-mono font-bold text-foreground">{item.data.time.toFixed(2)} s</p>
+                        <div className="text-center p-2 rounded-lg bg-background/50">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <Clock className="w-3 h-3 text-muted-foreground" />
+                            <p className="text-muted-foreground">{t('زمن الطيران', 'Flight T')}</p>
+                          </div>
+                          <p className="font-mono font-bold text-foreground text-xs">{item.data.time.toFixed(2)} s</p>
                         </div>
                       </div>
                     </div>
@@ -467,55 +520,72 @@ export default function MultiSimulationModal({
               )}
 
               {comparisonData?.type === 'multi-angle' && (comparisonData as { trajectories?: TrajectoryInfo[] }).trajectories && (
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
                   {((comparisonData as { trajectories?: TrajectoryInfo[] }).trajectories ?? []).map((tr) => (
-                    <div key={tr.angle} className="p-2 rounded-lg border border-border bg-secondary/20 text-center">
-                      <div className="w-3 h-3 rounded-full mx-auto mb-1" style={{ backgroundColor: tr.color }} />
-                      <p className="text-xs font-bold text-foreground">{tr.angle}°</p>
-                      <p className="text-[9px] text-muted-foreground mt-1">{t('المدى', 'Range')}: {tr.prediction.range.toFixed(1)}m</p>
-                      <p className="text-[9px] text-muted-foreground">{t('ارتفاع', 'Max H')}: {tr.prediction.maxHeight.toFixed(1)}m</p>
+                    <div key={tr.angle} className="p-3 rounded-xl border border-border/50 bg-gradient-to-b from-secondary/10 to-transparent text-center">
+                      <div className="w-4 h-4 rounded-full mx-auto mb-2 shadow-sm" style={{ backgroundColor: tr.color }} />
+                      <p className="text-sm font-bold text-foreground">{tr.angle}°</p>
+                      <div className="mt-2 space-y-1">
+                        <div className="flex items-center justify-between text-[10px] px-1">
+                          <span className="text-muted-foreground">{t('المدى', 'Range')}</span>
+                          <span className="font-mono font-semibold text-foreground">{tr.prediction.range.toFixed(1)}m</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] px-1">
+                          <span className="text-muted-foreground">{t('ارتفاع', 'Max H')}</span>
+                          <span className="font-mono font-semibold text-foreground">{tr.prediction.maxHeight.toFixed(1)}m</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
 
               {comparisonData?.type === 'multi-env' && (comparisonData as { trajectories?: TrajectoryInfo[] }).trajectories && (
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
                   {((comparisonData as { trajectories?: TrajectoryInfo[] }).trajectories ?? []).map((tr) => (
-                    <div key={tr.env.name.en} className="p-2 rounded-lg border border-border bg-secondary/20 text-center">
-                      <div className="text-lg mb-1">{tr.env.emoji}</div>
+                    <div key={tr.env.name.en} className="p-3 rounded-xl border border-border/50 bg-gradient-to-b from-secondary/10 to-transparent text-center">
+                      <div className="text-2xl mb-2">{tr.env.emoji}</div>
                       <p className="text-xs font-bold text-foreground">{tr.env.name[lang as 'ar' | 'en' | 'fr'] || tr.env.name.en}</p>
-                      <p className="text-[9px] text-muted-foreground">g = {tr.env.gravity} m/s²</p>
-                      <p className="text-[9px] text-muted-foreground mt-1">{t('المدى', 'Range')}: {tr.prediction.range.toFixed(1)}m</p>
+                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">g = {tr.env.gravity} m/s²</p>
+                      <div className="mt-2 pt-2 border-t border-border/30">
+                        <div className="flex items-center justify-between text-[10px] px-1">
+                          <span className="text-muted-foreground">{t('المدى', 'Range')}</span>
+                          <span className="font-mono font-semibold text-foreground">{tr.prediction.range.toFixed(1)}m</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] px-1 mt-1">
+                          <span className="text-muted-foreground">{t('ارتفاع', 'Max H')}</span>
+                          <span className="font-mono font-semibold text-foreground">{tr.prediction.maxHeight.toFixed(1)}m</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
 
               {comparisonData?.type === 'numerical-methods' && comparisonData.stats && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { label: 'Euler', data: (comparisonData.stats as Record<string, StatData>).euler, color: '#3b82f6', accuracy: '~90%' },
-                    { label: 'RK4', data: (comparisonData.stats as Record<string, StatData>).rk4, color: '#22c55e', accuracy: '~98%' },
-                    { label: 'AI APAS', data: (comparisonData.stats as Record<string, StatData>).aiApas, color: '#a855f7', accuracy: '~99.9%' },
+                    { label: 'Euler', data: (comparisonData.stats as Record<string, StatData>).euler, color: '#3b82f6', accuracy: '~90%', bgClass: 'from-blue-500/10 to-blue-500/5' },
+                    { label: 'RK4', data: (comparisonData.stats as Record<string, StatData>).rk4, color: '#22c55e', accuracy: '~98%', bgClass: 'from-emerald-500/10 to-emerald-500/5' },
+                    { label: 'AI APAS', data: (comparisonData.stats as Record<string, StatData>).aiApas, color: '#a855f7', accuracy: '~99.9%', bgClass: 'from-purple-500/10 to-purple-500/5' },
                   ].map((item) => (
-                    <div key={item.label} className="p-3 rounded-lg border border-border bg-secondary/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-xs font-semibold text-foreground">{item.label}</span>
-                        <span className="text-[9px] text-muted-foreground ml-auto">{item.accuracy}</span>
+                    <div key={item.label} className={`p-4 rounded-xl border border-border/50 bg-gradient-to-br ${item.bgClass}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
+                        <span className="text-xs font-bold text-foreground">{item.label}</span>
+                        <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-background/60 text-muted-foreground ms-auto">{item.accuracy}</span>
                       </div>
-                      <div className="space-y-1 text-[10px]">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t('المدى', 'Range')}</span>
+                      <div className="space-y-2 text-[10px]">
+                        <div className="flex justify-between items-center p-1.5 rounded-lg bg-background/40">
+                          <span className="text-muted-foreground flex items-center gap-1"><Ruler className="w-3 h-3" />{t('المدى', 'Range')}</span>
                           <span className="font-mono font-bold text-foreground">{item.data.range.toFixed(3)} m</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t('أقصى ارتفاع', 'Max H')}</span>
+                        <div className="flex justify-between items-center p-1.5 rounded-lg bg-background/40">
+                          <span className="text-muted-foreground flex items-center gap-1"><TrendingUp className="w-3 h-3" />{t('أقصى ارتفاع', 'Max H')}</span>
                           <span className="font-mono font-bold text-foreground">{item.data.maxH.toFixed(3)} m</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t('زمن الطيران', 'Flight T')}</span>
+                        <div className="flex justify-between items-center p-1.5 rounded-lg bg-background/40">
+                          <span className="text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" />{t('زمن الطيران', 'Flight T')}</span>
                           <span className="font-mono font-bold text-foreground">{item.data.time.toFixed(3)} s</span>
                         </div>
                       </div>
@@ -525,18 +595,24 @@ export default function MultiSimulationModal({
               )}
 
               {/* Current Parameters Reference */}
-              <div className="p-3 bg-secondary/20 rounded-lg border border-border">
-                <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+              <div className="p-3.5 bg-gradient-to-r from-secondary/15 to-transparent rounded-xl border border-border/40">
+                <p className="text-[10px] font-bold text-muted-foreground mb-2.5 uppercase tracking-wider">
                   {t('المعاملات الحالية المستخدمة', 'Current Parameters Used', 'Paramètres Actuels Utilisés')}
                 </p>
-                <div className="flex flex-wrap gap-3 text-[10px]">
-                  <span className="text-foreground font-mono">V₀={velocity.toFixed(1)} m/s</span>
-                  <span className="text-foreground font-mono">θ={angle.toFixed(1)}°</span>
-                  <span className="text-foreground font-mono">h₀={height.toFixed(1)} m</span>
-                  <span className="text-foreground font-mono">g={gravity.toFixed(2)} m/s²</span>
-                  <span className="text-foreground font-mono">m={mass.toFixed(2)} kg</span>
-                  {airResistance > 0 && <span className="text-foreground font-mono">k={airResistance.toFixed(3)}</span>}
-                  {windSpeed !== 0 && <span className="text-foreground font-mono">wind={windSpeed.toFixed(1)} m/s</span>}
+                <div className="flex flex-wrap gap-2 text-[10px]">
+                  {[
+                    { label: 'V₀', value: `${velocity.toFixed(1)} m/s` },
+                    { label: 'θ', value: `${angle.toFixed(1)}°` },
+                    { label: 'h₀', value: `${height.toFixed(1)} m` },
+                    { label: 'g', value: `${gravity.toFixed(2)} m/s²` },
+                    { label: 'm', value: `${mass.toFixed(2)} kg` },
+                    ...(airResistance > 0 ? [{ label: 'k', value: airResistance.toFixed(3) }] : []),
+                    ...(windSpeed !== 0 ? [{ label: 'wind', value: `${windSpeed.toFixed(1)} m/s` }] : []),
+                  ].map((param) => (
+                    <span key={param.label} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-background/60 border border-border/30 font-mono text-foreground">
+                      <span className="text-muted-foreground">{param.label}=</span>{param.value}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>

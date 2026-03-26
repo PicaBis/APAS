@@ -3,13 +3,15 @@ import React from 'react';
 /**
  * Professional academic ambient decorations.
  * Pure CSS/SVG animations — no canvas.
- * Grid dots, orbital rings, floating geometric accents, tech particles.
- * Designed to give a world-class, technical/academic feel.
+ * Soft radial glows, orbital rings, floating geometric accents,
+ * hexagons, grid dots, plus marks, and gentle particles.
+ * Fixed positioning with subtle animations — beautiful & academic.
  */
 const AcademicAmbient: React.FC = () => {
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-      {/* Soft radial glow top-right */}
+
+      {/* ── Soft radial glows ── */}
       <div
         className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-[0.06] dark:opacity-[0.08]"
         style={{
@@ -17,8 +19,6 @@ const AcademicAmbient: React.FC = () => {
           animation: 'ambientPulse 8s ease-in-out infinite',
         }}
       />
-
-      {/* Soft radial glow bottom-left */}
       <div
         className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full opacity-[0.05] dark:opacity-[0.07]"
         style={{
@@ -26,8 +26,6 @@ const AcademicAmbient: React.FC = () => {
           animation: 'ambientPulse 10s ease-in-out infinite 3s',
         }}
       />
-
-      {/* Subtle center glow */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.025] dark:opacity-[0.035]"
         style={{
@@ -36,7 +34,7 @@ const AcademicAmbient: React.FC = () => {
         }}
       />
 
-      {/* Orbital ring SVG — top area */}
+      {/* ── Orbital ring — top-right ── */}
       <svg
         className="absolute top-[8%] right-[12%] w-20 h-20 text-primary opacity-[0.08] dark:opacity-[0.1]"
         viewBox="0 0 80 80"
@@ -54,7 +52,6 @@ const AcademicAmbient: React.FC = () => {
           transform="rotate(60 40 40)"
           style={{ animation: 'orbitSpin 18s linear infinite reverse' }}
         />
-        {/* Orbiting dot */}
         <circle r="1.5" fill="currentColor" opacity="0.6">
           <animateMotion dur="14s" repeatCount="indefinite" path="M40 26 A35 14 0 1 1 39.99 26" />
         </circle>
@@ -62,7 +59,7 @@ const AcademicAmbient: React.FC = () => {
         <circle cx="40" cy="40" r="5" fill="none" stroke="currentColor" strokeWidth="0.3" opacity="0.3" />
       </svg>
 
-      {/* Orbital ring SVG — bottom area */}
+      {/* ── Orbital ring — bottom-left ── */}
       <svg
         className="absolute bottom-[15%] left-[10%] w-16 h-16 text-primary opacity-[0.06] dark:opacity-[0.08]"
         viewBox="0 0 80 80"
@@ -78,7 +75,7 @@ const AcademicAmbient: React.FC = () => {
         <circle cx="40" cy="40" r="2" fill="currentColor" opacity="0.4" />
       </svg>
 
-      {/* Additional orbital — mid-right */}
+      {/* ── Orbital ring — mid-right ── */}
       <svg
         className="absolute top-[45%] right-[5%] w-14 h-14 text-primary opacity-[0.04] dark:opacity-[0.06]"
         viewBox="0 0 80 80"
@@ -98,32 +95,7 @@ const AcademicAmbient: React.FC = () => {
         <circle cx="40" cy="40" r="1.5" fill="currentColor" opacity="0.3" />
       </svg>
 
-      {/* Subtle floating geometric shapes */}
-      <svg
-        className="absolute top-[35%] left-[2%] w-10 h-10 text-muted-foreground opacity-[0.06]"
-        viewBox="0 0 40 40"
-        style={{ animation: 'gentleFloat 7s ease-in-out infinite' }}
-      >
-        <rect x="8" y="8" width="24" height="24" rx="2" fill="none" stroke="currentColor" strokeWidth="0.8" transform="rotate(15 20 20)" />
-      </svg>
-
-      <svg
-        className="absolute top-[60%] right-[3%] w-8 h-8 text-muted-foreground opacity-[0.05]"
-        viewBox="0 0 40 40"
-        style={{ animation: 'gentleFloat 9s ease-in-out infinite 2s' }}
-      >
-        <polygon points="20,6 34,34 6,34" fill="none" stroke="currentColor" strokeWidth="0.8" />
-      </svg>
-
-      <svg
-        className="absolute bottom-[30%] right-[15%] w-6 h-6 text-primary opacity-[0.05]"
-        viewBox="0 0 24 24"
-        style={{ animation: 'gentleFloat 11s ease-in-out infinite 4s' }}
-      >
-        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 3" />
-      </svg>
-
-      {/* Floating hexagon — tech feel */}
+      {/* ── Floating hexagon — tech feel, top-left ── */}
       <svg
         className="absolute top-[20%] left-[8%] w-8 h-8 text-primary opacity-[0.04] dark:opacity-[0.06]"
         viewBox="0 0 40 40"
@@ -133,7 +105,43 @@ const AcademicAmbient: React.FC = () => {
         <polygon points="20,10 29,15 29,25 20,30 11,25 11,15" fill="none" stroke="currentColor" strokeWidth="0.3" opacity="0.5" />
       </svg>
 
-      {/* Plus/cross marks — scientific notation feel */}
+      {/* ── Floating diamond ── */}
+      <svg
+        className="absolute top-[12%] left-[45%] w-6 h-6 text-primary opacity-[0.035] dark:opacity-[0.05]"
+        viewBox="0 0 24 24"
+        style={{ animation: 'gentleFloat 15s ease-in-out infinite 3s' }}
+      >
+        <rect x="4" y="4" width="16" height="16" rx="1" fill="none" stroke="currentColor" strokeWidth="0.6" transform="rotate(45 12 12)" />
+      </svg>
+
+      {/* ── Floating rectangle — left area ── */}
+      <svg
+        className="absolute top-[35%] left-[2%] w-10 h-10 text-muted-foreground opacity-[0.06]"
+        viewBox="0 0 40 40"
+        style={{ animation: 'gentleFloat 7s ease-in-out infinite' }}
+      >
+        <rect x="8" y="8" width="24" height="24" rx="2" fill="none" stroke="currentColor" strokeWidth="0.8" transform="rotate(15 20 20)" />
+      </svg>
+
+      {/* ── Floating triangle — right area ── */}
+      <svg
+        className="absolute top-[60%] right-[3%] w-8 h-8 text-muted-foreground opacity-[0.05]"
+        viewBox="0 0 40 40"
+        style={{ animation: 'gentleFloat 9s ease-in-out infinite 2s' }}
+      >
+        <polygon points="20,6 34,34 6,34" fill="none" stroke="currentColor" strokeWidth="0.8" />
+      </svg>
+
+      {/* ── Dashed circle — bottom-right ── */}
+      <svg
+        className="absolute bottom-[30%] right-[15%] w-6 h-6 text-primary opacity-[0.05]"
+        viewBox="0 0 24 24"
+        style={{ animation: 'gentleFloat 11s ease-in-out infinite 4s' }}
+      >
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 3" />
+      </svg>
+
+      {/* ── Plus/cross marks — scientific notation feel ── */}
       <svg
         className="absolute top-[75%] left-[25%] w-5 h-5 text-muted-foreground opacity-[0.04]"
         viewBox="0 0 20 20"
@@ -142,7 +150,6 @@ const AcademicAmbient: React.FC = () => {
         <line x1="10" y1="3" x2="10" y2="17" stroke="currentColor" strokeWidth="0.8" />
         <line x1="3" y1="10" x2="17" y2="10" stroke="currentColor" strokeWidth="0.8" />
       </svg>
-
       <svg
         className="absolute top-[15%] right-[30%] w-4 h-4 text-muted-foreground opacity-[0.035]"
         viewBox="0 0 20 20"
@@ -152,7 +159,50 @@ const AcademicAmbient: React.FC = () => {
         <line x1="3" y1="10" x2="17" y2="10" stroke="currentColor" strokeWidth="0.8" />
       </svg>
 
-      {/* Grid dot pattern — very subtle */}
+      {/* ── Atom-like structure — bottom area ── */}
+      <svg
+        className="absolute bottom-[10%] right-[40%] w-12 h-12 text-primary opacity-[0.04] dark:opacity-[0.06]"
+        viewBox="0 0 48 48"
+      >
+        <ellipse cx="24" cy="24" rx="20" ry="8" fill="none" stroke="currentColor" strokeWidth="0.5" style={{ animation: 'orbitSpin 12s linear infinite' }} />
+        <ellipse cx="24" cy="24" rx="20" ry="8" fill="none" stroke="currentColor" strokeWidth="0.5" transform="rotate(60 24 24)" style={{ animation: 'orbitSpin 14s linear infinite reverse' }} />
+        <ellipse cx="24" cy="24" rx="20" ry="8" fill="none" stroke="currentColor" strokeWidth="0.5" transform="rotate(120 24 24)" style={{ animation: 'orbitSpin 16s linear infinite' }} />
+        <circle cx="24" cy="24" r="2.5" fill="currentColor" opacity="0.3" />
+        <circle r="1" fill="currentColor" opacity="0.5">
+          <animateMotion dur="12s" repeatCount="indefinite" path="M24 16 A20 8 0 1 1 23.99 16" />
+        </circle>
+      </svg>
+
+      {/* ── Connecting dots constellation — top-left area ── */}
+      <svg
+        className="absolute top-[28%] left-[15%] w-24 h-16 text-primary opacity-[0.04] dark:opacity-[0.06]"
+        viewBox="0 0 96 64"
+        style={{ animation: 'gentleFloat 16s ease-in-out infinite 2s' }}
+      >
+        <circle cx="12" cy="20" r="1.5" fill="currentColor" opacity="0.5" />
+        <circle cx="40" cy="10" r="1.2" fill="currentColor" opacity="0.4" />
+        <circle cx="70" cy="30" r="1.8" fill="currentColor" opacity="0.5" />
+        <circle cx="50" cy="50" r="1" fill="currentColor" opacity="0.3" />
+        <circle cx="85" cy="15" r="1.3" fill="currentColor" opacity="0.4" />
+        <line x1="12" y1="20" x2="40" y2="10" stroke="currentColor" strokeWidth="0.3" opacity="0.3" />
+        <line x1="40" y1="10" x2="70" y2="30" stroke="currentColor" strokeWidth="0.3" opacity="0.3" />
+        <line x1="70" y1="30" x2="50" y2="50" stroke="currentColor" strokeWidth="0.3" opacity="0.3" />
+        <line x1="40" y1="10" x2="85" y2="15" stroke="currentColor" strokeWidth="0.3" opacity="0.3" />
+      </svg>
+
+      {/* ── Parabolic trajectory hint — bottom-right ── */}
+      <svg
+        className="absolute bottom-[22%] left-[60%] w-20 h-12 text-primary opacity-[0.035] dark:opacity-[0.05]"
+        viewBox="0 0 80 48"
+        style={{ animation: 'gentleFloat 14s ease-in-out infinite 6s' }}
+      >
+        <path d="M5 40 Q20 5 40 10 Q60 15 75 40" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 2" />
+        <circle cx="5" cy="40" r="1.5" fill="currentColor" opacity="0.4" />
+        <circle cx="40" cy="10" r="1" fill="currentColor" opacity="0.3" />
+        <circle cx="75" cy="40" r="1.5" fill="currentColor" opacity="0.4" />
+      </svg>
+
+      {/* ── Grid dot pattern — very subtle ── */}
       <svg
         className="absolute top-0 left-0 w-full h-full opacity-[0.02] dark:opacity-[0.03]"
         xmlns="http://www.w3.org/2000/svg"
@@ -165,11 +215,11 @@ const AcademicAmbient: React.FC = () => {
         <rect width="100%" height="100%" fill="url(#academicGrid)" className="text-foreground" />
       </svg>
 
-      {/* Inline keyframes */}
+      {/* ── Inline keyframes ── */}
       <style>{`
         @keyframes ambientPulse {
           0%, 100% { transform: scale(1); opacity: inherit; }
-          50% { transform: scale(1.12); opacity: calc(inherit * 1.4); }
+          50% { transform: scale(1.12); }
         }
         @keyframes orbitSpin {
           from { transform: rotate(0deg); }

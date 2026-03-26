@@ -1,727 +1,507 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import ReactMarkdown from 'react-markdown';
-import { Camera, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, Aperture, Sparkles, Shield } from 'lucide-react';
+import { Camera, Loader2, X, Upload, Sparkles, Aperture, SwitchCamera, FlipHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
-import { checkFileSize, analyzeImageQuality, getIssueMessage } from '@/utils/mediaQuality';
-import LiveWeatherOverlay from '@/components/apas/LiveWeatherOverlay';
-import GyroLevel from '@/components/apas/GyroLevel';
-import AROverlay from '@/components/apas/AROverlay';
-import { type WeatherData } from '@/services/weatherService';
+import { checkFileSize, getIssueMessage } from '@/utils/mediaQuality';
+import { useAuth } from '@/contexts/AuthContext';
+import ReportRenderer from './ReportRenderer';
 
-const EDGE_VISION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vision-analyze`;
-
-const CONFIDENCE_THRESHOLD = 60;
-
+/* ------------------------------------------------------------------ */
+/*  Props                                                              */
+/* ------------------------------------------------------------------ */
 interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
+  onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
+  onAutoRun?: () => void;
+  onDetectedMedia?: (data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
+  autoOpen?: boolean;
+  onDismiss?: () => void;
 }
 
-interface AnalysisData {
-  detected: boolean;
-  confidence?: number;
-  angle?: number;
-  velocity?: number;
-  mass?: number;
-  height?: number;
-  objectType?: string;
-}
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dicpl6wjs';
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'apas_unsigned';
 
-interface HistoryEntry {
-  id: number;
-  timestamp: Date;
-  data: AnalysisData | null;
-  text: string;
-  thumbnailName: string;
-}
-
-export default function ApasVisionButton({ lang, onUpdateParams }: Props) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, autoOpen, onDismiss }: Props) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(autoOpen || false);
+  const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
-  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
-  const [analysisText, setAnalysisText] = useState('');
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [report, setReport] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  // Smart features state
-  const [showSmartFeatures, setShowSmartFeatures] = useState(false);
-  const [arMode, setArMode] = useState(false);
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [isGyroLevel, setIsGyroLevel] = useState(true);
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
-
   const isAr = lang === 'ar';
 
-  // Request all smart feature permissions
-  const requestSmartPermissions = useCallback(async () => {
-    try {
-      // Request camera permission (already handled in openCamera)
-      // Request geolocation permission
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          () => { /* permission granted */ },
-          () => { toast.warning(isAr ? 'تم رفض إذن الموقع' : 'Location permission denied'); },
-          { enableHighAccuracy: true, timeout: 5000 }
-        );
-      }
-      // Request device orientation permission (iOS)
-      if (typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function') {
-        try {
-          await (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
-        } catch { /* silently fail */ }
-      }
-      // Request device motion permission (iOS)
-      if (typeof (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function') {
-        try {
-          await (DeviceMotionEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
-        } catch { /* silently fail */ }
-      }
-      setPermissionsGranted(true);
-      setShowSmartFeatures(true);
-      toast.success(isAr ? 'تم تفعيل الأدوات الذكية' : 'Smart tools activated');
-    } catch {
-      toast.error(isAr ? 'تعذر تفعيل بعض الأدوات' : 'Some tools could not be activated');
-    }
-  }, [isAr]);
+  // Camera state
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [mirrorPreview, setMirrorPreview] = useState(false);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const cameraCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Stop camera stream
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
+  const close = useCallback(() => {
+    setOpen(false);
+    setReport(null);
+    setPreview(null);
+    setProgress(0);
+    setStatusMsg('');
+    setCameraOpen(false);
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
     }
+    setCameraReady(false);
+    if (onDismiss) onDismiss();
+  }, [onDismiss]);
+
+  // Start/stop camera
+  const startCamera = useCallback(async () => {
+    try {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
+      });
+      cameraStreamRef.current = stream;
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
+        cameraVideoRef.current.play();
+        setCameraReady(true);
+      }
+    } catch {
+      toast.error(isAr ? 'تعذر الوصول إلى الكاميرا' : 'Camera access denied');
+      setCameraOpen(false);
+    }
+  }, [facingMode, isAr]);
+
+  const stopCamera = useCallback(() => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+    }
+    setCameraReady(false);
   }, []);
 
-  // Cleanup camera on unmount
   useEffect(() => {
-    return () => { stopCamera(); };
-  }, [stopCamera]);
-
-  useEffect(() => {
-    if (!isAnalyzing) return;
-    setProgress(0);
-    const interval = setInterval(() => {
-      setProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 12);
-    }, 300);
-    return () => clearInterval(interval);
-  }, [isAnalyzing]);
-
-  // Open camera using getUserMedia
-  const openCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
-      streamRef.current = stream;
-      setShowCamera(true);
-      // Attach stream to video element after render
-      requestAnimationFrame(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => { /* ignore autoplay errors */ });
-        }
-      });
-    } catch {
-      toast.error(isAr ? 'تعذر الوصول للكاميرا' : 'Camera access denied');
+    if (cameraOpen) {
+      startCamera();
+    } else {
+      stopCamera();
     }
-  };
+    return () => stopCamera();
+  }, [cameraOpen, startCamera, stopCamera]);
 
-  // Capture photo from live camera feed
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
+  // Switch camera facing
+  const switchCamera = useCallback(() => {
+    setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+  }, []);
+
+  // Restart camera when facing mode changes
+  useEffect(() => {
+    if (cameraOpen && cameraReady) {
+      startCamera();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facingMode]);
+
+  // Capture photo from camera
+  const capturePhoto = useCallback(() => {
+    const video = cameraVideoRef.current;
+    const canvas = cameraCanvasRef.current;
+    if (!video || !canvas || !video.videoWidth) return;
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    if (mirrorPreview) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    const base64 = dataUrl.split(',')[1];
 
-    // Stop camera and close camera modal
-    stopCamera();
-    setShowCamera(false);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setCameraOpen(false);
+      stopCamera();
+      analyzeImage(file);
+    }, 'image/jpeg', 0.92);
+  }, [mirrorPreview, stopCamera]);
 
-    // Set preview and auto-analyze the captured photo
-    setPreviewUrl(dataUrl);
-    analyzeBase64(base64, 'image/jpeg', isAr ? 'التقاط مباشر' : 'Live Capture');
-  };
 
-  // Shared analysis function for both file upload and camera capture
-  const analyzeBase64 = async (base64: string, mimeType: string, sourceName: string) => {
-    setIsAnalyzing(true);
-    setShowModal(true);
-    setAnalysisData(null);
-    setAnalysisText('');
-    setAnalysisStep('upload');
+  const analyzeImage = useCallback(async (file: File) => {
+    setLoading(true);
+    setProgress(5);
+    setReport(null);
 
-    const parseAIResponse = (text: string) => {
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
-      let result: AnalysisData | null = null;
-      if (jsonMatch) try { result = JSON.parse(jsonMatch[1].trim()); } catch { /* ignore parse errors */ }
-      const cleanText = text.replace(/```json[\s\S]*?```\s*/, '').trim();
-      return { result, cleanText };
-    };
-
-    const handleParsedResult = (text: string) => {
-      const { result, cleanText } = parseAIResponse(text);
-      setAnalysisText(cleanText);
-
-      if (result) {
-        setAnalysisData(result);
-        const confidence = result.confidence ?? 0;
-
-        setHistory(prev => [{
-          id: Date.now(),
-          timestamp: new Date(),
-          data: result,
-          text: cleanText,
-          thumbnailName: sourceName,
-        }, ...prev].slice(0, 20));
-
-        if (result.detected && confidence >= CONFIDENCE_THRESHOLD) {
-          onUpdateParams({
-            velocity: result.velocity,
-            angle: result.angle,
-            mass: result.mass,
-            height: result.height,
-            objectType: result.objectType,
-          });
-          toast.success(isAr ? '🤖 تم تحديث المحاكاة بواسطة APAS AI' : '🤖 Simulation updated by APAS AI');
-        } else if (result.detected && confidence < CONFIDENCE_THRESHOLD) {
-          toast.warning(isAr ? `نسبة الثقة منخفضة (${confidence}%) — لم يتم تحميل القيم` : `Low confidence (${confidence}%) — values not loaded`);
-        } else {
-          toast.info(isAr ? 'لم يتم اكتشاف مقذوف' : 'No projectile detected');
-        }
-      } else {
-        setAnalysisText(cleanText || (isAr ? 'لم يتم اكتشاف مقذوف' : 'No projectile detected'));
-        setHistory(prev => [{
-          id: Date.now(),
-          timestamp: new Date(),
-          data: null,
-          text: cleanText,
-          thumbnailName: sourceName,
-        }, ...prev].slice(0, 20));
-      }
-    };
-
-    setAnalysisStep('analyze');
     try {
-      const edgeResp = await fetch(EDGE_VISION_URL, {
+      // File validation
+      const sizeIssue = checkFileSize(file);
+      if (sizeIssue) toast.warning(getIssueMessage(sizeIssue, lang));
+
+      // Guard: block uploads when Supabase is not configured
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        toast.error(isAr ? 'خدمة Supabase غير مهيأة. تحقق من إعدادات البيئة.' : 'Supabase is not configured. Check environment settings.');
+        setLoading(false);
+        return;
+      }
+
+      // Step 1: Convert to base64
+      setStatusMsg(isAr ? 'جاري تحويل الصورة...' : 'Encoding image...');
+      setProgress(15);
+
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Generate thumbnail
+      if (onMediaAnalyzed) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const scale = Math.min(1, 200 / Math.max(img.width, img.height));
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            onMediaAnalyzed(canvas.toDataURL('image/jpeg', 0.7));
+          }
+        };
+        img.src = base64;
+      }
+
+      setPreview(base64);
+
+      // Step 2: Extract base64 data and mime type from data URL
+      let imageBase64 = base64;
+      let mimeType = 'image/jpeg';
+      const dataUrlMatch = base64.match(/^data:([^;]+);base64,(.+)$/);
+      if (dataUrlMatch) {
+        mimeType = dataUrlMatch[1];
+        imageBase64 = dataUrlMatch[2];
+      }
+
+      // Step 3: Upload to Cloudinary for permanent URL (non-blocking)
+      setStatusMsg(isAr ? 'جاري رفع الصورة إلى السحابة...' : 'Uploading to cloud...');
+      setProgress(30);
+
+      let cloudinaryUrl: string | null = null;
+      try {
+        const cloudFormData = new FormData();
+        cloudFormData.append('file', base64);
+        cloudFormData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+        cloudFormData.append('folder', 'apas-vision');
+
+        const cloudRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          { method: 'POST', body: cloudFormData }
+        );
+        if (cloudRes.ok) {
+          const cloudData = await cloudRes.json();
+          cloudinaryUrl = cloudData.secure_url || cloudData.url || null;
+          console.log('[APAS Vision] Cloudinary URL:', cloudinaryUrl);
+        } else {
+          console.warn('[APAS Vision] Cloudinary upload failed:', cloudRes.status);
+        }
+      } catch (cloudErr) {
+        console.warn('[APAS Vision] Cloudinary upload error:', cloudErr);
+      }
+
+      // Step 4: Call vision-analyze edge function with base64 + cloudinary URL
+      setStatusMsg(isAr ? 'APAS يحلل الصورة بالذكاء الاصطناعي...' : 'APAS analyzing image with AI...');
+      setProgress(55);
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/vision-analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({ imageBase64: base64, mimeType, lang }),
+        body: JSON.stringify({
+          imageBase64,
+          mimeType,
+          lang,
+          userId: user?.id || null,
+          cloudinaryUrl,
+        }),
       });
 
-      if (edgeResp.ok) {
-        const data = await edgeResp.json();
-        if (data.text) {
-          setProgress(100);
-          setAnalysisStep('results');
-          await new Promise(r => setTimeout(r, 400));
-          handleParsedResult(data.text);
-        } else {
-          setAnalysisText(isAr ? '❌ تعذر التحليل حالياً. حاول مرة أخرى.' : '❌ Analysis unavailable. Please try again.');
-          toast.error(isAr ? 'تعذر التحليل' : 'Analysis failed');
-        }
-      } else {
-        setAnalysisText(isAr ? '❌ تعذر التحليل حالياً. حاول مرة أخرى.' : '❌ Analysis unavailable. Please try again.');
-        toast.error(isAr ? 'تعذر التحليل' : 'Analysis failed');
-      }
-    } catch {
-      toast.error(isAr ? 'خطأ في الاتصال. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.' : 'Connection error. Check your internet connection and try again.');
-      setAnalysisText(isAr ? '❌ خطأ في الاتصال — تحقق من اتصالك بالإنترنت وحاول مرة أخرى' : '❌ Connection error — check your internet and try again');
-    }
-    setIsAnalyzing(false);
-    setAnalysisStep('results');
-  };
+      setProgress(80);
+      setStatusMsg(isAr ? 'APAS يحل المسألة...' : 'APAS solving physics...');
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error((errData as { error?: string }).error || `Server error ${response.status}`);
+      }
+
+      const result = await response.json();
+      setProgress(95);
+
+      if (result.error) throw new Error(result.error);
+
+      const reportText = result.text || '';
+      setReport(reportText);
+
+      // Extract values from JSON in the report
+      const jsonMatch = reportText.match(/```json\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1].trim());
+          const params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string } = {};
+          if (parsed.velocity) params.velocity = Number(parsed.velocity);
+          if (parsed.angle) params.angle = Number(parsed.angle);
+          if (parsed.height) params.height = Number(parsed.height);
+          if (parsed.mass) params.mass = Number(parsed.mass);
+          if (parsed.objectType) params.objectType = String(parsed.objectType);
+
+          if (Object.keys(params).length > 0) {
+            onUpdateParams(params);
+            if (onDetectedMedia) {
+              onDetectedMedia({
+                source: 'image',
+                detectedAngle: params.angle,
+                detectedVelocity: params.velocity,
+                detectedHeight: params.height,
+                confidence: parsed.confidence,
+                objectType: params.objectType,
+              });
+            }
+            if (onAutoRun) setTimeout(() => onAutoRun(), 150);
+          }
+        } catch {
+          console.warn('Could not parse JSON from report');
+        }
+      }
+
+      // Notify analysis complete for record/log and unlocking predictions
+      if (onAnalysisComplete) {
+        const jsonMatch2 = reportText.match(/```json\s*([\s\S]*?)```/);
+        let extractedParams: { velocity?: number; angle?: number; height?: number; mass?: number } | undefined;
+        if (jsonMatch2) {
+          try {
+            const p = JSON.parse(jsonMatch2[1].trim());
+            extractedParams = {};
+            if (p.velocity) extractedParams.velocity = Number(p.velocity);
+            if (p.angle) extractedParams.angle = Number(p.angle);
+            if (p.height) extractedParams.height = Number(p.height);
+            if (p.mass) extractedParams.mass = Number(p.mass);
+          } catch { /* ignore */ }
+        }
+        onAnalysisComplete({
+          type: 'vision',
+          report: reportText,
+          mediaSrc: base64,
+          mediaType: 'image',
+          params: extractedParams,
+        });
+      }
+
+      setProgress(100);
+      setStatusMsg(isAr ? 'اكتمل التحليل' : 'Analysis complete');
+      toast.success(isAr ? 'تم تحليل الصورة بنجاح' : 'Image analyzed successfully');
+    } catch (err) {
+      console.error('Vision analysis error:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(isAr ? `خطأ في التحليل: ${msg}` : `Analysis error: ${msg}`);
+      setStatusMsg(isAr ? 'فشل التحليل' : 'Analysis failed');
+    } finally {
+      setLoading(false);
+    }
+  }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, user?.id]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (fileRef.current) fileRef.current.value = '';
-
-    // Smart quality check on file size
-    const fileSizeIssue = checkFileSize(file);
-    if (fileSizeIssue) {
-      toast.warning(getIssueMessage(fileSizeIssue, lang));
+    if (!file.type.startsWith('image/')) {
+      toast.error(isAr ? 'الرجاء اختيار صورة' : 'Please select an image');
+      return;
     }
-
-    // Analyze image quality before sending to AI
-    const img = new Image();
-    const imgUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scale = Math.min(1, 512 / img.width);
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const report = analyzeImageQuality(imageData);
-        for (const issue of report.issues) {
-          if (issue.severity === 'error') {
-            toast.error(getIssueMessage(issue, lang));
-          } else {
-            toast.warning(getIssueMessage(issue, lang));
-          }
-        }
-      }
-      // Don't revoke here — used for preview, cleaned up on modal close
-    };
-    img.src = imgUrl;
-
-    // Revoke old preview URL to prevent memory leak
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    // Set preview image
-    setPreviewUrl(imgUrl);
-
-    const base64 = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.readAsDataURL(file);
-    });
-
-    analyzeBase64(base64, file.type, file.name);
-  };
-
-  const loadFromHistory = (entry: HistoryEntry) => {
-    setAnalysisData(entry.data);
-    setAnalysisText(entry.text);
-    setShowHistory(false);
-    setShowModal(true);
-    if (entry.data?.detected && (entry.data.confidence ?? 0) >= CONFIDENCE_THRESHOLD) {
-      onUpdateParams({
-        velocity: entry.data.velocity,
-        angle: entry.data.angle,
-        mass: entry.data.mass,
-        height: entry.data.height,
-      });
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error(isAr ? 'الصورة كبيرة جداً (الحد 20 ميجا)' : 'Image too large (max 20MB)');
+      return;
     }
-  };
+    analyzeImage(file);
+    e.target.value = '';
+  }, [isAr, analyzeImage]);
 
-  const confidence = analysisData?.confidence ?? 0;
-  const isHighConfidence = analysisData?.detected && confidence >= CONFIDENCE_THRESHOLD;
-  const isLowConfidence = analysisData?.detected && confidence < CONFIDENCE_THRESHOLD;
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) analyzeImage(file);
+  }, [analyzeImage]);
+
+  const modal = open ? createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border/50">
+          <div className="flex items-center gap-2">
+            <Camera className="w-5 h-5 text-primary" />
+            <h2 className="font-bold text-foreground">{isAr ? 'APAS تحليل الصورة' : 'APAS Image Analysis'}</h2>
+          </div>
+          <button onClick={close} className="p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="w-4 h-4" /></button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Upload zone + Camera - shown when not loading and no report */}
+          {!loading && !report && !cameraOpen && (
+            <>
+              {/* Drop zone */}
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                onClick={() => fileRef.current?.click()}
+                className="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+              >
+                <Upload className="w-10 h-10 text-primary/50 mx-auto mb-3" />
+                <p className="text-sm font-medium text-foreground">{isAr ? 'اسحب صورة هنا أو انقر للاختيار' : 'Drop an image here or click to select'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isAr ? 'PNG, JPG, WebP (حتى 20 ميجا)' : 'PNG, JPG, WebP (up to 20MB)'}</p>
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border/50" />
+                <span className="text-xs text-muted-foreground font-medium">{isAr ? 'أو' : 'OR'}</span>
+                <div className="flex-1 h-px bg-border/50" />
+              </div>
+
+              {/* Camera capture button */}
+              <button
+                onClick={() => setCameraOpen(true)}
+                className="w-full flex items-center justify-center gap-3 py-4 px-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-foreground font-medium text-sm transition-all duration-300 group"
+              >
+                <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center group-hover:bg-emerald-500/25 transition-colors">
+                  <Aperture className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div className="text-start">
+                  <p className="font-semibold">{isAr ? 'تصوير مباشر بالكاميرا' : 'Direct Camera Capture'}</p>
+                  <p className="text-xs text-muted-foreground">{isAr ? 'التقط صورة مباشرة للتحليل' : 'Take a photo directly for analysis'}</p>
+                </div>
+              </button>
+            </>
+          )}
+
+          {/* Camera view */}
+          {cameraOpen && !loading && !report && (
+            <div className="space-y-3">
+              <div className="relative rounded-xl overflow-hidden border border-border bg-black">
+                <video
+                  ref={cameraVideoRef}
+                  className="w-full max-h-[350px] object-contain"
+                  playsInline
+                  autoPlay
+                  muted
+                  style={{ transform: mirrorPreview ? 'scaleX(-1)' : 'none' }}
+                />
+                <canvas ref={cameraCanvasRef} className="hidden" />
+                {!cameraReady && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <div className="text-center text-white">
+                      <Camera className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                      <p className="text-sm">{isAr ? 'جاري تشغيل الكاميرا...' : 'Starting camera...'}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Camera controls */}
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={switchCamera}
+                  className="p-2.5 rounded-xl border border-border hover:bg-muted transition-colors"
+                  title={isAr ? 'تبديل الكاميرا' : 'Switch camera'}
+                >
+                  <SwitchCamera className="w-4 h-4 text-foreground" />
+                </button>
+
+                <button
+                  onClick={capturePhoto}
+                  disabled={!cameraReady}
+                  className="w-16 h-16 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Aperture className="w-7 h-7" />
+                </button>
+
+                <button
+                  onClick={() => setMirrorPreview(!mirrorPreview)}
+                  className={`p-2.5 rounded-xl border transition-colors ${mirrorPreview ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border hover:bg-muted text-foreground'}`}
+                  title={isAr ? 'عكس المعاينة' : 'Mirror preview'}
+                >
+                  <FlipHorizontal className="w-4 h-4" />
+                </button>
+              </div>
+
+              <button
+                onClick={() => { setCameraOpen(false); stopCamera(); }}
+                className="w-full py-2 rounded-lg bg-muted/50 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {loading && (
+            <div className="space-y-3">
+              {preview && <img src={preview} alt="Preview" className="w-full rounded-xl max-h-48 object-contain bg-muted/30" />}
+              <Progress value={progress} className="h-2" />
+              <div className="flex items-center gap-2 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">{statusMsg}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Results */}
+          {report && (
+            <div className="space-y-3">
+              {preview && <img src={preview} alt="Analyzed" className="w-full rounded-xl max-h-40 object-contain bg-muted/30" />}
+              <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                <ReportRenderer text={report} />
+              </div>
+              <button
+                onClick={() => { setReport(null); setPreview(null); setProgress(0); }}
+                className="w-full py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+              >
+                {isAr ? 'تحليل صورة أخرى' : 'Analyze another image'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+    </div>,
+    document.body,
+  ) : null;
 
   return (
     <>
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={isAnalyzing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60"
-          title={isAr ? 'رفع صورة' : 'Upload Image'}
-        >
-          <div className="relative">
-            <Upload className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-            {isAnalyzing && (
-              <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
-            )}
-          </div>
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground hidden xs:inline">{isAr ? 'رفع صورة' : 'Upload Image'}</span>
-        </button>
-        <button
-          onClick={openCamera}
-          disabled={isAnalyzing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60"
-          title={isAr ? 'التقاط صورة بالكاميرا' : 'Capture with Camera'}
-        >
-          <Aperture className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground hidden xs:inline">{isAr ? 'التقاط' : 'Capture'}</span>
-        </button>
-
-        {history.length > 0 && (
-          <button
-            onClick={() => setShowHistory(true)}
-            className="p-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 relative"
-            title={isAr ? 'سجل التحليلات' : 'Analysis History'}
-          >
-            <History className="w-3.5 h-3.5 text-foreground" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[8px] font-bold rounded-full flex items-center justify-center">
-              {history.length}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/* History Modal */}
-      {showHistory && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowHistory(false)}>
-          <div
-            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
-            dir={isAr ? 'rtl' : 'ltr'}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">{isAr ? 'سجل التحليلات' : 'Analysis History'}</h3>
-              </div>
-              <button onClick={() => setShowHistory(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {history.map(entry => (
-                <div
-                  key={entry.id}
-                  className="w-full text-start p-3 rounded-lg border border-border hover:bg-secondary/50 hover:shadow-sm transition-all duration-200 relative group"
-                >
-                  <button
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setHistory(prev => prev.filter(h => h.id !== entry.id)); }}
-                    className="absolute top-2 end-2 z-10 p-2 -m-1 rounded-md hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                    title={isAr ? 'حذف' : 'Delete'}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => loadFromHistory(entry)}
-                    className="w-full text-start pe-6"
-                  >
-                    <div className="flex items-center justify-between mb-1 pe-5">
-                      <span className="text-xs font-medium text-foreground truncate max-w-[60%]">
-                        {entry.data?.objectType || entry.thumbnailName}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {entry.timestamp.toLocaleTimeString()}
-                      </span>
-                    </div>
-                    {entry.data?.detected && (
-                      <div className="space-y-1.5">
-                        <div className="flex gap-3 text-[10px] text-muted-foreground">
-                          <span>V={entry.data.velocity} m/s</span>
-                          <span>θ={entry.data.angle}°</span>
-                          <span>m={entry.data.mass} kg</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5 text-[9px]">
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'السرعة' : 'Velocity'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.velocity} m/s</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الزاوية' : 'Angle'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.angle}°</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الارتفاع' : 'Height'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.height ?? '—'} m</span>
-                          </div>
-                          <div className="bg-secondary/50 rounded p-1 text-center">
-                            <span className="text-muted-foreground">{isAr ? 'الكتلة' : 'Mass'}: </span>
-                            <span className="font-mono font-medium text-foreground">{entry.data.mass ?? '—'} kg</span>
-                          </div>
-                          {entry.data.confidence != null && (
-                            <div className="bg-secondary/50 rounded p-1 text-center col-span-2">
-                              <span className="text-muted-foreground">{isAr ? 'نسبة الثقة' : 'Confidence'}: </span>
-                              <span className="font-mono font-medium text-foreground">{entry.data.confidence}%</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {!entry.data?.detected && (
-                      <span className="text-[10px] text-muted-foreground">{isAr ? 'لم يُكتشف مقذوف' : 'No projectile'}</span>
-                    )}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Camera Capture Modal */}
-      {showCamera && createPortal(
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-
-          {/* AR Overlay on camera */}
-          {arMode && videoRef.current && (
-            <AROverlay
-              lang={lang}
-              videoRef={videoRef as React.RefObject<HTMLVideoElement>}
-              active={arMode}
-              onToggle={setArMode}
-              velocity={analysisData?.velocity ?? 20}
-              angle={analysisData?.angle ?? 45}
-            />
-          )}
-
-          {/* Top bar: Gyro level + Weather compact */}
-          <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              {showSmartFeatures && (
-                <GyroLevel lang={lang} compact onLevelStatusChange={setIsGyroLevel} />
-              )}
-              {showSmartFeatures && weatherData && (
-                <LiveWeatherOverlay lang={lang} compact />
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              {!arMode && (
-                <button
-                  onClick={() => setArMode(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/30 hover:bg-cyan-500/30 transition-all"
-                  title={isAr ? 'الواقع المعزز' : 'AR Mode'}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="text-[10px] text-white font-medium">{isAr ? 'AR' : 'AR'}</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Camera instruction - enhanced zero-instruction UX */}
-          {!arMode && (
-            <div className="absolute top-16 left-0 right-0 text-center z-20 space-y-2">
-              <span className="text-white text-sm font-medium bg-black/40 px-4 py-2 rounded-full backdrop-blur-sm">
-                {isAr ? 'وجّه الكاميرا نحو المقذوف ثم اضغط الزر' : 'Point camera at projectile, then tap capture'}
-              </span>
-              <div className="flex justify-center gap-2 px-4">
-                <span className="text-white/70 text-[10px] bg-black/30 px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  {isAr ? '💡 استخدم إضاءة جيدة' : '💡 Good lighting helps'}
-                </span>
-                <span className="text-white/70 text-[10px] bg-black/30 px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  {isAr ? '📐 ثبّت الكاميرا' : '📐 Keep camera steady'}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Gyro warning overlay */}
-          {showSmartFeatures && !isGyroLevel && !arMode && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-              <div className="bg-red-500/20 backdrop-blur-sm border-2 border-red-500/40 rounded-2xl p-6 text-center max-w-xs pointer-events-auto animate-pulse">
-                <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-                <p className="text-white text-sm font-semibold mb-1">
-                  {isAr ? 'عدل زاوية الهاتف' : 'Adjust Phone Angle'}
-                </p>
-                <p className="text-white/70 text-xs">
-                  {isAr ? 'للحصول على نتائج دقيقة، يجب أن يكون الهاتف مستوياً' : 'For accurate results, keep the phone level'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Bottom controls */}
-          <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 z-30">
-            <button
-              onClick={() => { stopCamera(); setShowCamera(false); setArMode(false); }}
-              className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all"
-              title={isAr ? 'إلغاء' : 'Cancel'}
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
-            <button
-              onClick={capturePhoto}
-              className="w-16 h-16 rounded-full bg-white border-4 border-white/50 flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
-              title={isAr ? 'التقاط صورة' : 'Take Photo'}
-            >
-              <div className="w-12 h-12 rounded-full bg-white hover:bg-gray-100 transition-colors" />
-            </button>
-            {!showSmartFeatures && (
-              <button
-                onClick={requestSmartPermissions}
-                className="w-12 h-12 rounded-full bg-primary/30 backdrop-blur-sm flex items-center justify-center hover:bg-primary/40 transition-all border border-primary/40"
-                title={isAr ? 'تفعيل الأدوات الذكية' : 'Enable Smart Tools'}
-              >
-                <Shield className="w-5 h-5 text-white" />
-              </button>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Analysis Modal */}
-      {showModal && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { if (!isAnalyzing) { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); } }}>
-          <div
-            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
-            dir={isAr ? 'rtl' : 'ltr'}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-              <div className="flex items-center gap-2">
-                <Camera className="w-4 h-4 text-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">APAS Vision</h3>
-              </div>
-              {!isAnalyzing && (
-                <button onClick={() => { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col items-center justify-center">
-              {/* Image preview thumbnail */}
-              {previewUrl && (
-                <div className="w-full max-w-xs">
-                  <img src={previewUrl} alt="" className="w-full h-28 object-cover rounded-lg border border-border/30 opacity-80" />
-                </div>
-              )}
-
-              {isAnalyzing && (
-                <div className="space-y-3 w-full max-w-xs">
-                  {/* Step indicator */}
-                  <div className="flex items-center gap-1 w-full">
-                    {(['upload', 'analyze', 'results'] as const).map((s, i) => {
-                      const stepLabels = {
-                        upload: isAr ? 'تحميل' : 'Upload',
-                        analyze: isAr ? 'تحليل AI' : 'AI Analysis',
-                        results: isAr ? 'النتائج' : 'Results',
-                      };
-                      const stepIndex = ['upload', 'analyze', 'results'].indexOf(analysisStep);
-                      const isActive = i === stepIndex;
-                      const isDone = i < stepIndex;
-                      return (
-                        <div key={s} className="flex-1 flex flex-col items-center gap-1">
-                          <div className={`w-full h-1.5 rounded-full transition-all duration-500 ${
-                            isDone ? 'bg-primary' : isActive ? 'bg-primary/60 animate-pulse' : 'bg-border/40'
-                          }`} />
-                          <span className={`text-[9px] font-medium transition-colors duration-300 ${
-                            isDone ? 'text-primary' : isActive ? 'text-foreground' : 'text-muted-foreground/50'
-                          }`}>{stepLabels[s]}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    <span className="text-sm text-foreground font-medium">
-                      {analysisStep === 'upload'
-                        ? (isAr ? 'جاري تحميل الصورة...' : 'Uploading image...')
-                        : analysisStep === 'analyze'
-                          ? (isAr ? 'الذكاء الاصطناعي يحلل الصورة...' : 'AI is analyzing the image...')
-                          : (isAr ? 'جاري معالجة النتائج...' : 'Processing results...')}
-                    </span>
-                    <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
-                  </div>
-                  <Progress value={progress} className="h-2" />
-                </div>
-              )}
-
-              {!isAnalyzing && analysisData && (
-                <>
-                  <div className={`flex items-center gap-2 p-3 rounded-lg border animate-smooth-fade-up ${
-                    isHighConfidence ? 'bg-green-500/10 border-green-500/30' :
-                    isLowConfidence ? 'bg-yellow-500/10 border-yellow-500/30' :
-                    'bg-red-500/10 border-red-500/30'
-                  }`}>
-                    {isHighConfidence ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" /> :
-                     isLowConfidence ? <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" /> :
-                     <XCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground">
-                        {isHighConfidence ? (isAr ? 'تم اكتشاف مقذوف ✅' : 'Projectile detected ✅') :
-                         isLowConfidence ? (isAr ? 'مقذوف محتمل ⚠️' : 'Possible projectile ⚠️') :
-                         (isAr ? 'لم يتم اكتشاف مقذوف ❌' : 'No projectile detected ❌')}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {isAr ? `نسبة الثقة: ${confidence}%` : `Confidence: ${confidence}%`}
-                        {analysisData.objectType && ` — ${analysisData.objectType}`}
-                        {isLowConfidence && (isAr ? ' — لم يتم تحميل القيم' : ' — values not loaded')}
-                      </p>
-                    </div>
-                  </div>
-
-                  {analysisData.detected && (
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { label: isAr ? 'الزاوية' : 'Angle', value: analysisData.angle, unit: '°' },
-                        { label: isAr ? 'السرعة' : 'Velocity', value: analysisData.velocity, unit: ' m/s' },
-                        { label: isAr ? 'الكتلة' : 'Mass', value: analysisData.mass, unit: ' kg' },
-                        { label: isAr ? 'الارتفاع' : 'Height', value: analysisData.height, unit: ' m' },
-                      ].map(item => (
-                        <div key={item.label} className="border border-border rounded-lg p-2.5 text-center bg-secondary/30">
-                          <p className="text-[10px] text-muted-foreground mb-0.5">{item.label}</p>
-                          <p className="text-sm font-semibold font-mono text-foreground">
-                            {item.value != null ? `${item.value}${item.unit}` : '—'}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {!isAnalyzing && analysisText && (
-                <div className="border border-border rounded-lg p-3 bg-secondary/20">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    {isAr ? 'التحليل' : 'Analysis'}
-                  </p>
-                  <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                    <ReactMarkdown>{analysisText}</ReactMarkdown>
-                  </div>
-                </div>
-              )}
-
-              {/* Weather data section in analysis results */}
-              {!isAnalyzing && analysisData && (
-                <div className="w-full">
-                  <LiveWeatherOverlay lang={lang} onWeatherData={setWeatherData} />
-                </div>
-              )}
-            </div>
-
-            {!isAnalyzing && (
-              <div className="p-3 border-t border-border flex gap-2">
-                {isLowConfidence && (
-                  <button
-                    onClick={() => {
-                      if (analysisData) {
-                        onUpdateParams({
-                          velocity: analysisData.velocity,
-                          angle: analysisData.angle,
-                          mass: analysisData.mass,
-                          height: analysisData.height,
-                        });
-                        toast.success(isAr ? '🤖 تم تحميل القيم بواسطة APAS AI' : '🤖 Values loaded by APAS AI');
-                      }
-                    }}
-                    className="flex-1 text-xs py-2 rounded-md border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 text-foreground"
-                  >
-                    {isAr ? 'تحميل القيم رغم ذلك' : 'Load values anyway'}
-                  </button>
-                )}
-                <button
-                  onClick={() => { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}
-                  className="flex-1 text-xs py-2 rounded-md bg-foreground text-background hover:bg-foreground/90 hover:shadow-md transition-all duration-200"
-                >
-                  {isAr ? 'إغلاق' : 'Close'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+      <button
+        onClick={() => setOpen(true)}
+        disabled={loading}
+        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 hover:from-violet-500/20 hover:to-purple-500/20 border border-violet-500/20 hover:border-violet-500/40 text-foreground font-medium text-sm transition-all duration-300 disabled:opacity-50"
+      >
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+        <span>{isAr ? 'APAS تحليل صورة' : 'APAS Vision'}</span>
+        <Sparkles className="w-3 h-3 text-violet-400" />
+      </button>
+      {modal}
     </>
   );
 }

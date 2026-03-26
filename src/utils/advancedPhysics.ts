@@ -6,6 +6,18 @@
  * Environmental Physics Coupling
  */
 
+import {
+  OMEGA_EARTH,
+  EARTH_RADIUS,
+  SPEED_OF_LIGHT,
+  ATMOSPHERIC_SCALE_HEIGHT,
+  MAGNUS_COEFFICIENT,
+  R_DRY_AIR,
+  R_WATER_VAPOR,
+  WATER_KINEMATIC_VISCOSITY,
+  AIR_KINEMATIC_VISCOSITY,
+} from '@/constants/physics';
+
 // ═══════════════════════════════════════════════════════════════
 // 1. ROTATIONAL AND NON-INERTIAL EFFECTS
 // ═══════════════════════════════════════════════════════════════
@@ -16,7 +28,6 @@ export const calculateCoriolisAcceleration = (
   vy: number,
   latitude: number
 ): { ax: number; ay: number } => {
-  const OMEGA_EARTH = 7.2921e-5;
   const latRad = (latitude * Math.PI) / 180;
   const f = 2 * OMEGA_EARTH * Math.sin(latRad);
   return { ax: f * vy, ay: -f * vx };
@@ -26,8 +37,6 @@ export const calculateCoriolisAcceleration = (
 export const calculateCentrifugalAcceleration = (
   latitude: number
 ): { ax: number; ay: number } => {
-  const OMEGA_EARTH = 7.2921e-5;
-  const EARTH_RADIUS = 6.371e6;
   const latRad = (latitude * Math.PI) / 180;
   const centrifugalMag = OMEGA_EARTH * OMEGA_EARTH * EARTH_RADIUS * Math.cos(latRad);
   return {
@@ -103,7 +112,7 @@ export const calculateHydrodynamicDrag = (
   const area = Math.PI * radius * radius;
 
   // Reynolds number for flow regime detection
-  const kinematicViscosity = fluidDensity > 500 ? 1.0e-6 : 1.5e-5; // water vs air
+  const kinematicViscosity = fluidDensity > 500 ? WATER_KINEMATIC_VISCOSITY : AIR_KINEMATIC_VISCOSITY;
   const Re = Math.max(1, (velocity * diameter) / kinematicViscosity);
 
   // Form drag (pressure drag) - dominant at higher Re
@@ -152,7 +161,6 @@ export const calculateMagnusAcceleration = (
   density: number
 ): number => {
   if (velocity < 0.1 || spinRate === 0) return 0;
-  const MAGNUS_COEFFICIENT = 0.25;
   const area = Math.PI * (diameter / 2) ** 2;
   const spinParameter = (spinRate * diameter) / velocity;
   const liftCoefficient = MAGNUS_COEFFICIENT * Math.min(1, spinParameter);
@@ -230,7 +238,6 @@ export const getStabilityDragModifier = (
 // 4. RELATIVISTIC MOTION (Special Relativity)
 // ═══════════════════════════════════════════════════════════════
 
-const SPEED_OF_LIGHT = 299792458;
 
 export const lorentzFactor = (velocity: number): number => {
   const beta2 = (velocity * velocity) / (SPEED_OF_LIGHT * SPEED_OF_LIGHT);
@@ -284,8 +291,8 @@ export const calculateAirDensityFromEnvironment = (
   pressure: number,
   humidity: number
 ): number => {
-  const R_dry = 287.058;
-  const R_vapor = 461.495;
+  const R_dry = R_DRY_AIR;
+  const R_vapor = R_WATER_VAPOR;
   const T_kelvin = temperature + 273.15;
   const e_sat = 611.21 * Math.exp((18.678 - temperature / 234.5) * (temperature / (257.14 + temperature)));
   const e_vapor = humidity * e_sat;
@@ -316,8 +323,7 @@ export const getAirDensityAtAltitude = (
   altitude: number,
   seaLevelDensity: number = 1.225
 ): number => {
-  const SCALE_HEIGHT = 8500;
-  return Math.max(0, seaLevelDensity * Math.exp(-altitude / SCALE_HEIGHT));
+  return Math.max(0, seaLevelDensity * Math.exp(-altitude / ATMOSPHERIC_SCALE_HEIGHT));
 };
 
 
@@ -336,7 +342,7 @@ export const calculateAdvancedDrag = (
   const area = Math.PI * (diameter / 2) ** 2;
   const dragForce = 0.5 * density * velocity * velocity * dragCoefficient * area;
   const dragAccel = dragForce / mass;
-  const kinematicViscosity = 1.81e-5;
+  const kinematicViscosity = AIR_KINEMATIC_VISCOSITY;
   const reynoldsNumber = (velocity * diameter) / kinematicViscosity;
   let correctionFactor = 1.0;
   if (reynoldsNumber < 1) {
@@ -412,56 +418,52 @@ export const getDefaultAdvancedParams = (): Partial<AdvancedPhysicsParams> => ({
   environmentHumidity: 0.5,
 });
 
-export const advancedPhysicsStep = (
-  x: number,
-  y: number,
-  vx: number,
-  vy: number,
-  dt: number,
+/**
+ * Compute the full acceleration (ax, ay) at a given state, including ALL
+ * advanced forces: gravity, drag, buoyancy, hydrodynamic drag, added mass,
+ * Magnus, gyroscopic, Coriolis, centrifugal, relative motion, and
+ * relativistic corrections.  Used by Velocity Verlet at both ends of the
+ * time step so the velocity update properly averages accelerations.
+ */
+const computeFullAcceleration = (
+  posY: number,
+  velX: number,
+  velY: number,
   params: AdvancedPhysicsParams
-): { x: number; y: number; vx: number; vy: number; ax: number; ay: number } => {
-  const vrx = vx - params.windSpeed;
-  const vry = vy;
+): { ax: number; ay: number } => {
+  const vrx = velX - params.windSpeed;
+  const vry = velY;
   const speedRel = Math.sqrt(vrx * vrx + vry * vry);
-  const speed = Math.sqrt(vx * vx + vy * vy);
 
   let ax = 0;
   let ay = -params.gravity;
 
   // Altitude-dependent air density
   let density = params.airDensity;
-  if (params.enableAltitudeDensity && y > 0) {
-    density = getAirDensityAtAltitude(y, params.airDensity);
+  if (params.enableAltitudeDensity && posY > 0) {
+    density = getAirDensityAtAltitude(posY, params.airDensity);
   }
 
-  // Environmental Physics Coupling — temperature and pressure are informational only;
-  // they do NOT modify the simulation density or drag coefficient.
   let effectiveCd = params.dragCoefficient;
 
-  // Underwater / hydrodynamic effects — realistic multi-directional resistance
   const isInFluid = params.isUnderwater;
   const effectiveDensity = isInFluid ? params.fluidDensity : density;
 
   if (isInFluid) {
-    // Buoyancy acts upward against gravity
     if (params.enableBuoyancy) {
       ay += calculateBuoyancyAcceleration(params.mass, params.diameter, params.fluidDensity);
     }
-    // Pressure increases with depth, modifying drag
     if (params.enableFluidPressure) {
-      const depth = Math.max(0, -y);
+      const depth = Math.max(0, -posY);
       effectiveCd = getPressureModifiedDragCoefficient(depth, effectiveCd);
     }
-    // Multi-directional hydrodynamic drag (form + skin friction)
     if (params.enableHydrodynamicDrag && speedRel > 0.001) {
       const hydroDrag = calculateHydrodynamicDrag(
         speedRel, params.mass, params.diameter, params.fluidDensity, effectiveCd
       );
-      // Apply drag opposing velocity in ALL directions
       ax -= (hydroDrag * vrx) / speedRel;
       ay -= (hydroDrag * vry) / speedRel;
 
-      // Added mass effect — fluid inertia resists acceleration in all directions
       const addedMassEffect = calculateAddedMassAcceleration(
         ax, ay, params.mass, params.diameter, params.fluidDensity
       );
@@ -470,7 +472,6 @@ export const advancedPhysicsStep = (
     }
   }
 
-  // Standard drag (air) — also multi-directional
   if (!isInFluid && speedRel > 0.01) {
     let dragAccel = calculateAdvancedDrag(
       speedRel, params.mass, params.diameter, effectiveDensity, effectiveCd
@@ -481,53 +482,45 @@ export const advancedPhysicsStep = (
       );
       dragAccel = getStabilityDragModifier(stability, dragAccel);
     }
-    // Apply drag opposing velocity in ALL directions
     ax -= (dragAccel * vrx) / speedRel;
     ay -= (dragAccel * vry) / speedRel;
   }
 
-  // Magnus effect (proper force application without arbitrary 0.1 scaling)
   if (params.enableMagnus && params.spinRate !== 0) {
     const magnusAccel = calculateMagnusAcceleration(
       speedRel, params.spinRate, params.diameter, effectiveDensity
     );
     if (speedRel > 0.01) {
-      // Perpendicular to velocity: lift direction depends on spin direction
       const perpX = -vry / speedRel;
       const perpY = vrx / speedRel;
-      // Apply full Magnus acceleration (no arbitrary scaling)
       ax += (magnusAccel * perpX) / params.mass;
       ay += (magnusAccel * perpY) / params.mass;
     }
   }
 
-  // Gyroscopic effects
   if (params.enableGyroscopic && params.spinRate !== 0) {
     const gyroPrec = calculateGyroscopicPrecession(
-      params.spinRate, params.mass, params.diameter, vx, vy, params.gravity
+      params.spinRate, params.mass, params.diameter, velX, velY, params.gravity
     );
     ax += gyroPrec.ax;
     ay += gyroPrec.ay;
   }
 
-  // Coriolis effect
   if (params.enableCoriolis) {
-    const coriolis = calculateCoriolisAcceleration(vx, vy, params.latitude);
+    const coriolis = calculateCoriolisAcceleration(velX, velY, params.latitude);
     ax += coriolis.ax;
     ay += coriolis.ay;
   }
 
-  // Centrifugal force
   if (params.enableCentrifugal) {
     const centrifugal = calculateCentrifugalAcceleration(params.latitude);
     ax += centrifugal.ax;
     ay += centrifugal.ay;
   }
 
-  // Relative motion effects
   if (params.enableRelativeMotion) {
     const relMotion = calculateRelativeMotionEffects(
-      vx, vy,
+      velX, velY,
       params.frameVx, params.frameVy,
       params.frameAx, params.frameAy,
       params.frameOmega
@@ -536,20 +529,42 @@ export const advancedPhysicsStep = (
     ay += relMotion.ay;
   }
 
-  // Relativistic corrections
   if (params.enableRelativistic) {
-    const relCorr = applyRelativisticCorrections(ax, ay, vx, vy);
+    const relCorr = applyRelativisticCorrections(ax, ay, velX, velY);
     ax = relCorr.ax;
     ay = relCorr.ay;
   }
 
-  // Velocity Verlet integration (more accurate than Euler, simpler than RK4)
+  return { ax, ay };
+};
+
+export const advancedPhysicsStep = (
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  dt: number,
+  params: AdvancedPhysicsParams
+): { x: number; y: number; vx: number; vy: number; ax: number; ay: number } => {
+  // Step 1: Compute full acceleration at current state
+  const { ax, ay } = computeFullAcceleration(y, vx, vy, params);
+
+  // Full Velocity Verlet integration:
   // x(t+dt) = x(t) + v(t)*dt + 0.5*a(t)*dt^2
-  // v(t+dt) = v(t) + a(t)*dt
+  // v(t+dt) = v(t) + 0.5*(a(t) + a(t+dt))*dt
   const newX = x + vx * dt + 0.5 * ax * dt * dt;
   const newY = y + vy * dt + 0.5 * ay * dt * dt;
-  const newVx = vx + ax * dt;
-  const newVy = vy + ay * dt;
+
+  // Step 2: Estimate velocity at end of step (Euler) for a(t+dt)
+  const halfVx = vx + ax * dt;
+  const halfVy = vy + ay * dt;
+
+  // Step 3: Recompute full acceleration at new position with estimated velocity
+  const { ax: ax2, ay: ay2 } = computeFullAcceleration(newY, halfVx, halfVy, params);
+
+  // Step 4: Final velocity using average of old and new accelerations
+  const newVx = vx + 0.5 * (ax + ax2) * dt;
+  const newVy = vy + 0.5 * (ay + ay2) * dt;
 
   return { x: newX, y: newY, vx: newVx, vy: newVy, ax, ay };
 };

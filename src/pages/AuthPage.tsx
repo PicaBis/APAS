@@ -1,11 +1,12 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen } from 'lucide-react';
+import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen, Maximize, Shield } from 'lucide-react';
 import ApasLogo from '@/components/apas/ApasLogo';
 import PageTransition from '@/components/apas/PageTransition';
 import AboutModal from '@/components/apas/AboutModal';
 import BugReportButton from '@/components/apas/BugReportButton';
+import SlideToVerify from '@/components/auth/SlideToVerify';
 import { playClick, playNav, playPageTransition, playLangSwitch } from '@/utils/sound';
 
 type AuthLang = 'en' | 'ar' | 'fr';
@@ -127,16 +128,42 @@ export default function AuthPage() {
   const [lang, setLang] = useState<AuthLang>('en');
   const [showAbout, setShowAbout] = useState(false);
   const [navigating, setNavigating] = useState(false);
+  const [humanVerified, setHumanVerified] = useState(false);
 
   const T = AUTH_TRANSLATIONS[lang];
   const isRTL = lang === 'ar';
   const isFr = lang === 'fr';
+  const [fullscreenNotice, setFullscreenNotice] = useState(false);
+
+  // Request fullscreen (requires user gesture context)
+  const requestFullscreen = useCallback(() => {
+    const el = document.documentElement;
+    if (document.fullscreenElement) return; // already fullscreen
+    const req = el.requestFullscreen || (el as unknown as Record<string, () => Promise<void>>).webkitRequestFullscreen || (el as unknown as Record<string, () => Promise<void>>).msRequestFullscreen;
+    if (req) {
+      req.call(el).then(() => {
+        setFullscreenNotice(true);
+        setTimeout(() => setFullscreenNotice(false), 3000);
+      }).catch(() => { /* browser blocked it */ });
+    }
+  }, []);
+
+  // Try fullscreen on first user click anywhere on the page
+  useEffect(() => {
+    const handler = () => {
+      requestFullscreen();
+      document.removeEventListener('click', handler);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [requestFullscreen]);
 
   const navigateWithSound = useCallback((path: string) => {
+    requestFullscreen();
     playPageTransition(false);
     setNavigating(true);
     setTimeout(() => navigate(path, { replace: true }), 400);
-  }, [navigate]);
+  }, [navigate, requestFullscreen]);
 
   // If already authenticated, redirect
   React.useEffect(() => {
@@ -183,7 +210,14 @@ export default function AuthPage() {
     setLoading(false);
   };
 
+  const [guestVerifyWarning, setGuestVerifyWarning] = useState(false);
+
   const handleGuestAccess = () => {
+    if (!humanVerified) {
+      setGuestVerifyWarning(true);
+      setTimeout(() => setGuestVerifyWarning(false), 4000);
+      return;
+    }
     playNav(false);
     enterGuestMode();
     navigateWithSound('/home');
@@ -191,33 +225,35 @@ export default function AuthPage() {
 
   return (
     <PageTransition>
-      <div className={`min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden transition-all duration-500 ${navigating ? 'opacity-0 scale-95 blur-sm' : 'opacity-100 scale-100'}`} dir={isRTL ? 'rtl' : 'ltr'}>
-        {/* About Button - top left */}
-        <button
-          onClick={() => { playClick(false); setShowAbout(true); }}
-          className="fixed top-4 left-4 z-20 flex items-center gap-1.5 bg-card/80 backdrop-blur-md border border-border rounded-lg px-3 py-1.5 shadow-sm text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200"
-        >
-          <BookOpen className="w-3.5 h-3.5" />
-          {lang === 'ar' ? 'حول' : isFr ? 'À Propos' : 'About'}
-        </button>
+      <div className={`min-h-screen bg-background flex flex-col items-center justify-center p-3 sm:p-4 relative overflow-hidden transition-all duration-500 ${navigating ? 'opacity-0 scale-95 blur-sm' : 'opacity-100 scale-100'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+        {/* Top bar: About + Language - responsive */}
+        <div className="fixed top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-20 flex items-center justify-between">
+          <button
+            onClick={() => { playClick(false); setShowAbout(true); }}
+            className="flex items-center gap-1 bg-card/80 backdrop-blur-md border border-border rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm text-[10px] sm:text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200"
+          >
+            <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden xs:inline">{lang === 'ar' ? 'حول' : isFr ? 'À Propos' : 'About'}</span>
+          </button>
 
-        {/* Language Selector - top right */}
-        <div className="fixed top-4 right-4 z-20 flex items-center gap-1 bg-card/80 backdrop-blur-md border border-border rounded-lg p-1 shadow-sm">
-          <Globe className="w-3.5 h-3.5 text-muted-foreground ml-1.5" />
-          {LANG_OPTIONS.map((opt) => (
-            <button
-              key={opt.code}
-              onClick={() => { playLangSwitch(false); setLang(opt.code); }}
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
-                lang === opt.code
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-              }`}
-              title={opt.label}
-            >
-              <span>{opt.label}</span>
-            </button>
-          ))}
+          {/* Language Selector - compact on mobile */}
+          <div className="flex items-center gap-0.5 bg-card/80 backdrop-blur-md border border-border rounded-lg p-0.5 sm:p-1 shadow-sm">
+            <Globe className="w-3 h-3 text-muted-foreground ml-1" />
+            {LANG_OPTIONS.map((opt) => (
+              <button
+                key={opt.code}
+                onClick={() => { playLangSwitch(false); setLang(opt.code); }}
+                className={`flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all duration-200 ${
+                  lang === opt.code
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`}
+                title={opt.label}
+              >
+                <span>{opt.code === 'ar' ? 'عر' : opt.code.toUpperCase()}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Background decorations */}
@@ -225,52 +261,85 @@ export default function AuthPage() {
           <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse" />
           <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
           <div className="absolute -bottom-20 right-1/4 w-72 h-72 rounded-full bg-accent/5 blur-3xl animate-pulse" style={{ animationDelay: '4s' }} />
+          {/* Floating physics formulas */}
+          {useMemo(() => {
+            const formulas = [
+              'F = ma', 'E = mc²', 'v = v₀ + at', 'x = ½at²',
+              'p = mv', 'KE = ½mv²', 'ΔE = W', 'τ = r × F',
+              'ω = Δθ/Δt', 'a = v²/r', 'F = -kx', 'T = 2π√(l/g)',
+            ];
+            return formulas.map((f, i) => (
+              <span
+                key={i}
+                className="floating-formula absolute text-xs sm:text-sm font-mono text-foreground/[0.06] select-none"
+                style={{
+                  left: `${8 + (i % 4) * 24}%`,
+                  top: `${5 + Math.floor(i / 4) * 30 + (i % 3) * 8}%`,
+                  '--float-duration': `${7 + (i % 5) * 2}s`,
+                  '--float-delay': `${i * 0.6}s`,
+                } as React.CSSProperties}
+              >
+                {f}
+              </span>
+            ));
+          }, [])}
+          {/* Orbit decoration rings */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px]">
+            <div className="absolute inset-0 rounded-full border border-primary/[0.04] orbit-ring" />
+            <div className="absolute inset-8 rounded-full border border-primary/[0.03] orbit-ring-reverse" />
+          </div>
         </div>
 
-        <div className="w-full max-w-md z-10">
-          {/* Logo & Title */}
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <ApasLogo size={48} />
-              <h1 className="text-4xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent">
+        <div className="w-full max-w-md z-10 px-1 sm:px-0">
+          {/* Logo & Title - compact on mobile */}
+          <div className="text-center mb-5 sm:mb-8" style={{ animation: 'heroFadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both' }}>
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <div className="relative">
+                <div className="absolute -inset-2 sm:-inset-3 rounded-full bg-primary/10 blur-xl animate-pulse" />
+                <ApasLogo size={36} animated />
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent animate-gradient-text">
                 APAS
               </h1>
             </div>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-xs sm:text-sm">
               {T.subtitle}
             </p>
           </div>
 
-          {/* Auth Card */}
-          <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 backdrop-blur-xl">
-            {/* Mode Tabs */}
-            <div className="flex gap-1 mb-6 bg-secondary/50 rounded-lg p-1">
+          {/* Auth Card - responsive padding */}
+          <div className="animate-auth-card bg-card/80 border border-border/60 rounded-2xl shadow-2xl p-4 sm:p-6 backdrop-blur-xl relative overflow-hidden">
+            {/* Card top gradient accent */}
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+            {/* Mode Tabs - compact on mobile */}
+            <div className="flex gap-0.5 sm:gap-1 mb-4 sm:mb-6 bg-secondary/50 rounded-lg p-0.5 sm:p-1">
               <button
-                onClick={() => { playClick(false); setMode('login'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
-                  mode === 'login' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                onClick={() => { playClick(false); setMode('login'); setError(''); setSuccess(''); setHumanVerified(false); }}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
+                  mode === 'login' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 {T.logIn}
               </button>
               <button
-                onClick={() => { playClick(false); setMode('signup'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
-                  mode === 'signup' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                onClick={() => { playClick(false); setMode('signup'); setError(''); setSuccess(''); setHumanVerified(false); }}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
+                  mode === 'signup' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 {T.signUp}
               </button>
               <button
-                onClick={() => { playClick(false); setMode('otp'); setError(''); setSuccess(''); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
-                  mode === 'otp' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                onClick={() => { playClick(false); setMode('otp'); setError(''); setSuccess(''); setHumanVerified(false); }}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
+                  mode === 'otp' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
               >
-                <Sparkles className="w-4 h-4" />
-                {T.magicLink}
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">{T.magicLink}</span>
+                <span className="xs:hidden">{lang === 'ar' ? 'رابط' : 'OTP'}</span>
               </button>
             </div>
 
@@ -284,12 +353,12 @@ export default function AuthPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" key={mode}>
               {/* Email */}
-              <div>
+              <div style={{ animation: 'heroFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both' }}>
                 <label htmlFor="auth-email" className="block text-xs font-medium text-muted-foreground mb-1.5">{T.email}</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <input
                     id="auth-email"
                     name="email"
@@ -299,17 +368,17 @@ export default function AuthPage() {
                     placeholder={T.emailPlaceholder}
                     required
                     autoComplete="email"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                   />
                 </div>
               </div>
 
               {/* Password (only for login/signup) */}
               {mode !== 'otp' && (
-                <div>
+                <div style={{ animation: 'heroFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both' }}>
                   <label htmlFor="auth-password" className="block text-xs font-medium text-muted-foreground mb-1.5">{T.password}</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className="relative group">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <input
                       id="auth-password"
                       name="password"
@@ -345,11 +414,15 @@ export default function AuthPage() {
                 </div>
               )}
 
+              {/* Human Verification */}
+              <SlideToVerify lang={lang} onVerified={() => setHumanVerified(true)} />
+
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading || !humanVerified}
+                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ animation: 'heroFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both' }}
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -371,10 +444,24 @@ export default function AuthPage() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
+            {/* Guest Verify Warning */}
+            {guestVerifyWarning && (
+              <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs p-3 rounded-lg flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+                <Shield className="w-4 h-4 shrink-0" />
+                <span>
+                  {lang === 'ar' ? 'يجب سحب شريط التحقق أولاً للدخول كزائر' : isFr ? 'Vous devez d\'abord glisser pour vérifier avant de continuer en tant qu\'invité' : 'You must slide to verify before continuing as a guest'}
+                </span>
+              </div>
+            )}
+
             {/* Guest Access */}
             <button
               onClick={handleGuestAccess}
-              className="w-full py-2.5 rounded-lg border border-border bg-secondary/50 text-foreground font-medium text-sm hover:bg-secondary transition-all duration-200 flex items-center justify-center gap-2"
+              className={`w-full py-2.5 rounded-lg border font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                humanVerified
+                  ? 'border-border bg-secondary/50 text-foreground hover:bg-secondary hover:border-primary/20 hover:-translate-y-0.5 active:translate-y-0'
+                  : 'border-border/50 bg-secondary/30 text-muted-foreground cursor-not-allowed opacity-60'
+              }`}
             >
               {T.continueAsGuest}
               <ArrowRight className="w-4 h-4" />
@@ -386,10 +473,22 @@ export default function AuthPage() {
           </div>
 
           {/* Footer */}
-          <p className="text-center text-xs text-muted-foreground mt-6">
+          <p className="text-center text-xs text-muted-foreground mt-6" style={{ animation: 'heroFadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both' }}>
             {T.footer}
           </p>
         </div>
+
+        {/* Fullscreen notification */}
+        {fullscreenNotice && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-slideDown">
+            <div className="bg-primary/95 text-primary-foreground px-6 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-3 text-sm font-medium border border-primary-foreground/20">
+              <Maximize className="w-5 h-5" />
+              <span>
+                {lang === 'ar' ? 'تم تفعيل وضع ملء الشاشة لأفضل تجربة' : isFr ? 'Mode plein écran activé pour une meilleure expérience' : 'Fullscreen mode activated for the best experience'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* About Modal */}
         <AboutModal open={showAbout} onClose={() => setShowAbout(false)} lang={lang} limitTabs />

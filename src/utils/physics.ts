@@ -1,6 +1,14 @@
 // ═══ Math Helpers & ML Models for Projectile Simulation ═══
 
 import { advancedPhysicsStep, type AdvancedPhysicsParams } from './advancedPhysics';
+import {
+  DEFAULT_TIME_STEP,
+  MAX_SIMULATION_TIME,
+  SEA_LEVEL_AIR_DENSITY,
+  AIR_KINEMATIC_VISCOSITY,
+  FLOAT_EPSILON,
+  MIN_BOUNCE_VELOCITY,
+} from '@/constants/physics';
 
 export interface TrajectoryPoint {
   x: number; y: number; time: number;
@@ -36,7 +44,7 @@ const solve3x3 = (A: number[][], b: number[]): number[] => {
     for (let r = col + 1; r < 3; r++) if (Math.abs(m[r][col]) > Math.abs(m[maxR][col])) maxR = r;
     [m[col], m[maxR]] = [m[maxR], m[col]];
     for (let r = col + 1; r < 3; r++) {
-      if (Math.abs(m[col][col]) < 1e-12) continue;
+      if (Math.abs(m[col][col]) < FLOAT_EPSILON) continue;
       const f = m[r][col] / m[col][col];
       for (let k = col; k <= 3; k++) m[r][k] -= f * m[col][k];
     }
@@ -45,12 +53,14 @@ const solve3x3 = (A: number[][], b: number[]): number[] => {
   for (let i = 2; i >= 0; i--) {
     x[i] = m[i][3];
     for (let j = i + 1; j < 3; j++) x[i] -= m[i][j] * x[j];
-    if (Math.abs(m[i][i]) > 1e-12) x[i] /= m[i][i];
+    if (Math.abs(m[i][i]) > FLOAT_EPSILON) x[i] /= m[i][i];
   }
   return x;
 };
 
-// ── Neural Network (4 layers) ──
+// ── Nonlinear Basis Function Regression (fixed-weight multi-layer transform) ──
+// Note: Uses predetermined weight matrices — not a trained neural network.
+// This is a nonlinear basis function expansion, not machine learning.
 export const fitNeuralNetwork = (data: Array<{ x: number; y: number }>) => {
   if (data.length < 5) return data.map(p => ({ ...p, yPred: p.y }));
   const xs = data.map(p => p.x), ys = data.map(p => p.y);
@@ -74,7 +84,9 @@ export const fitNeuralNetwork = (data: Array<{ x: number; y: number }>) => {
   });
 };
 
-// ── SVR (RBF Kernel approximation) ──
+// ── RBF Interpolation (Radial Basis Function weighted averaging) ──
+// Note: Uses RBF kernel similarity weighting, not true Support Vector Regression.
+// No margin optimization or SMO algorithm — this is kernel-weighted interpolation.
 export const fitSVR = (data: Array<{ x: number; y: number }>) => {
   if (data.length < 5) return data.map(p => ({ ...p, yPred: p.y }));
   const xs = data.map(p => p.x), ys = data.map(p => p.y);
@@ -165,6 +177,45 @@ export const calcMetrics = (pts: Array<{ y: number; yPred: number }>): MetricsRe
   return { r2: +Math.min(1, Math.max(0, r2Raw)).toFixed(4), mae: +mae.toFixed(4), rmse: +rmse.toFixed(4), mse: +mse.toFixed(4) };
 };
 
+/** Configuration object for trajectory calculation — reduces 15 positional args to a single object. */
+export interface TrajectoryConfig {
+  velocity: number;
+  angle: number;
+  height: number;
+  gravity: number;
+  airResistance: number;
+  mass: number;
+  enableBounce?: boolean;
+  bounceCOR?: number;
+  maxBounces?: number;
+  windSpeed?: number;
+  integrationMethod?: 'euler' | 'rk4' | 'ai-apas';
+  initialX?: number;
+  spinRate?: number;
+  projectileRadius?: number;
+  advancedParams?: AdvancedPhysicsParams | null;
+}
+
+/** Convenience wrapper that accepts a single config object instead of 15 positional args. */
+export const calculateTrajectoryFromConfig = (config: TrajectoryConfig) =>
+  calculateTrajectory(
+    config.velocity,
+    config.angle,
+    config.height,
+    config.gravity,
+    config.airResistance,
+    config.mass,
+    config.enableBounce,
+    config.bounceCOR,
+    config.maxBounces,
+    config.windSpeed,
+    config.integrationMethod,
+    config.initialX,
+    config.spinRate,
+    config.projectileRadius,
+    config.advancedParams,
+  );
+
 // Check if any advanced physics effect is active
 const hasActiveAdvancedPhysics = (params: AdvancedPhysicsParams): boolean => {
   return params.enableCoriolis || params.enableMagnus || params.enableAltitudeDensity ||
@@ -185,10 +236,21 @@ export const calculateTrajectory = (
   projectileRadius = 0.05, // m — radius for Magnus force calculation
   advancedParams?: AdvancedPhysicsParams | null // Optional advanced physics params
 ) => {
+  // Input validation: clamp to physically reasonable ranges
+  velocity = Math.max(0, isFinite(velocity) ? velocity : 0);
+  angle = isFinite(angle) ? angle : 45;
+  height = isFinite(height) ? Math.max(0, height) : 0;
+  gravity = isFinite(gravity) ? Math.max(0, gravity) : 9.81;
+  airResistance = isFinite(airResistance) ? Math.max(0, airResistance) : 0;
+  mass = isFinite(mass) ? Math.max(0.001, mass) : 1;
+  bounceCOR = isFinite(bounceCOR) ? Math.max(0, Math.min(1, bounceCOR)) : 0.6;
+  maxBounces = isFinite(maxBounces) ? Math.max(0, Math.min(100, maxBounces)) : 5;
+  windSpeed = isFinite(windSpeed) ? windSpeed : 0;
+  projectileRadius = isFinite(projectileRadius) ? Math.max(0.001, projectileRadius) : 0.05;
   const angleRad = (angle * Math.PI) / 180;
   const vx0 = velocity * Math.cos(angleRad);
   const vy0 = velocity * Math.sin(angleRad);
-  const dt = 0.02;
+  const dt = DEFAULT_TIME_STEP;
   const points: TrajectoryPoint[] = [];
   let t = 0, x = initialX, y = height, vx = vx0, vy = vy0;
   let bounces = 0;
@@ -198,7 +260,7 @@ export const calculateTrajectory = (
   // S = 0.5 * Cl * rho * A, simplified as proportional to spin * speed * radius
   // In 2D: spin axis is perpendicular to plane (z-axis), so:
   //   F_magnus_x = -S * omega * vy, F_magnus_y = S * omega * vx
-  const magnusCoeff = spinRate !== 0 ? 0.5 * 1.225 * Math.PI * projectileRadius * projectileRadius * projectileRadius * Math.abs(spinRate) / mass : 0;
+  const magnusCoeff = spinRate !== 0 ? 0.5 * SEA_LEVEL_AIR_DENSITY * Math.PI * projectileRadius * projectileRadius * projectileRadius * Math.abs(spinRate) / mass : 0;
   const magnusSign = spinRate >= 0 ? 1 : -1;
 
   // Integration methods
@@ -215,10 +277,12 @@ export const calculateTrajectory = (
       ay += magnusSign * magnusCoeff * vrx;
     }
     
+    // Symplectic (semi-implicit) Euler: update velocity first, then use new velocity for position
+    // This preserves energy much better than Forward Euler with trivial implementation cost
     const newVx = vx + ax * dt;
     const newVy = vy + ay * dt;
-    const newX = x + vx * dt;
-    const newY = y + vy * dt;
+    const newX = x + newVx * dt;
+    const newY = y + newVy * dt;
     
     return { x: newX, y: newY, vx: newVx, vy: newVy, ax, ay };
   };
@@ -287,7 +351,7 @@ export const calculateTrajectory = (
     let effectiveDrag = airResistance;
     if (airResistance > 0 && speedRel > 0.01) {
       // Estimate Reynolds number (assuming sphere with projectileRadius)
-      const kinematicViscosity = 1.5e-5; // air at ~20C
+      const kinematicViscosity = AIR_KINEMATIC_VISCOSITY;
       const Re = Math.max(1, (speedRel * projectileRadius * 2) / kinematicViscosity);
       // Schiller-Naumann correction for sphere drag
       let CdCorrection = 1.0;
@@ -310,11 +374,40 @@ export const calculateTrajectory = (
       ay += magnusSign * magnusCoeff * vrx;
     }
     
-    // Velocity Verlet integration (2nd order accurate for position)
+    // Full Velocity Verlet integration (2nd order accurate for both position and velocity)
+    // Step 1: Update position using current velocity and acceleration
     const newX = x + vx * dt + 0.5 * ax * dt * dt;
     const newY = y + vy * dt + 0.5 * ay * dt * dt;
-    const newVx = vx + ax * dt;
-    const newVy = vy + ay * dt;
+    
+    // Step 2: Compute acceleration at the NEW position
+    const newVrx = (vx + ax * dt) - windSpeed;
+    const newVry = (vy + ay * dt);
+    const newSpeedRel = Math.sqrt(newVrx * newVrx + newVry * newVry);
+    let newEffectiveDrag = airResistance;
+    if (airResistance > 0 && newSpeedRel > 0.01) {
+      const kinematicViscosity2 = AIR_KINEMATIC_VISCOSITY;
+      const Re2 = Math.max(1, (newSpeedRel * projectileRadius * 2) / kinematicViscosity2);
+      let CdCorrection2 = 1.0;
+      if (Re2 < 1000) {
+        CdCorrection2 = (24 / Re2) * (1 + 0.15 * Math.pow(Re2, 0.687)) / 0.47;
+      } else if (Re2 < 200000) {
+        CdCorrection2 = 1.0;
+      } else {
+        CdCorrection2 = 0.2 / 0.47;
+      }
+      newEffectiveDrag = airResistance * Math.max(0.1, Math.min(3.0, CdCorrection2));
+    }
+    const newDrag = newEffectiveDrag * newSpeedRel * newSpeedRel / mass;
+    let ax_new = newSpeedRel > 0 ? -newDrag * newVrx / newSpeedRel : 0;
+    let ay_new = -gravity - (newSpeedRel > 0 ? newDrag * newVry / newSpeedRel : 0);
+    if (magnusCoeff > 0) {
+      ax_new += -magnusSign * magnusCoeff * newVry;
+      ay_new += magnusSign * magnusCoeff * newVrx;
+    }
+    
+    // Step 3: Average old and new accelerations for velocity update
+    const newVx = vx + 0.5 * (ax + ax_new) * dt;
+    const newVy = vy + 0.5 * (ay + ay_new) * dt;
     
     return { x: newX, y: newY, vx: newVx, vy: newVy, ax, ay };
   };
@@ -336,13 +429,19 @@ export const calculateTrajectory = (
   };
 
   let ax = 0, ay = 0;
+  // Store raw (unrounded) values from the previous step for accurate interpolation
+  let prevRawX = x, prevRawY = y, prevRawVx = vx, prevRawVy = vy, prevRawT = t;
 
   // For zero gravity with no air resistance, use a reasonable max time/distance
-  const maxTime = gravity === 0 ? Math.min(100, 2000 / Math.max(velocity, 1)) : 100;
+  const maxTime = gravity === 0 ? Math.min(MAX_SIMULATION_TIME, 2000 / Math.max(velocity, 1)) : MAX_SIMULATION_TIME;
   // Track if projectile was ever above ground (to detect ground crossing)
   let wasAboveGround = y >= 0;
+  // Safeguard: cap total iterations to prevent infinite loops (Issue 2.5)
+  const MAX_ITERATIONS = 500_000;
+  let iterations = 0;
 
-  while (t < maxTime) {
+  while (t < maxTime && iterations < MAX_ITERATIONS) {
+    iterations++;
     // Use advanced physics step if params are provided and any effect is enabled
     let result;
     if (advancedParams && hasActiveAdvancedPhysics(advancedParams)) {
@@ -363,6 +462,9 @@ export const calculateTrajectory = (
       }
     }
     
+    // Save raw values before updating for accurate ground-crossing interpolation
+    prevRawX = x; prevRawY = y; prevRawVx = vx; prevRawVy = vy; prevRawT = t;
+
     x = result.x;
     y = result.y;
     vx = result.vx;
@@ -376,21 +478,45 @@ export const calculateTrajectory = (
     // Ground hit detection: only trigger if the projectile crosses y=0 from above
     // or started at y>=0 and comes back down
     if (y <= 0 && wasAboveGround && height >= 0) {
-      if (enableBounce && bounces < maxBounces && Math.abs(vy) > 0.3) {
-        y = 0;
+      // Interpolate to find exact ground crossing point using raw (unrounded) previous
+      // values to avoid systematic precision errors from r3() rounding in addPoint().
+      const undergroundIdx = points.length - 1;
+      if (prevRawY > 0 && y < 0) {
+        const frac = prevRawY / (prevRawY - y);
+        x = prevRawX + (x - prevRawX) * frac;
+        vx = prevRawVx + (vx - prevRawVx) * frac;
+        vy = prevRawVy + (vy - prevRawVy) * frac;
+        t = prevRawT + (t - prevRawT) * frac;
+      }
+      y = 0;
+
+      // Replace the underground point with the interpolated ground-contact point
+      // so the trajectory array maintains monotonic time ordering.
+      // (Previously a second addPoint() created a time inversion: points[N].time > points[N+1].time)
+      points[undergroundIdx] = {
+        x: r3(x), y: r3(y), time: r3(t),
+        vx: r3(vx), vy: r3(vy),
+        speed: r3(Math.sqrt(vx * vx + vy * vy)),
+        ax: r3(ax), ay: r3(ay),
+        acceleration: r3(Math.sqrt(ax * ax + ay * ay)),
+        kineticEnergy: r3(0.5 * mass * (vx * vx + vy * vy)),
+        potentialEnergy: r3(mass * Math.max(0, gravity) * Math.max(0, y)),
+      };
+
+      if (enableBounce && bounces < maxBounces && Math.abs(vy) > MIN_BOUNCE_VELOCITY) {
         vy = -vy * bounceCOR; // reverse and dampen
         vx = vx * (0.9 + bounceCOR * 0.1); // friction
         bounces++;
         bounceEvents.push(points.length);
       } else {
-        y = 0;
-        addPoint();
         break;
       }
     }
 
     // For downward launches from ground level, stop when projectile goes too far below
-    if (height === 0 && vy0 < 0 && y < -500) {
+    // Use 10x initial height (min 100m) as lower bound instead of magic -500
+    const lowerBound = -Math.max(100, height * 10);
+    if (height === 0 && vy0 < 0 && y < lowerBound) {
       break;
     }
 
@@ -416,7 +542,8 @@ export const calculateTrajectory = (
       const yt = height + vy0 * tt - 0.5 * gravity * tt * tt;
       // For angles pointing downward (vy0 < 0), allow negative Y until a limit
       if (vy0 >= 0 && yt < 0) break;
-      if (vy0 < 0 && yt < -500) break;
+      const theoLowerBound = -Math.max(100, height * 10);
+      if (vy0 < 0 && yt < theoLowerBound) break;
       theoPoints.push({ x: r3(xt), y: r3(yt), time: r3(tt) });
       iter++;
     }
@@ -494,8 +621,8 @@ export const buildAIModels = (
     classical: { pts: classicalPts, metrics: calcMetrics(classicalPts), name: T.classicalModelName, color: '#22c55e', dash: [12, 5] },
     lr: { pts: lrPts, metrics: calcMetrics(lrPts), name: T.lrModelName, color: '#22d3ee', dash: [8, 4] },
     dt: { pts: dtPts, metrics: calcMetrics(dtPts), name: T.dtModelName, color: '#f472b6', dash: [4, 4] },
-    nn: { pts: nnPts, metrics: calcMetrics(nnPts), name: T.nnModelName || 'Neural Network', color: '#a855f7', dash: [10, 3] },
-    svr: { pts: svrPts, metrics: calcMetrics(svrPts), name: T.svrModelName || 'SVR (RBF)', color: '#f59e0b', dash: [6, 6] },
+    nn: { pts: nnPts, metrics: calcMetrics(nnPts), name: T.nnModelName || 'Nonlinear Basis Function', color: '#a855f7', dash: [10, 3] },
+    svr: { pts: svrPts, metrics: calcMetrics(svrPts), name: T.svrModelName || 'RBF Interpolation', color: '#f59e0b', dash: [6, 6] },
     rf: { pts: rfPts, metrics: calcMetrics(rfPts), name: T.rfModelName || 'Random Forest', color: '#ef4444', dash: [3, 3, 10, 3] },
   };
 };

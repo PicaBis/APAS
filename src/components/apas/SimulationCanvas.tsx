@@ -245,6 +245,12 @@ interface SimulationCanvasProps {
   isUnderwater?: boolean;
   fluidDensity?: number;
   calibrationScale?: number | null;
+  relativityTrajectory?: TrajectoryPoint[] | null;
+  relativityEnabled?: boolean;
+  relativityMode?: 'galilean' | 'lorentz';
+  relativityActiveObserver?: 'S' | 'S_prime';
+  relativityShowDual?: boolean;
+  relativityFrameVelocity?: number;
 }
 
 const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
@@ -263,6 +269,12 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   isUnderwater = false,
   fluidDensity = 1.225,
   calibrationScale = null,
+  relativityTrajectory = null,
+  relativityEnabled = false,
+  relativityMode = 'galilean',
+  relativityActiveObserver = 'S',
+  relativityShowDual = false,
+  relativityFrameVelocity = 0,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -301,17 +313,17 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   }, [zoom]);
 
   // Theme colors — memoized to avoid re-creating on every render
-  const colors = useMemo(() => nightMode ? {
-    bg: '#1a1f2e', grid: '#2a3040', gridMinor: '#222838', axis: '#8090a8', axisLabel: '#8090a8',
-    ground: '#8090a8', trajectory: '#e2e8f0', projectile: '#e2e8f0',
-    projectileStroke: '#1a1f2e', dot: '#94a3b8', dotLabel: '#cbd5e1',
-    infoBox: 'rgba(26,31,46,0.95)', infoBorder: '#2a3040', infoHeader: '#222838',
-    infoText: '#cbd5e1', infoTextDim: '#8090a8', theoLine: '#4a5568',
-    compLine: '#6b7280', countdownBg: 'rgba(26,31,46,0.88)', countdownText: '#e2e8f0',
-    legendBg: 'rgba(26,31,46,0.95)', legendBorder: '#2a3040', legendText: '#cbd5e1',
-    velocity: '#8090a8', velocityArrow: '#8090a8',
-    originDot: '#8090a8',
-  } : {
+    const colors = useMemo(() => nightMode ? {
+      bg: '#151535', grid: '#1e2144', gridMinor: '#1a1a3e', axis: '#8890b0', axisLabel: '#8890b0',
+      ground: '#8890b0', trajectory: '#e0e4f0', projectile: '#e0e4f0',
+      projectileStroke: '#151535', dot: '#8a9cc5', dotLabel: '#c9cfe0',
+      infoBox: 'rgba(26,26,62,0.95)', infoBorder: '#2d3a6e', infoHeader: '#1e2144',
+      infoText: '#c9cfe0', infoTextDim: '#8890b0', theoLine: '#3a4a8a',
+      compLine: '#6b7db5', countdownBg: 'rgba(26,26,62,0.88)', countdownText: '#e0e4f0',
+      legendBg: 'rgba(26,26,62,0.95)', legendBorder: '#2d3a6e', legendText: '#c9cfe0',
+      velocity: '#8890b0', velocityArrow: '#8890b0',
+      originDot: '#8890b0',
+    } : {
     bg: '#ffffff', grid: '#f0f0f0', gridMinor: '#f8f8f8', axis: '#333', axisLabel: '#666',
     ground: '#333', trajectory: '#222', projectile: '#111',
     projectileStroke: '#fff', dot: '#444', dotLabel: '#333',
@@ -334,15 +346,21 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
     // Margins that scale with zoom so labels stay visible
     const baseML = 70, baseMR = 30, baseMT = 35, baseMB = 50;
-    const ML = Math.round(baseML / zoom), MR = Math.round(baseMR / zoom);
-    const MT = Math.round(baseMT / zoom), MB = Math.round(baseMB / zoom);
+    // For zoom > 1, scale margins inversely (canvas transform scales them back up);
+    // for zoom <= 1, use base margins since no canvas transform is applied
+    const effectiveZoom = zoom > 1 ? zoom : 1;
+    const ML = Math.round(baseML / effectiveZoom), MR = Math.round(baseMR / effectiveZoom);
+    const MT = Math.round(baseMT / effectiveZoom), MB = Math.round(baseMB / effectiveZoom);
 
-    // Apply zoom + pan
+    // Apply zoom + pan only when zoomed in (zoom > 1)
+    // When zoomed out (zoom < 1), we expand the domain instead of shrinking the canvas
     ctx.save();
     const cxC = W / 2, cyC = H / 2;
-    ctx.translate(cxC + panOffset.x, cyC + panOffset.y);
-    ctx.scale(zoom, zoom);
-    ctx.translate(-cxC, -cyC);
+    if (zoom > 1) {
+      ctx.translate(cxC + panOffset.x, cyC + panOffset.y);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-cxC, -cyC);
+    }
 
     const plotW = W - ML - MR, plotH = H - MT - MB;
 
@@ -398,6 +416,16 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         if (py > rawMaxY) rawMaxY = py;
       }
     }
+    // Also consider relativity S' trajectory
+    if (relativityEnabled && relativityShowDual && relativityTrajectory && relativityTrajectory.length > 0) {
+      for (let i = 0; i < relativityTrajectory.length; i++) {
+        const px = relativityTrajectory[i].x, py = relativityTrajectory[i].y;
+        if (px < rawMinX) rawMinX = px;
+        if (px > rawMaxX) rawMaxX = px;
+        if (py < rawMinY) rawMinY = py;
+        if (py > rawMaxY) rawMaxY = py;
+      }
+    }
     // Also consider second body position
     if (secondBody && secondBody.enabled) {
       const bx = secondBody.x, by = secondBody.y, br = secondBody.radius;
@@ -414,10 +442,24 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     const padY = yRange * 0.12;
 
     // Support negative Y regions when trajectory goes below ground
-    const domMinX = rawMinX - padX;
-    const domMaxX = rawMaxX + padX;
-    const domMinY = rawMinY < -0.1 ? rawMinY - padY : -padY * 0.3;
-    const domMaxY = rawMaxY + padY;
+    let domMinX = rawMinX - padX;
+    let domMaxX = rawMaxX + padX;
+    let domMinY = rawMinY < -0.1 ? rawMinY - padY : -padY * 0.3;
+    let domMaxY = rawMaxY + padY;
+
+    // When zooming out (zoom < 1), expand the domain to reveal more axes/values
+    // The canvas stays full size but shows a wider coordinate range
+    if (zoom < 1) {
+      const expandFactor = 1 / zoom;
+      const centerX = (domMinX + domMaxX) / 2;
+      const centerY = (domMinY + domMaxY) / 2;
+      const halfW = (domMaxX - domMinX) / 2 * expandFactor;
+      const halfH = (domMaxY - domMinY) / 2 * expandFactor;
+      domMinX = centerX - halfW;
+      domMaxX = centerX + halfW;
+      domMinY = centerY - halfH;
+      domMaxY = centerY + halfH;
+    }
 
     const domW = domMaxX - domMinX;
     const domH = domMaxY - domMinY;
@@ -476,7 +518,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
     // ── Nice grid lines ──
     const sf = Math.max(1, W / 1200);
-    const labelScale = 1 / zoom;
+    const labelScale = zoom > 1 ? 1 / zoom : 1;
     const isNonEarth = environmentId !== 'earth';
     // Vacuum has a light background — use default dark axes like earth
     const useWhiteAxes = isNonEarth && environmentId !== 'vacuum';
@@ -661,6 +703,380 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     // Equation Engine trajectory is now rendered as the main trajectory directly
     // (no separate overlay — the equation sets the trajectory data on the canvas)
 
+    // ── Compute current animation point early (needed by relativity comparison box) ──
+    const animIdx = trajectoryData.findIndex((p) => p.time >= currentTime);
+    const curPt = animIdx >= 0 ? trajectoryData[animIdx] : trajectoryData[trajectoryData.length - 1];
+
+    // ── Relativity: S' frame trajectory + enhanced visuals ──
+    if (relativityEnabled && relativityShowDual && relativityTrajectory && relativityTrajectory.length > 1) {
+      const sPrimeColor = relativityMode === 'lorentz' ? '#a855f7' : '#f97316';
+      const sColor = nightMode ? '#22c55e' : '#16a34a';
+      const isObserverSPrime = relativityActiveObserver === 'S_prime';
+
+      // ── Determine primary / secondary based on active observer ──
+      const primaryTraj = isObserverSPrime ? relativityTrajectory : trajectoryData;
+      const secondaryTraj = isObserverSPrime ? trajectoryData : relativityTrajectory;
+      const primaryColor = isObserverSPrime ? sPrimeColor : sColor;
+      const secondaryColor = isObserverSPrime ? sColor : sPrimeColor;
+      const primaryLabel = isObserverSPrime ? "S'" : 'S';
+      const secondaryLabel = isObserverSPrime ? 'S' : "S'";
+
+      // ── Draw secondary trajectory as dashed line ──
+      ctx.beginPath();
+      ctx.strokeStyle = secondaryColor;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([8, 5]);
+      const secAnimIdx = secondaryTraj.findIndex((p) => p.time >= currentTime);
+      const visibleSec = secAnimIdx >= 0 ? secondaryTraj.slice(0, secAnimIdx + 1) : secondaryTraj;
+      visibleSec.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y)));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // ── Animated secondary projectile dot (ring style) ──
+      const curSecPt = secAnimIdx >= 0 ? secondaryTraj[secAnimIdx] : secondaryTraj[secondaryTraj.length - 1];
+      if (curSecPt) {
+        const spx = toX(curSecPt.x), spy = toY(curSecPt.y);
+        const spPulseR = 7;
+        ctx.beginPath();
+        ctx.arc(spx, spy, spPulseR, 0, Math.PI * 2);
+        ctx.strokeStyle = secondaryColor;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(spx, spy, spPulseR - 2, 0, Math.PI * 2);
+        ctx.fillStyle = secondaryColor + '40';
+        ctx.fill();
+        ctx.fillStyle = secondaryColor;
+        ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(secondaryLabel, spx, spy - spPulseR - 8);
+      }
+
+      // ── Moving frame axes ──
+      // When observer=S: S' axes move at +V. When observer=S': S axes move at -V.
+      const movingAxisOffset = isObserverSPrime
+        ? -relativityFrameVelocity * currentTime  // S moves backward from S' perspective
+        : relativityFrameVelocity * currentTime;   // S' moves forward from S perspective
+      const movingOX = toX(movingAxisOffset);
+      const movingOY = groundY;
+      if (movingOX > ML - 20 && movingOX < ML + plotW + 20) {
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.strokeStyle = secondaryColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        const xAxisLen = Math.min(plotW * 0.25, 120);
+        ctx.moveTo(movingOX, movingOY);
+        ctx.lineTo(movingOX + xAxisLen, movingOY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.fillStyle = secondaryColor;
+        ctx.moveTo(movingOX + xAxisLen, movingOY);
+        ctx.lineTo(movingOX + xAxisLen - 8, movingOY - 4);
+        ctx.lineTo(movingOX + xAxisLen - 8, movingOY + 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.setLineDash([6, 3]);
+        const yAxisLen = Math.min(plotH * 0.25, 100);
+        ctx.moveTo(movingOX, movingOY);
+        ctx.lineTo(movingOX, movingOY - yAxisLen);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(movingOX, movingOY - yAxisLen);
+        ctx.lineTo(movingOX - 4, movingOY - yAxisLen + 8);
+        ctx.lineTo(movingOX + 4, movingOY - yAxisLen + 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.font = `bold ${Math.round(12 * sf)}px IBM Plex Mono, monospace`;
+        ctx.fillStyle = secondaryColor;
+        ctx.textAlign = 'left';
+        const secAxisLabel = isObserverSPrime ? 'x' : "x'";
+        const secAxisLabelY = isObserverSPrime ? 'y' : "y'";
+        const secOriginLabel = isObserverSPrime ? 'O' : "O'";
+        ctx.fillText(secAxisLabel, movingOX + xAxisLen - 4, movingOY - 10);
+        ctx.fillText(secAxisLabelY, movingOX + 8, movingOY - yAxisLen + 4);
+        ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(secOriginLabel, movingOX, movingOY + 16);
+        ctx.restore();
+      }
+
+      // ── Stationary frame axes labels (observer's own axes) ──
+      ctx.save();
+      ctx.globalAlpha = 0.8;
+      ctx.font = `bold ${Math.round(12 * sf)}px IBM Plex Mono, monospace`;
+      ctx.fillStyle = primaryColor;
+      const priAxisX = isObserverSPrime ? "x'" : 'x';
+      const priAxisY = isObserverSPrime ? "y'" : 'y';
+      const priOrigin = isObserverSPrime ? "O'" : 'O';
+      if (domMaxX > 0.1) {
+        ctx.textAlign = 'right';
+        ctx.fillText(priAxisX, ML + plotW - 8, groundY - 10);
+      }
+      if (domMaxY > 0.1 && originX >= ML && originX <= ML + plotW) {
+        ctx.textAlign = 'left';
+        ctx.fillText(priAxisY, originX + 10, MT + 16);
+      }
+      ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(priOrigin, originX, groundY + 16);
+      ctx.restore();
+
+      // ── Velocity vector indicator ──
+      if (relativityFrameVelocity !== 0) {
+        const vIndicatorLen = Math.min(plotW * 0.12, Math.abs(relativityFrameVelocity) * 0.5);
+        const vDir = isObserverSPrime ? -1 : (relativityFrameVelocity > 0 ? 1 : -1);
+        const viX = ML + plotW * 0.85;
+        const viY = MT + 25;
+        ctx.save();
+        ctx.strokeStyle = secondaryColor;
+        ctx.fillStyle = secondaryColor;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(viX, viY);
+        ctx.lineTo(viX + vDir * vIndicatorLen, viY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(viX + vDir * vIndicatorLen, viY);
+        ctx.lineTo(viX + vDir * vIndicatorLen - vDir * 8, viY - 4);
+        ctx.lineTo(viX + vDir * vIndicatorLen - vDir * 8, viY + 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.font = `bold ${Math.round(10 * sf)}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'center';
+        const vLabel = isObserverSPrime ? 'V_S' : "V_S'";
+        ctx.fillText(vLabel, viX + vDir * vIndicatorLen * 0.5, viY - 10);
+        ctx.restore();
+      }
+
+      // ── Draw ground objects at the STATIONARY frame position ──
+      // When observer=S: objects at origin (S is stationary)
+      // When observer=S': objects move backward (S moves from S' perspective)
+      const groundObjX = isObserverSPrime ? toX(-relativityFrameVelocity * currentTime) : toX(0);
+      const groundObjY = groundY;
+      ctx.save();
+      // Building
+      const bldgX = groundObjX - 30;
+      ctx.fillStyle = nightMode ? '#475569' : '#94a3b8';
+      ctx.fillRect(bldgX, groundObjY - 35, 16, 35);
+      ctx.fillStyle = nightMode ? '#fbbf24' : '#fcd34d';
+      for (let wr = 0; wr < 3; wr++) {
+        ctx.fillRect(bldgX + 3, groundObjY - 32 + wr * 11, 4, 4);
+        ctx.fillRect(bldgX + 9, groundObjY - 32 + wr * 11, 4, 4);
+      }
+      // Flag
+      const flagX = groundObjX + 5;
+      ctx.fillStyle = nightMode ? '#64748b' : '#6b7280';
+      ctx.fillRect(flagX, groundObjY - 40, 2, 40);
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(flagX + 2, groundObjY - 40);
+      ctx.lineTo(flagX + 18, groundObjY - 34);
+      ctx.lineTo(flagX + 2, groundObjY - 28);
+      ctx.closePath();
+      ctx.fill();
+      // Person / Observer
+      const personX = groundObjX + 28;
+      ctx.fillStyle = nightMode ? '#e2e8f0' : '#374151';
+      ctx.beginPath();
+      ctx.arc(personX, groundObjY - 24, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(personX, groundObjY - 20);
+      ctx.lineTo(personX, groundObjY - 8);
+      ctx.strokeStyle = nightMode ? '#e2e8f0' : '#374151';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(personX - 6, groundObjY - 16);
+      ctx.lineTo(personX + 6, groundObjY - 16);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(personX, groundObjY - 8);
+      ctx.lineTo(personX - 5, groundObjY);
+      ctx.moveTo(personX, groundObjY - 8);
+      ctx.lineTo(personX + 5, groundObjY);
+      ctx.stroke();
+      ctx.fillStyle = sColor;
+      ctx.font = `bold ${Math.round(11 * sf)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('S', groundObjX, groundObjY - 44);
+      ctx.restore();
+
+      // ── Moving frame vehicle ──
+      // When observer=S: vehicle moves at +V (S' moves forward)
+      // When observer=S': vehicle stays at origin (S' is stationary)
+      const vehicleX = isObserverSPrime ? toX(0) : movingOX;
+      const vehicleY = groundY;
+      ctx.save();
+      if (relativityMode === 'lorentz') {
+        ctx.fillStyle = '#a855f7';
+        ctx.beginPath();
+        ctx.moveTo(vehicleX + 18, vehicleY - 12);
+        ctx.lineTo(vehicleX - 8, vehicleY - 18);
+        ctx.lineTo(vehicleX - 14, vehicleY - 12);
+        ctx.lineTo(vehicleX - 8, vehicleY - 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.moveTo(vehicleX - 14, vehicleY - 14);
+        ctx.lineTo(vehicleX - 22, vehicleY - 12);
+        ctx.lineTo(vehicleX - 14, vehicleY - 10);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillStyle = sPrimeColor;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(vehicleX - 18, vehicleY - 14, 36, 10, 3);
+        } else {
+          ctx.rect(vehicleX - 18, vehicleY - 14, 36, 10);
+        }
+        ctx.fill();
+        ctx.fillStyle = sPrimeColor + 'cc';
+        ctx.beginPath();
+        ctx.moveTo(vehicleX - 6, vehicleY - 14);
+        ctx.lineTo(vehicleX - 2, vehicleY - 22);
+        ctx.lineTo(vehicleX + 12, vehicleY - 22);
+        ctx.lineTo(vehicleX + 16, vehicleY - 14);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = nightMode ? '#93c5fd' : '#bfdbfe';
+        ctx.beginPath();
+        ctx.moveTo(vehicleX, vehicleY - 15);
+        ctx.lineTo(vehicleX + 2, vehicleY - 20);
+        ctx.lineTo(vehicleX + 10, vehicleY - 20);
+        ctx.lineTo(vehicleX + 12, vehicleY - 15);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = nightMode ? '#1e293b' : '#1f2937';
+        ctx.beginPath();
+        ctx.arc(vehicleX - 10, vehicleY - 3, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(vehicleX + 10, vehicleY - 3, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = sPrimeColor;
+      ctx.font = `bold ${Math.round(11 * sf)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText("S'", vehicleX, vehicleY - 26);
+      ctx.restore();
+
+      // ── Observer indicator — highlight who is "you" ──
+      const youX = isObserverSPrime ? vehicleX : groundObjX + 28;
+      const youY = groundY - 52;
+      ctx.save();
+      ctx.fillStyle = primaryColor;
+      ctx.font = `bold ${Math.round(10 * sf)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(lang === 'ar' ? '👁 أنت هنا' : lang === 'fr' ? '👁 Vous' : '👁 You', youX, youY);
+      ctx.restore();
+
+      // ── Live comparison info box ──
+      const curSPrimePt = secAnimIdx >= 0 ? relativityTrajectory[secAnimIdx >= 0 ? secAnimIdx : relativityTrajectory.length - 1] : relativityTrajectory[relativityTrajectory.length - 1];
+      // Get the correct S point from the right trajectory
+      const curSFramePt = isObserverSPrime
+        ? (secAnimIdx >= 0 ? trajectoryData[secAnimIdx] : trajectoryData[trajectoryData.length - 1])
+        : curPt;
+      const curSPrimeFramePt = isObserverSPrime
+        ? (secAnimIdx >= 0 ? relativityTrajectory[Math.min(secAnimIdx, relativityTrajectory.length - 1)] : relativityTrajectory[relativityTrajectory.length - 1])
+        : curSPrimePt;
+
+      if (curSFramePt && curSPrimeFramePt) {
+        const cmpW = Math.round(200 * sf);
+        const cmpH = Math.round(110 * sf);
+        const cmpX = ML + 8;
+        const cmpY = MT + 8;
+        ctx.save();
+        ctx.fillStyle = colors.legendBg;
+        ctx.strokeStyle = colors.legendBorder;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.92;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cmpX, cmpY, cmpW, cmpH, 6); ctx.fill(); ctx.stroke(); }
+        else { ctx.fillRect(cmpX, cmpY, cmpW, cmpH); ctx.strokeRect(cmpX, cmpY, cmpW, cmpH); }
+        ctx.globalAlpha = 1;
+        const cmpHeaderH = Math.round(20 * sf);
+        ctx.fillStyle = colors.infoHeader;
+        ctx.fillRect(cmpX + 1, cmpY + 1, cmpW - 2, cmpHeaderH);
+        ctx.fillStyle = colors.infoText;
+        ctx.font = `bold ${Math.round(10 * sf)}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(lang === 'ar' ? 'مقارنة الإطارين' : lang === 'fr' ? 'Comparaison' : 'Frame Comparison', cmpX + cmpW / 2, cmpY + cmpHeaderH - 5);
+        ctx.font = `bold ${Math.round(9 * sf)}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'left';
+        const rowH = Math.round(14 * sf);
+        const col1X = cmpX + 6;
+        const col2X = cmpX + cmpW * 0.52;
+        let rowY = cmpY + cmpHeaderH + rowH;
+        // Column headers - highlight active observer
+        ctx.fillStyle = sColor;
+        ctx.fillText(isObserverSPrime ? 'S' : 'S 👁', col1X, rowY);
+        ctx.fillStyle = sPrimeColor;
+        ctx.fillText(isObserverSPrime ? "S' 👁" : "S'", col2X, rowY);
+        rowY += rowH;
+        ctx.fillStyle = colors.infoText;
+        ctx.fillText(`x=${curSFramePt.x.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`x'=${curSPrimeFramePt.x.toFixed(1)}`, col2X, rowY);
+        rowY += rowH;
+        ctx.fillText(`y=${curSFramePt.y.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`y'=${curSPrimeFramePt.y.toFixed(1)}`, col2X, rowY);
+        rowY += rowH;
+        ctx.fillStyle = colors.infoTextDim;
+        ctx.fillText(`Vx=${curSFramePt.vx.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`Vx'=${curSPrimeFramePt.vx.toFixed(1)}`, col2X, rowY);
+        rowY += rowH;
+        ctx.fillText(`Vy=${curSFramePt.vy.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`Vy'=${curSPrimeFramePt.vy.toFixed(1)}`, col2X, rowY);
+        rowY += rowH;
+        ctx.fillStyle = colors.infoText;
+        ctx.fillText(`V=${curSFramePt.speed.toFixed(1)}`, col1X, rowY);
+        ctx.fillText(`V'=${curSPrimeFramePt.speed.toFixed(1)}`, col2X, rowY);
+        ctx.restore();
+      }
+
+      // ── Enhanced Relativity Legend ──
+      const relLegX = ML + 8;
+      const relLegY = MT + plotH - 70;
+      ctx.save();
+      ctx.fillStyle = colors.legendBg;
+      ctx.strokeStyle = colors.legendBorder;
+      ctx.lineWidth = 1;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(relLegX, relLegY, 200, 62, 4); ctx.fill(); ctx.stroke(); }
+      else { ctx.fillRect(relLegX, relLegY, 200, 62); ctx.strokeRect(relLegX, relLegY, 200, 62); }
+      // Primary (solid) — the observer's frame
+      ctx.beginPath(); ctx.strokeStyle = primaryColor; ctx.lineWidth = 3; ctx.setLineDash([]);
+      ctx.moveTo(relLegX + 6, relLegY + 14); ctx.lineTo(relLegX + 30, relLegY + 14); ctx.stroke();
+      ctx.beginPath(); ctx.fillStyle = primaryColor; ctx.arc(relLegX + 18, relLegY + 14, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = colors.legendText; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'left';
+      const priLegendLabel = isObserverSPrime
+        ? (lang === 'ar' ? "S' (x', y') 👁 أنت" : lang === 'fr' ? "S' (x', y') 👁 Vous" : "S' (x', y') 👁 You")
+        : (lang === 'ar' ? 'S (x, y) 👁 أنت' : lang === 'fr' ? 'S (x, y) 👁 Vous' : 'S (x, y) 👁 You');
+      ctx.fillText(priLegendLabel, relLegX + 36, relLegY + 18);
+      // Secondary (dashed) — the other frame
+      ctx.beginPath(); ctx.strokeStyle = secondaryColor; ctx.lineWidth = 2.5; ctx.setLineDash([8, 5]);
+      ctx.moveTo(relLegX + 6, relLegY + 34); ctx.lineTo(relLegX + 30, relLegY + 34); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.strokeStyle = secondaryColor; ctx.lineWidth = 2; ctx.arc(relLegX + 18, relLegY + 34, 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = colors.legendText;
+      const secLegendLabel = isObserverSPrime
+        ? (lang === 'ar' ? 'S (x, y) ثابت' : lang === 'fr' ? 'S (x, y) fixe' : 'S (x, y) stationary')
+        : (lang === 'ar' ? "S' (x', y') متحرك" : lang === 'fr' ? "S' (x', y') mobile" : "S' (x', y') moving");
+      ctx.fillText(secLegendLabel, relLegX + 36, relLegY + 38);
+      // Active observer indicator
+      ctx.fillStyle = primaryColor;
+      ctx.font = `bold ${Math.round(9 * sf)}px Inter, sans-serif`;
+      const obsLabel = isObserverSPrime
+        ? (lang === 'ar' ? 'المنظور: من داخل المركبة' : lang === 'fr' ? 'Vue: depuis le véhicule' : 'View: from inside vehicle')
+        : (lang === 'ar' ? 'المنظور: من الأرض' : lang === 'fr' ? 'Vue: depuis le sol' : 'View: from the ground');
+      ctx.fillText(obsLabel, relLegX + 6, relLegY + 56);
+      ctx.restore();
+    }
+
     // Multi trajectories
     if (multiTrajectoryMode && multiTrajectories.length > 0) {
       multiTrajectories.forEach((mt) => {
@@ -717,62 +1133,91 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       });
     }
 
-    // Main trajectory
-    const animIdx = trajectoryData.findIndex((p) => p.time >= currentTime);
-    const visiblePts = animIdx >= 0 ? trajectoryData.slice(0, animIdx + 1) : trajectoryData;
+    // Main trajectory — use active observer's trajectory when relativity is enabled
+    const isRelObserverSPrime = relativityEnabled && relativityActiveObserver === 'S_prime' && relativityTrajectory && relativityTrajectory.length > 1;
+    const mainTrajData = isRelObserverSPrime ? relativityTrajectory! : trajectoryData;
+    const mainAnimIdx = mainTrajData.findIndex((p) => p.time >= currentTime);
+    const mainCurPt = mainAnimIdx >= 0 ? mainTrajData[mainAnimIdx] : mainTrajData[mainTrajData.length - 1];
+    const visiblePts = mainAnimIdx >= 0 ? mainTrajData.slice(0, mainAnimIdx + 1) : mainTrajData;
 
     if (visiblePts.length > 1) {
       ctx.beginPath();
-      ctx.strokeStyle = colors.trajectory;
+      // Use observer-specific color when relativity is active
+      if (relativityEnabled && relativityShowDual) {
+        const relColor = isRelObserverSPrime
+          ? (relativityMode === 'lorentz' ? '#a855f7' : '#f97316')
+          : (nightMode ? '#22c55e' : '#16a34a');
+        ctx.strokeStyle = relColor;
+      } else {
+        ctx.strokeStyle = colors.trajectory;
+      }
       ctx.lineWidth = 3;
       visiblePts.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y)));
       ctx.stroke();
     }
 
-    // Projectile dot
-    const curPt = animIdx >= 0 ? trajectoryData[animIdx] : trajectoryData[trajectoryData.length - 1];
-    if (curPt) {
-      const bx = toX(curPt.x), by = toY(curPt.y);
+    // Projectile dot — follows active observer's trajectory
+    const activePt = (relativityEnabled && isRelObserverSPrime) ? mainCurPt : curPt;
+    if (activePt) {
+      const bx = toX(activePt.x), by = toY(activePt.y);
 
       // Determine projectile dot state:
-      // - animating → green pulsing
+      // - animating → solid color (no animation)
       // - finished (timeline complete) → red
       // - stopped/paused → default (black/white depending on theme)
       const lastPt = trajectoryData[trajectoryData.length - 1];
       const isFinished = !isAnimating && lastPt && currentTime >= lastPt.time - 0.001;
       const dotColor = isAnimating ? '#22c55e' : isFinished ? '#ef4444' : colors.projectile;
-      const pulseRadius = isAnimating ? 7 + 3 * Math.sin(Date.now() / 300) : 7;
-
-      // Glow ring when animating (green) or finished (red)
-      if (isAnimating) {
-        const glowAlpha = 0.25 + 0.15 * Math.sin(Date.now() / 300);
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(34, 197, 94, ${glowAlpha})`;
-        ctx.arc(bx, by, pulseRadius + 6, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (isFinished) {
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
-        ctx.arc(bx, by, 13, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      const pulseRadius = 7;
 
       // Draw projectile — use emoji icon if a preset is active
-      if (activePresetEmoji) {
-        const moveAngle = Math.atan2(-curPt.vy * sY, curPt.vx * sX);
+      if (activePresetEmoji === '🏹') {
+        // Arrow scenario: draw a small arrow shape tangent to velocity vector
+        const moveAngle = Math.atan2(-activePt.vy * sY, activePt.vx * sX);
+        const arrowLen = 22;
+        const arrowHeadLen = 8;
+        const arrowHeadWidth = 5;
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.rotate(moveAngle);
+        // Arrow shaft
+        ctx.beginPath();
+        ctx.strokeStyle = nightMode ? '#e2e8f0' : '#1a1a1a';
+        ctx.lineWidth = 2.5;
+        ctx.moveTo(-arrowLen / 2, 0);
+        ctx.lineTo(arrowLen / 2 - arrowHeadLen, 0);
+        ctx.stroke();
+        // Arrow head
+        ctx.beginPath();
+        ctx.fillStyle = nightMode ? '#e2e8f0' : '#1a1a1a';
+        ctx.moveTo(arrowLen / 2, 0);
+        ctx.lineTo(arrowLen / 2 - arrowHeadLen, -arrowHeadWidth);
+        ctx.lineTo(arrowLen / 2 - arrowHeadLen, arrowHeadWidth);
+        ctx.closePath();
+        ctx.fill();
+        // Arrow tail fletching
+        ctx.beginPath();
+        ctx.strokeStyle = nightMode ? '#94a3b8' : '#666';
+        ctx.lineWidth = 1.5;
+        ctx.moveTo(-arrowLen / 2, 0);
+        ctx.lineTo(-arrowLen / 2 - 3, -4);
+        ctx.moveTo(-arrowLen / 2, 0);
+        ctx.lineTo(-arrowLen / 2 - 3, 4);
+        ctx.stroke();
+        ctx.restore();
+      } else if (activePresetEmoji) {
+        const moveAngle = Math.atan2(-activePt.vy * sY, activePt.vx * sX);
         // Adjust rotation for emoji base orientation:
-        // 🚀 points upper-right (~315° or -45°), 🏹 points right (~0°)
+        // 🚀 points upper-right (~315° or -45°)
         // Other emojis (⚽🏀💣) are roughly symmetric so no offset needed
         let emojiBaseAngle = 0;
         if (activePresetEmoji === '🚀') {
-          emojiBaseAngle = -Math.PI / 4; // rocket emoji points upper-right (~-45° in screen coords)
-        } else if (activePresetEmoji === '🏹') {
-          emojiBaseAngle = 0; // arrow points roughly right
+          emojiBaseAngle = -Math.PI / 4;
         }
         ctx.save();
         ctx.translate(bx, by);
         ctx.rotate(moveAngle - emojiBaseAngle);
-        const emojiSize = Math.round(pulseRadius * 3.5);
+        const emojiSize = Math.round(7 * 3.5);
         ctx.font = `${emojiSize}px serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -824,7 +1269,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           ctx.stroke();
 
           const angle2 = Math.atan2(dy, dx);
-          const headLen = Math.min(12 * sf2, len * 0.35);
+          const headLen = Math.max(8 * sf2, Math.min(14 * sf2, len * 0.35));
           ctx.beginPath();
           ctx.fillStyle = color;
           ctx.moveTo(toX2, toY2);
@@ -851,12 +1296,12 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         //   screen_dx = vx * sX        (toX derivative)
         //   screen_dy = -vy * sY       (toY derivative, negative because canvas Y is inverted)
         // This screen-space vector is then normalized and scaled for display.
-        const screenVx = curPt.vx * sX;
-        const screenVy = -curPt.vy * sY;  // canvas Y is inverted
+        const screenVx = activePt.vx * sX;
+        const screenVy = -activePt.vy * sY;  // canvas Y is inverted
         const screenVMag = Math.sqrt(screenVx * screenVx + screenVy * screenVy);
 
         // Arrow length proportional to the physics velocity magnitude
-        const vMag = Math.sqrt(curPt.vx * curPt.vx + curPt.vy * curPt.vy);
+        const vMag = Math.sqrt(activePt.vx * activePt.vx + activePt.vy * activePt.vy);
         const vArrowLen = Math.max(1, vMag) * velScale;
 
         // Normalized screen-space direction (tangent to the drawn curve)
@@ -871,15 +1316,15 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           drawArrow(bx, by, vTx, vTy,
             nightMode ? '#e2e8f0' : '#000000', 'V');
         }
-        if (vectorVisibility.Vx && Math.abs(curPt.vx) > 0.005) {
-          const vxLen = Math.max(minVelArrowLen, Math.abs(curPt.vx) * velScale);
-          const vxSign = curPt.vx >= 0 ? 1 : -1;
-          drawArrow(bx, by, bx + vxSign * vxLen, by, '#3b82f6', 'Vx');
+        if (vectorVisibility.Vx && Math.abs(activePt.vx) > 0.005) {
+          const vxLen = Math.max(minVelArrowLen, Math.abs(activePt.vx) * velScale);
+          const vxSign = activePt.vx >= 0 ? 1 : -1;
+          drawArrow(bx, by, bx + vxSign * Math.max(vxLen, plotMin * 0.04), by, '#3b82f6', 'Vx');
         }
-        if (vectorVisibility.Vy && Math.abs(curPt.vy) > 0.005) {
-          const vyLen = Math.max(minVelArrowLen, Math.abs(curPt.vy) * velScale);
-          const vySign = curPt.vy >= 0 ? 1 : -1;
-          drawArrow(bx, by, bx, by - vySign * vyLen, '#22c55e', 'Vy');
+        if (vectorVisibility.Vy && Math.abs(activePt.vy) > 0.005) {
+          const vyLen = Math.max(minVelArrowLen, Math.abs(activePt.vy) * velScale);
+          const vySign = activePt.vy >= 0 ? 1 : -1;
+          drawArrow(bx, by, bx, by - vySign * Math.max(vyLen, plotMin * 0.04), '#22c55e', 'Vy');
         }
 
         // ═══ FORCE VECTORS ═══
@@ -894,9 +1339,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
         // Air drag force: Fd = k*v², opposite to velocity direction
         let fdX = 0, fdY = 0;
-        if (airResistance > 0 && curPt.speed > 0.1) {
-          const vrx = curPt.vx - windSpeed;
-          const vry = curPt.vy;
+        if (airResistance > 0 && activePt.speed > 0.1) {
+          const vrx = activePt.vx - windSpeed;
+          const vry = activePt.vy;
           const speedRel = Math.sqrt(vrx * vrx + vry * vry);
           if (speedRel > 0.01) {
             const dragMag = airResistance * speedRel * speedRel;
@@ -912,7 +1357,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
         // Wind force visualization: shows the wind effect direction
         // Wind creates an additional horizontal push on the projectile
-        if (vectorVisibility.Fw && Math.abs(windSpeed) > 0.01 && curPt.speed > 0.05) {
+        if (vectorVisibility.Fw && Math.abs(windSpeed) > 0.01 && activePt.speed > 0.05) {
           // Wind force component: difference between drag with wind and drag without wind
           const windFx = airResistance > 0 ? airResistance * windSpeed * Math.abs(windSpeed) * 0.5 : windSpeed * 0.1 * mass;
           const fwMag = Math.abs(windFx);
@@ -925,9 +1370,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
         // ═══ FLUID FRICTION RAY ═══
         // Shows the fluid drag force direction with a distinctive dashed ray
-        if (fluidFrictionRay && curPt.speed > 0.1) {
-          const vrx = curPt.vx - windSpeed;
-          const vry = curPt.vy;
+        if (fluidFrictionRay && activePt.speed > 0.1) {
+          const vrx = activePt.vx - windSpeed;
+          const vry = activePt.vy;
           const speedRel = Math.sqrt(vrx * vrx + vry * vry);
           if (speedRel > 0.01) {
             // Fluid drag magnitude (proportional to v² and fluid density)
@@ -942,7 +1387,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
             // Draw main friction ray with dashed line
             const frEndX = bx + frDirX * frLen;
             const frEndY = by - frDirY * frLen;
-            const frColor = isUnderwater ? '#06b6d4' : '#38bdf8'; // cyan for water, light blue for air
+            const frColor = isUnderwater ? '#6b7db5' : '#8a9cc5'; // indigo for water, light slate for air
 
             ctx.save();
             ctx.beginPath();
@@ -1005,8 +1450,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         // Fnet = sum of all forces (Newton's 2nd law: Fnet = m*a)
         // Use actual acceleration from physics engine for consistency
         if (vectorVisibility.Fnet) {
-          const netFx = mass * curPt.ax;
-          const netFy = mass * curPt.ay;
+          const netFx = mass * activePt.ax;
+          const netFy = mass * activePt.ay;
           const netMag = Math.sqrt(netFx * netFx + netFy * netFy);
           if (netMag > 0.005) {
             const fnetLen = Math.max(minForceArrowLen, (netMag / Math.max(weightForce, 0.01)) * forcePixelBase);
@@ -1018,10 +1463,10 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         // Use ax/ay directly from physics engine TrajectoryPoint data
         // This ensures perfect consistency with the simulation
         if (vectorVisibility.acc) {
-          const accMag = curPt.acceleration;
+          const accMag = activePt.acceleration;
           if (accMag > 0.005) {
             const accLen = Math.max(minAccArrowLen, (accMag / Math.max(gravity, 0.01)) * accPixelBase);
-            drawArrow(bx, by, bx + (curPt.ax / accMag) * accLen, by - (curPt.ay / accMag) * accLen, '#06b6d4', 'a');
+            drawArrow(bx, by, bx + (activePt.ax / accMag) * accLen, by - (activePt.ay / accMag) * accLen, '#6b7db5', 'a');
           }
         }
 
@@ -1185,18 +1630,20 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       ctx.font = `bold ${Math.round(12 * sf)}px IBM Plex Mono, monospace`; ctx.textAlign = 'left';
       const ix2 = iX + 10 * sf, iy2 = iY + headerH + 16 * sf, ls = Math.round(17 * sf);
       // Compute angle relative to horizon and slope
-      const angleHorizon = Math.atan2(curPt.vy, curPt.vx) * 180 / Math.PI;
-      const slopeValue = Math.abs(curPt.vx) > 1e-6 ? curPt.vy / curPt.vx : (curPt.vy >= 0 ? Infinity : -Infinity);
+      // Use active observer's point for info display when relativity is enabled
+      const infoPt = activePt || curPt;
+      const angleHorizon = Math.atan2(infoPt.vy, infoPt.vx) * 180 / Math.PI;
+      const slopeValue = Math.abs(infoPt.vx) > 1e-6 ? infoPt.vy / infoPt.vx : (infoPt.vy >= 0 ? Infinity : -Infinity);
       const slopeStr = isFinite(slopeValue) ? slopeValue.toFixed(3) : (slopeValue >= 0 ? '\u221e' : '-\u221e');
 
       const infoItems: [string, string][] = [
-        [`t: ${curPt.time.toFixed(3)} ${T.c_t}`, colors.infoText],
-        [`X: ${curPt.x.toFixed(2)} ${T.c_xUnit}`, colors.infoText],
-        [`Y: ${curPt.y.toFixed(2)} ${T.c_yUnit}`, colors.infoText],
-        [`V: ${curPt.speed.toFixed(2)} ${T.u_ms}`, colors.infoText],
-        [`Vx: ${curPt.vx.toFixed(2)} ${T.u_ms}`, colors.infoTextDim],
-        [`Vy: ${curPt.vy.toFixed(2)} ${T.u_ms}`, colors.infoTextDim],
-        [`a: ${curPt.acceleration.toFixed(2)} ${T.u_ms2}`, colors.infoTextDim],
+        [`t: ${infoPt.time.toFixed(3)} ${T.c_t}`, colors.infoText],
+        [`X: ${infoPt.x.toFixed(2)} ${T.c_xUnit}`, colors.infoText],
+        [`Y: ${infoPt.y.toFixed(2)} ${T.c_yUnit}`, colors.infoText],
+        [`V: ${infoPt.speed.toFixed(2)} ${T.u_ms}`, colors.infoText],
+        [`Vx: ${infoPt.vx.toFixed(2)} ${T.u_ms}`, colors.infoTextDim],
+        [`Vy: ${infoPt.vy.toFixed(2)} ${T.u_ms}`, colors.infoTextDim],
+        [`a: ${infoPt.acceleration.toFixed(2)} ${T.u_ms2}`, colors.infoTextDim],
         [`\u03b8: ${angleHorizon.toFixed(1)}\u00b0`, colors.infoText],
         [`${lang === 'ar' ? '\u0627\u0644\u0645\u064a\u0644' : 'Slope'}: ${slopeStr}`, colors.infoTextDim],
       ];
@@ -1270,7 +1717,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     multiTrajectories, mass, gravity, airResistance, T, lang, countdown,
     nightMode, zoom, canvasSize, colors, panOffset, isAnimating, windSpeed, showLiveData,
     stroboscopicMarks, showStroboscopicProjections, environmentId, activePresetEmoji, equationTrajectory, showGrid, secondBody, collisionPoint,
-    fluidFrictionRay, isUnderwater, fluidDensity, calibrationScale]);
+    fluidFrictionRay, isUnderwater, fluidDensity, calibrationScale,
+    relativityTrajectory, relativityEnabled, relativityMode, relativityActiveObserver, relativityShowDual, relativityFrameVelocity]);
 
   useEffect(() => { drawCanvas(); }, [drawCanvas]);
 
@@ -1297,10 +1745,14 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       const dy = e.clientY - dragStart.current.y;
       const canvas = canvasRef.current;
       const ratio = canvas ? canvas.width / canvas.clientWidth : 2;
-      setPanOffset({
-        x: panStart.current.x + dx * ratio,
-        y: panStart.current.y + dy * ratio,
-      });
+      // Clamp pan so content cannot leave the canvas frame
+      const W = canvas ? canvas.width : 1200;
+      const H = canvas ? canvas.height : 700;
+      const maxPanX = W * (zoom - 1) * 0.5;
+      const maxPanY = H * (zoom - 1) * 0.5;
+      const newX = Math.max(-maxPanX, Math.min(maxPanX, panStart.current.x + dx * ratio));
+      const newY = Math.max(-maxPanY, Math.min(maxPanY, panStart.current.y + dy * ratio));
+      setPanOffset({ x: newX, y: newY });
       return;
     }
 
@@ -1316,8 +1768,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
 
     // Invert zoom+pan transform to get coordinates in drawCanvas space
     const cxC = canvas.width / 2, cyC = canvas.height / 2;
-    const mx = (rawMx - cxC - panOffset.x) / zoom + cxC;
-    const my = (rawMy - cyC - panOffset.y) / zoom + cyC;
+    // Only invert canvas transform when zoom > 1 (zoom-in uses ctx.scale)
+    const mx = zoom > 1 ? (rawMx - cxC - panOffset.x) / zoom + cxC : rawMx;
+    const my = zoom > 1 ? (rawMy - cyC - panOffset.y) / zoom + cyC : rawMy;
 
     // Recalculate domain for hover (must match drawCanvas logic exactly)
     let rMinX = 0, rMaxX = 0, rMinY = 0, rMaxY = height + 1;
@@ -1362,16 +1815,31 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     const yR = rMaxY - rMinY || 10;
     const pX = xR * 0.1;
     const pY = yR * 0.12;
-    const dMinX = rMinX - pX;
-    const dMaxX = rMaxX + pX;
-    const dMinY = rMinY < -0.1 ? rMinY - pY : -pY * 0.3;
-    const dMaxY = rMaxY + pY;
+    let dMinX = rMinX - pX;
+    let dMaxX = rMaxX + pX;
+    let dMinY = rMinY < -0.1 ? rMinY - pY : -pY * 0.3;
+    let dMaxY = rMaxY + pY;
+
+    // Expand domain when zoomed out (must match drawCanvas logic)
+    if (zoom < 1) {
+      const expandFactor = 1 / zoom;
+      const centerX = (dMinX + dMaxX) / 2;
+      const centerY = (dMinY + dMaxY) / 2;
+      const halfW = (dMaxX - dMinX) / 2 * expandFactor;
+      const halfH = (dMaxY - dMinY) / 2 * expandFactor;
+      dMinX = centerX - halfW;
+      dMaxX = centerX + halfW;
+      dMinY = centerY - halfH;
+      dMaxY = centerY + halfH;
+    }
+
     const dW = dMaxX - dMinX;
     const dH = dMaxY - dMinY;
 
     // Use zoom-adjusted margins matching drawCanvas
-    const hML = Math.round(70 / zoom), hMR = Math.round(30 / zoom);
-    const hMT = Math.round(35 / zoom), hMB = Math.round(50 / zoom);
+    const hEffZoom = zoom > 1 ? zoom : 1;
+    const hML = Math.round(70 / hEffZoom), hMR = Math.round(30 / hEffZoom);
+    const hMT = Math.round(35 / hEffZoom), hMB = Math.round(50 / hEffZoom);
     const hPlotW = canvas.width - hML - hMR, hPlotH = canvas.height - hMT - hMB;
     const hSX = hPlotW / dW, hSY = hPlotH / dH;
     const physX = dMinX + (mx - hML) / hSX;

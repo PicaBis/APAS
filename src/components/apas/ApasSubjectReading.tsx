@@ -1,35 +1,126 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
-import { BookOpen, Loader2, X, Upload, Eye, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { BookOpen, Loader2, X, Upload, Eye, CheckCircle, AlertTriangle, XCircle, History, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeImageQuality, getIssueMessage } from '@/utils/mediaQuality';
+import { cleanLatex } from '@/utils/cleanLatex';
 
-const EDGE_SUBJECT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subject-reading`;
+const SUPABASE_EDGE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_EDGE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const EDGE_SUBJECT_URL = `${SUPABASE_EDGE_URL}/functions/v1/subject-reading`;
 
 interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
+  autoOpen?: boolean;
+  onDismiss?: () => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
 }
 
 interface SubjectData {
   recognized: boolean;
   type?: string;
   extractedData?: {
-    velocity?: number;
-    angle?: number;
-    height?: number;
-    mass?: number;
-    range?: number;
-    gravity?: number;
+    velocity?: number | null;
+    angle?: number | null;
+    height?: number | null;
+    mass?: number | null;
+    range?: number | null;
+    gravity?: number | null;
   };
+  toFind?: string[];
+  graphData?: {
+    hasGraph?: boolean;
+    graphType?: string | null;
+    readValues?: string | null;
+  };
+  diagrams?: string | null;
   explanation?: string;
   solution?: string;
   isProjectileMotion?: boolean;
 }
 
-export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
+interface ExerciseHistoryEntry {
+  id: number;
+  timestamp: Date;
+  data: SubjectData | null;
+  explanationText: string;
+  solutionText: string;
+  thumbnailData?: string;
+}
+
+/* ------------------------------------------------------------------ */
+/*  SolutionRenderer – renders text with equations in styled blocks    */
+/* ------------------------------------------------------------------ */
+
+function isEquationLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  // Lines that look like equations: contain = and math-like characters
+  const hasEquals = trimmed.includes('=');
+  const hasMathSymbols = /[+\-*/√²³⁴⁰¹⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉αβγθδωπσρμλεφψτηνΔΩΣ≈≤≥∞±·×÷∂∇∑∫⇒→]/.test(trimmed);
+  const startsWithMathVar = /^[a-zA-Z][\s_₀₁₂₃₄₅₆₇₈₉ₓ]*[\s(=]/.test(trimmed);
+  const hasParenMath = /\([^)]*[+\-*/^√]\s*[^)]*\)/.test(trimmed);
+  // Equation-like patterns
+  if (hasEquals && hasMathSymbols) return true;
+  if (hasEquals && startsWithMathVar) return true;
+  if (hasEquals && hasParenMath) return true;
+  // Lines starting with known equation patterns
+  if (/^[xyRHTvVaghmFKE][\s_₀₁₂]*([\s(=])/.test(trimmed)) return true;
+  if (/^[θαβ][\s_]*=/.test(trimmed)) return true;
+  return false;
+}
+
+function SolutionRenderer({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const blocks: { type: 'text' | 'equation'; content: string }[] = [];
+  let currentText: string[] = [];
+
+  const flushText = () => {
+    if (currentText.length > 0) {
+      blocks.push({ type: 'text', content: currentText.join('\n') });
+      currentText = [];
+    }
+  };
+
+  for (const line of lines) {
+    if (isEquationLine(line)) {
+      flushText();
+      blocks.push({ type: 'equation', content: line.trim() });
+    } else {
+      currentText.push(line);
+    }
+  }
+  flushText();
+
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, i) =>
+        block.type === 'equation' ? (
+          <div
+            key={i}
+            className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto"
+            dir="ltr"
+          >
+            {block.content}
+          </div>
+        ) : (
+          <div key={i} className="text-xs leading-relaxed text-foreground [&_p]:my-1 [&_li]:my-0.5">
+            <ReactMarkdown>{block.content}</ReactMarkdown>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main Component                                                     */
+/* ------------------------------------------------------------------ */
+
+export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onDismiss, onAnalysisComplete }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
@@ -39,9 +130,20 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
   const [showSolution, setShowSolution] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [history, setHistory] = useState<ExerciseHistoryEntry[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isAr = lang === 'ar';
+
+  // Auto-open file picker when autoOpen prop is set (for mobile header direct access)
+  const autoOpenTriggered = useRef(false);
+  useEffect(() => {
+    if (autoOpen && !autoOpenTriggered.current) {
+      autoOpenTriggered.current = true;
+      fileRef.current?.click();
+    }
+  }, [autoOpen]);
 
   useEffect(() => {
     if (!isAnalyzing) return;
@@ -70,6 +172,9 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
 
     const extracted = jsonData.extractedData as SubjectData['extractedData'] | undefined;
     const isProjectile = Boolean(jsonData.isProjectileMotion);
+    const toFind = Array.isArray(jsonData.toFind) ? jsonData.toFind as string[] : undefined;
+    const graphData = jsonData.graphData as SubjectData['graphData'] | undefined;
+    const diagrams = typeof jsonData.diagrams === 'string' ? jsonData.diagrams : undefined;
 
     // Split clean text into explanation and solution parts
     const solutionSeparators = [
@@ -99,6 +204,9 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
       recognized: true,
       type: typeof jsonData.type === 'string' ? jsonData.type : undefined,
       extractedData: extracted,
+      toFind,
+      graphData,
+      diagrams,
       explanation,
       solution: solution || (isAr ? 'لا يتوفر حل تفصيلي لهذا التمرين.' : 'No detailed solution available for this exercise.'),
       isProjectileMotion: isProjectile,
@@ -113,13 +221,22 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
     setSolutionText('');
     setShowSolution(false);
     setAnalysisStep('analyze');
+
+    // Guard: block uploads when Supabase is not configured
+    if (!SUPABASE_EDGE_URL || !SUPABASE_EDGE_ANON_KEY) {
+      toast.error(isAr ? 'خدمة Supabase غير مهيأة. تحقق من إعدادات البيئة.' : 'Supabase is not configured. Check environment settings.');
+      setIsAnalyzing(false);
+      setShowModal(false);
+      return;
+    }
+
     try {
       const resp = await fetch(EDGE_SUBJECT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: SUPABASE_EDGE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_EDGE_ANON_KEY}`,
         },
         body: JSON.stringify({
           imageBase64: base64,
@@ -140,14 +257,30 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
           setExplanationText(parsed.explanation || '');
           setSolutionText(parsed.solution || '');
 
+          // Add to history
+          setHistory(prev => [{
+            id: Date.now(),
+            timestamp: new Date(),
+            data: parsed,
+            explanationText: parsed.explanation || '',
+            solutionText: parsed.solution || '',
+            thumbnailData: previewUrl || undefined,
+          }, ...prev].slice(0, 20));
+
           if (parsed.recognized && parsed.extractedData) {
             const ed = parsed.extractedData;
             if (parsed.isProjectileMotion) {
-              onUpdateParams({
+              const appliedParams = {
                 velocity: ed.velocity,
                 angle: ed.angle,
                 height: ed.height,
                 mass: ed.mass,
+              };
+              onUpdateParams(appliedParams);
+              onAnalysisComplete?.({
+                type: 'subject',
+                report: parsed.explanation || '',
+                params: appliedParams,
               });
               toast.success(isAr ? 'تم استخراج بيانات التمرين وتطبيقها على المحاكاة' : 'Exercise data extracted and applied to simulation');
             }
@@ -233,33 +366,154 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
     }
   };
 
+  const loadFromHistory = (entry: ExerciseHistoryEntry) => {
+    setSubjectData(entry.data);
+    setExplanationText(entry.explanationText);
+    setSolutionText(entry.solutionText);
+    setShowSolution(false);
+    if (entry.thumbnailData) {
+      setPreviewUrl(entry.thumbnailData);
+    }
+    setShowHistoryModal(false);
+    setShowModal(true);
+    setAnalysisStep('results');
+    if (entry.data?.recognized && entry.data.extractedData && entry.data.isProjectileMotion) {
+      const ed = entry.data.extractedData;
+      onUpdateParams({
+        velocity: ed.velocity,
+        angle: ed.angle,
+        height: ed.height,
+        mass: ed.mass,
+      });
+    }
+  };
+
   const closeModal = () => {
     setShowModal(false);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    onDismiss?.();
   };
 
   return (
     <>
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
 
-      <button
-        onClick={() => fileRef.current?.click()}
-        disabled={isAnalyzing}
-        className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
-        title={isAr ? 'قراءة تمرين' : 'Read Exercise'}
-      >
-        <div className="relative">
-          <BookOpen className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-          {isAnalyzing && (
-            <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
-          )}
-        </div>
-        <span className="text-[10px] sm:text-xs font-semibold text-foreground">
-          {isAr ? 'قراءة تمرين' : 'Read Exercise'}
-        </span>
-        <span className="text-[9px] text-muted-foreground ms-auto">APAS Subject</span>
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={isAnalyzing}
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/20 hover:border-amber-500/40 text-foreground font-medium text-sm transition-all duration-300 disabled:opacity-50"
+          title={isAr ? 'قراءة تمرين' : 'Read Exercise'}
+        >
+          {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+          <span>{isAr ? 'APAS قراءة تمرين' : 'APAS Subject'}</span>
+          <Sparkles className="w-3 h-3 text-amber-400" />
+        </button>
+
+        {history.length > 0 && (
+          <button
+            onClick={() => setShowHistoryModal(true)}
+            className="p-2 rounded-xl border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 transition-all duration-300 relative"
+            title={isAr ? 'سجل التمارين' : 'Exercise History'}
+          >
+            <History className="w-3.5 h-3.5 text-foreground" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[8px] font-bold rounded-full flex items-center justify-center">
+              {history.length}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Exercise History Modal */}
+      {showHistoryModal && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowHistoryModal(false)}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
+            dir={isAr ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">{isAr ? 'سجل التمارين' : 'Exercise History'}</h3>
+              </div>
+              <button onClick={() => setShowHistoryModal(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {history.map(entry => (
+                <div
+                  key={entry.id}
+                  className="w-full text-start p-3 rounded-lg border border-border hover:bg-secondary/50 hover:shadow-sm transition-all duration-200 relative group"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); e.preventDefault();
+                      setHistory(prev => prev.filter(h => h.id !== entry.id));
+                    }}
+                    className="absolute top-2 end-2 z-10 p-2 -m-1 rounded-md hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                    title={isAr ? 'حذف' : 'Delete'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => loadFromHistory(entry)}
+                    className="w-full text-start pe-6"
+                  >
+                    <div className="flex items-start gap-2">
+                      {entry.thumbnailData && (
+                        <img src={entry.thumbnailData} alt="" className="w-14 h-10 object-cover rounded border border-border/30 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 pe-5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                            entry.data?.recognized
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                              : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                          }`}>
+                            {entry.data?.recognized
+                              ? (isAr ? 'تم التعرف' : 'Recognized')
+                              : (isAr ? 'لم يُتعرف' : 'Not recognized')}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {entry.timestamp.toLocaleTimeString()}
+                          </span>
+                        </div>
+                        {entry.data?.type && (
+                          <p className="text-xs text-foreground truncate mb-1">{entry.data.type}</p>
+                        )}
+                        {entry.data?.recognized && entry.data.extractedData && (
+                          <div className="grid grid-cols-2 gap-1.5 text-[9px]">
+                            {[
+                              { label: isAr ? 'السرعة' : 'V', value: entry.data.extractedData.velocity, unit: 'm/s' },
+                              { label: isAr ? 'الزاوية' : 'θ', value: entry.data.extractedData.angle, unit: '°' },
+                              { label: isAr ? 'الارتفاع' : 'H', value: entry.data.extractedData.height, unit: 'm' },
+                              { label: isAr ? 'الكتلة' : 'M', value: entry.data.extractedData.mass, unit: 'kg' },
+                            ].filter(item => item.value != null).map(item => (
+                              <div key={item.label} className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{item.label}: </span>
+                                <span className="font-mono font-medium text-foreground">{item.value} {item.unit}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {entry.data?.isProjectileMotion && (
+                          <p className="text-[9px] text-green-600 dark:text-green-400 mt-1">
+                            {isAr ? 'حركة مقذوفات' : 'Projectile motion'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Analysis Modal */}
       {showModal && createPortal(
@@ -286,10 +540,15 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* Image preview */}
-              {previewUrl && (
+              {/* Image preview - full display when results shown, compact during analysis */}
+              {previewUrl && !isAnalyzing && (
                 <div className="w-full">
-                  <img src={previewUrl} alt="" className="w-full max-h-40 object-contain rounded-lg border border-border/30" />
+                  <img src={previewUrl} alt="" className="w-full object-contain rounded-lg border border-border/30" />
+                </div>
+              )}
+              {previewUrl && isAnalyzing && (
+                <div className="w-full">
+                  <img src={previewUrl} alt="" className="w-full max-h-40 object-contain rounded-lg border border-border/30 opacity-80" />
                 </div>
               )}
 
@@ -364,9 +623,12 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
                     </div>
                   </div>
 
-                  {/* Extracted data */}
+                  {/* Extracted data - only explicitly given values */}
                   {subjectData.recognized && subjectData.extractedData && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                        {isAr ? 'المعطيات المستخرجة' : 'Extracted Given Data'}
+                      </p>
                       {[
                         { label: isAr ? 'السرعة' : 'Velocity', value: subjectData.extractedData.velocity, unit: ' m/s' },
                         { label: isAr ? 'الزاوية' : 'Angle', value: subjectData.extractedData.angle, unit: '°' },
@@ -374,13 +636,45 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
                         { label: isAr ? 'الكتلة' : 'Mass', value: subjectData.extractedData.mass, unit: ' kg' },
                         { label: isAr ? 'المدى' : 'Range', value: subjectData.extractedData.range, unit: ' m' },
                         { label: isAr ? 'الجاذبية' : 'Gravity', value: subjectData.extractedData.gravity, unit: ' m/s²' },
-                      ].filter(item => item.value != null).map(item => (
-                        <div key={item.label} className="border border-border rounded-lg p-2 text-center bg-secondary/30">
-                          <p className="text-[9px] text-muted-foreground mb-0.5">{item.label}</p>
-                          <p className="text-xs font-semibold font-mono text-foreground">
-                            {item.value}{item.unit}
+                      ].filter(item => item.value != null).length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: isAr ? 'السرعة' : 'Velocity', value: subjectData.extractedData.velocity, unit: ' m/s' },
+                            { label: isAr ? 'الزاوية' : 'Angle', value: subjectData.extractedData.angle, unit: '°' },
+                            { label: isAr ? 'الارتفاع' : 'Height', value: subjectData.extractedData.height, unit: ' m' },
+                            { label: isAr ? 'الكتلة' : 'Mass', value: subjectData.extractedData.mass, unit: ' kg' },
+                            { label: isAr ? 'المدى' : 'Range', value: subjectData.extractedData.range, unit: ' m' },
+                            { label: isAr ? 'الجاذبية' : 'Gravity', value: subjectData.extractedData.gravity, unit: ' m/s²' },
+                          ].filter(item => item.value != null).map(item => (
+                            <div key={item.label} className="border border-border rounded-lg p-2 text-center bg-secondary/30">
+                              <p className="text-[9px] text-muted-foreground mb-0.5">{item.label}</p>
+                              <p className="text-xs font-semibold font-mono text-foreground">
+                                {item.value}{item.unit}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                            {isAr ? 'لم يتم العثور على معطيات رقمية صريحة في التمرين' : 'No explicit numerical data found in the exercise'}
                           </p>
                         </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Values to find */}
+                  {subjectData.recognized && subjectData.toFind && subjectData.toFind.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-full mb-0.5">
+                        {isAr ? 'المطلوب حسابه' : 'To Calculate'}
+                      </p>
+                      {subjectData.toFind.map((item, i) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">
+                          {item}
+                        </span>
                       ))}
                     </div>
                   )}
@@ -391,9 +685,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                         {isAr ? 'شرح التمرين' : 'Exercise Explanation'}
                       </p>
-                      <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                        <ReactMarkdown>{explanationText}</ReactMarkdown>
-                      </div>
+                      <SolutionRenderer text={cleanLatex(explanationText)} />
                     </div>
                   )}
 
@@ -415,9 +707,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams }: Props) {
                         <Eye className="w-3 h-3" />
                         {isAr ? 'الحل' : 'Solution'}
                       </p>
-                      <div className="prose prose-sm max-w-none text-xs text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1">
-                        <ReactMarkdown>{solutionText}</ReactMarkdown>
-                      </div>
+                      <SolutionRenderer text={cleanLatex(solutionText)} />
                       {subjectData.isProjectileMotion && (
                         <div className="mt-3 p-2 rounded-md bg-green-500/10 border border-green-500/20">
                           <p className="text-[10px] text-green-600 dark:text-green-400 font-medium flex items-center gap-1">

@@ -1,4 +1,7 @@
-const CACHE_NAME = 'apas-v2.0.0';
+const CACHE_NAME = 'apas-v3.0.0';
+const STATIC_CACHE = 'apas-static-v3.0.0';
+const DYNAMIC_CACHE = 'apas-dynamic-v3.0.0';
+
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -8,10 +11,23 @@ const STATIC_ASSETS = [
   '/manifest.json',
 ];
 
+// Max dynamic cache entries
+const MAX_DYNAMIC_CACHE = 100;
+
+// Trim dynamic cache to max size
+async function trimCache(cacheName, maxItems) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length > maxItems) {
+    await cache.delete(keys[0]);
+    await trimCache(cacheName, maxItems);
+  }
+}
+
 // Install — cache static assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
@@ -20,11 +36,12 @@ self.addEventListener('install', (event) => {
 
 // Activate — clean old caches
 self.addEventListener('activate', (event) => {
+  const keepCaches = [STATIC_CACHE, DYNAMIC_CACHE];
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
+          .filter((name) => !keepCaches.includes(name))
           .map((name) => caches.delete(name))
       );
     })
@@ -32,22 +49,26 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch — network-first for API, cache-first for static assets
+// Fetch — network-first for API, stale-while-revalidate for assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Network-first for API calls and navigation
-  if (url.pathname.startsWith('/functions/') || event.request.mode === 'navigate') {
+  // Skip chrome-extension and other non-http(s) requests
+  if (!url.protocol.startsWith('http')) return;
+
+  // Network-first for API calls, Supabase, and navigation
+  if (url.pathname.startsWith('/functions/') || 
+      url.hostname.includes('supabase') ||
+      event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Cache successful navigation responses
           if (event.request.mode === 'navigate' && response.status === 200) {
             const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
+            caches.open(STATIC_CACHE).then((cache) => {
               cache.put(event.request, responseClone);
             });
           }
@@ -62,16 +83,39 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for static assets (JS, CSS, images, fonts)
+  // Stale-while-revalidate for static assets
+  const isStaticAsset = /\.(js|css|png|jpg|jpeg|svg|gif|woff2?|ttf|eot|ico)(\?.*)?$/.test(url.pathname);
+  
+  if (isStaticAsset) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const fetchPromise = fetch(event.request).then((response) => {
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        }).catch(() => cached);
+
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // Dynamic cache for everything else
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) {
-        // Update cache in background
+        // Update in background
         fetch(event.request).then((response) => {
           if (response.status === 200) {
             const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
+            caches.open(DYNAMIC_CACHE).then((cache) => {
               cache.put(event.request, responseClone);
+              trimCache(DYNAMIC_CACHE, MAX_DYNAMIC_CACHE);
             });
           }
         }).catch(() => {});
@@ -81,13 +125,13 @@ self.addEventListener('fetch', (event) => {
       return fetch(event.request).then((response) => {
         if (response.status === 200) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
+          caches.open(DYNAMIC_CACHE).then((cache) => {
             cache.put(event.request, responseClone);
+            trimCache(DYNAMIC_CACHE, MAX_DYNAMIC_CACHE);
           });
         }
         return response;
       }).catch(() => {
-        // Return offline fallback for HTML requests
         if (event.request.headers.get('accept')?.includes('text/html')) {
           return caches.match('/index.html');
         }

@@ -11,6 +11,7 @@ interface AboutModalProps {
   lang: string;
   limitTabs?: boolean;
   defaultTab?: TabKey;
+  onOpenComprehensiveGuide?: () => void;
 }
 
 const TABS: { key: TabKey; labelAr: string; labelEn: string; labelFr: string; icon: React.ReactNode }[] = [
@@ -23,7 +24,7 @@ const TABS: { key: TabKey; labelAr: string; labelEn: string; labelFr: string; ic
 
 const LIMITED_TAB_KEYS: TabKey[] = ['team', 'report', 'terms'];
 
-const AboutModal: React.FC<AboutModalProps> = ({ open, onClose, lang, limitTabs, defaultTab }) => {
+const AboutModal: React.FC<AboutModalProps> = ({ open, onClose, lang, limitTabs, defaultTab, onOpenComprehensiveGuide }) => {
   const visibleTabs = limitTabs ? TABS.filter(t => LIMITED_TAB_KEYS.includes(t.key)) : TABS;
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab || (limitTabs ? 'team' : 'docs'));
 
@@ -68,6 +69,16 @@ const AboutModal: React.FC<AboutModalProps> = ({ open, onClose, lang, limitTabs,
                 {getLabel(tab)}
               </button>
             ))}
+            {onOpenComprehensiveGuide && (
+              <button
+                onClick={() => { onClose(); onOpenComprehensiveGuide(); }}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md transition-all whitespace-nowrap bg-gradient-to-r from-primary/10 to-primary/5 text-primary hover:from-primary/20 hover:to-primary/10 border border-primary/20 hover:border-primary/30"
+              >
+                <BookOpen className="w-4 h-4" />
+                {lang === 'ar' ? 'الدليل الشامل للتطبيق' : lang === 'fr' ? 'Guide Complet' : 'Comprehensive Guide'}
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -145,7 +156,7 @@ const DocsTab: React.FC<{ lang: string }> = ({ lang }) => {
             { name: 'Three.js', desc: isAr ? 'محرك رسومات ثلاثية الأبعاد في المتصفح' : '3D graphics engine' },
             { name: 'Recharts', desc: isAr ? 'مكتبة رسوم بيانية تفاعلية' : 'Interactive charting library' },
             { name: 'Supabase', desc: isAr ? 'قاعدة بيانات سحابية ومصادقة' : 'Cloud database & auth' },
-            { name: 'Claude API', desc: isAr ? 'واجهة ذكاء اصطناعي لتحليل الصور والنصوص' : 'AI API for image & text analysis' },
+            { name: 'APAS AI', desc: isAr ? 'محرك ذكاء اصطناعي لتحليل الفيديو والصور' : 'AI engine for video & image analysis' },
             { name: 'OpenWeather API', desc: isAr ? 'واجهة برمجة لبيانات الطقس الحية' : 'Live weather data API' },
           ].map((tech) => (
             <div key={tech.name} className="border border-border rounded p-2 bg-card/50">

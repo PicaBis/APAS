@@ -8,71 +8,23 @@ import React from 'react';
  */
 const FooterRobot: React.FC = () => {
   return (
-    <div className="relative inline-flex items-end justify-center select-none" aria-hidden="true"
-      style={{ width: '240px', height: '180px' }}>
+    <div className="relative inline-flex flex-col items-center justify-end select-none" aria-hidden="true"
+      style={{ width: '240px' }}>
 
-      {/* School logo with coordinated animation wrapper */}
-      <div className="absolute" style={{ bottom: '4px', left: '-4px', zIndex: 1 }}>
-        {/* Animated glow ring behind logo */}
-        <svg className="absolute" style={{ top: '-14px', left: '-14px', width: '108px', height: '108px', pointerEvents: 'none' }}
-          viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <radialGradient id="logoGlow" cx="0.5" cy="0.5" r="0.5">
-              <stop offset="60%" stopColor="#6366f1" stopOpacity="0" />
-              <stop offset="80%" stopColor="#818cf8" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#a5b4fc" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          {/* Ambient glow circle */}
-          <circle cx="54" cy="54" r="50" fill="url(#logoGlow)" className="rb-breath" />
-          {/* Orbiting energy ring */}
-          <ellipse cx="54" cy="54" rx="46" ry="46" fill="none" stroke="#818cf8" strokeWidth="0.8"
-            strokeDasharray="6 10" opacity="0.15" className="rb-logo-orbit" />
-          {/* Secondary ring */}
-          <ellipse cx="54" cy="54" rx="42" ry="42" fill="none" stroke="#6366f1" strokeWidth="0.5"
-            strokeDasharray="3 14" opacity="0.1" className="rb-logo-orbit-reverse" />
-          {/* Small energy dots orbiting */}
-          <circle r="2" fill="#818cf8" opacity="0.4" className="rb-logo-dot1">
-            <animateMotion dur="6s" repeatCount="indefinite" path="M54,8 A46,46 0 1,1 53.9,8" />
-          </circle>
-          <circle r="1.5" fill="#a5b4fc" opacity="0.3" className="rb-logo-dot2">
-            <animateMotion dur="8s" repeatCount="indefinite" path="M54,8 A46,46 0 1,0 53.9,8" />
-          </circle>
-          {/* Corner accent marks */}
-          <line x1="14" y1="14" x2="22" y2="14" stroke="#6366f1" strokeWidth="1" opacity="0.2" />
-          <line x1="14" y1="14" x2="14" y2="22" stroke="#6366f1" strokeWidth="1" opacity="0.2" />
-          <line x1="94" y1="14" x2="86" y2="14" stroke="#6366f1" strokeWidth="1" opacity="0.2" />
-          <line x1="94" y1="14" x2="94" y2="22" stroke="#6366f1" strokeWidth="1" opacity="0.2" />
-          <line x1="14" y1="94" x2="22" y2="94" stroke="#6366f1" strokeWidth="1" opacity="0.2" />
-          <line x1="14" y1="94" x2="14" y2="86" stroke="#6366f1" strokeWidth="1" opacity="0.2" />
-          <line x1="94" y1="94" x2="86" y2="94" stroke="#6366f1" strokeWidth="1" opacity="0.2" />
-          <line x1="94" y1="94" x2="94" y2="86" stroke="#6366f1" strokeWidth="1" opacity="0.2" />
-        </svg>
-        {/* The actual logo image */}
+      {/* School logo — centered above robot head, no animations */}
+      <div className="flex justify-center mb-2" style={{ zIndex: 3 }}>
         <img
           src="/ensl-logo.jpg"
           alt=""
-          className="relative rounded-xl border border-border/30 rb-logo-pulse"
+          className="rounded-xl border border-border/30"
           style={{
-            width: '80px',
-            height: '80px',
+            width: '64px',
+            height: '64px',
             objectFit: 'contain',
-            zIndex: 2,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.06)',
           }}
           draggable={false}
         />
-        {/* Shadow under the logo */}
-        <div style={{
-          position: 'absolute',
-          bottom: '-6px',
-          left: '10px',
-          width: '60px',
-          height: '8px',
-          borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(30,41,59,0.15) 0%, transparent 70%)',
-          zIndex: 0,
-        }} />
       </div>
 
       {/* Robot SVG — uses CSS class to adapt colors in dark mode */}
@@ -112,7 +64,7 @@ const FooterRobot: React.FC = () => {
           {/* Eye glow — cyan */}
           <radialGradient id="rbEyeGlow" cx="0.5" cy="0.5" r="0.5">
             <stop offset="0%" stopColor="#22d3ee" />
-            <stop offset="60%" stopColor="#06b6d4" />
+            <stop offset="60%" stopColor="#6b7db5" />
             <stop offset="100%" stopColor="#0891b2" />
           </radialGradient>
           {/* Core energy gradient */}

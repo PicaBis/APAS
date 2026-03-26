@@ -7,8 +7,10 @@ const ALGORITHM = 'AES-GCM';
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12;
 
-// Derive a CryptoKey from a passphrase
-async function deriveKey(passphrase: string): Promise<CryptoKey> {
+const SALT_LENGTH = 16;
+
+// Derive a CryptoKey from a passphrase and salt
+async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
@@ -21,7 +23,7 @@ async function deriveKey(passphrase: string): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: encoder.encode('apas-salt-v1'),
+      salt,
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -49,7 +51,8 @@ function getPassphrase(): string {
  * Returns a base64-encoded string containing the IV + ciphertext
  */
 export async function encryptData(plaintext: string): Promise<string> {
-  const key = await deriveKey(getPassphrase());
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const key = await deriveKey(getPassphrase(), salt);
   const encoder = new TextEncoder();
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
 
@@ -59,10 +62,13 @@ export async function encryptData(plaintext: string): Promise<string> {
     encoder.encode(plaintext)
   );
 
-  // Combine IV + ciphertext
-  const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
-  combined.set(iv);
-  combined.set(new Uint8Array(ciphertext), iv.length);
+  // Combine version byte + salt + IV + ciphertext
+  const ctBytes = new Uint8Array(ciphertext);
+  const combined = new Uint8Array(1 + salt.length + iv.length + ctBytes.length);
+  combined[0] = 0x02; // Version byte to distinguish from legacy format
+  combined.set(salt, 1);
+  combined.set(iv, 1 + salt.length);
+  combined.set(ctBytes, 1 + salt.length + iv.length);
 
   return btoa(String.fromCharCode(...combined));
 }
@@ -71,13 +77,38 @@ export async function encryptData(plaintext: string): Promise<string> {
  * Decrypt a base64-encoded AES-GCM encrypted string
  */
 export async function decryptData(encryptedBase64: string): Promise<string> {
-  const key = await deriveKey(getPassphrase());
   const combined = new Uint8Array(
     atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
   );
 
+  // Try new format first (version byte 0x02 + salt + IV + ciphertext),
+  // then fall back to legacy format (IV + ciphertext) if decryption fails.
+  // This avoids false-positives when legacy data's random IV starts with 0x02.
+  const passphrase = getPassphrase();
+
+  // Attempt new format if the first byte is the version marker and length is sufficient
+  if (combined.length > 0 && combined[0] === 0x02 && combined.length >= 1 + SALT_LENGTH + IV_LENGTH + 1) {
+    try {
+      const salt = combined.slice(1, 1 + SALT_LENGTH);
+      const iv = combined.slice(1 + SALT_LENGTH, 1 + SALT_LENGTH + IV_LENGTH);
+      const ciphertext = combined.slice(1 + SALT_LENGTH + IV_LENGTH);
+      const key = await deriveKey(passphrase, salt);
+      const plaintext = await crypto.subtle.decrypt(
+        { name: ALGORITHM, iv },
+        key,
+        ciphertext
+      );
+      return new TextDecoder().decode(plaintext);
+    } catch {
+      // New format decryption failed — likely a legacy entry whose IV starts with 0x02
+    }
+  }
+
+  // Legacy fallback: hardcoded salt, IV is first 12 bytes
+  const salt = new TextEncoder().encode('apas-salt-v1');
   const iv = combined.slice(0, IV_LENGTH);
   const ciphertext = combined.slice(IV_LENGTH);
+  const key = await deriveKey(passphrase, salt);
 
   const plaintext = await crypto.subtle.decrypt(
     { name: ALGORITHM, iv },

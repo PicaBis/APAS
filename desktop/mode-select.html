@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APAS - اختيار الوضع</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .mode-container {
+      width: 660px;
+      height: 500px;
+      background: linear-gradient(145deg, #06061a 0%, #0d1033 30%, #0a0a2e 60%, #111145 100%);
+      border-radius: 24px;
+      border: 1px solid rgba(100, 140, 255, 0.12);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 50px rgba(60, 100, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mode-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(100, 160, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(100, 160, 255, 0.015) 1px, transparent 1px);
+      background-size: 50px 50px;
+      z-index: 0;
+    }
+
+    /* Title bar */
+    .title-bar {
+      width: 100%;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      -webkit-app-region: drag;
+      z-index: 10;
+    }
+
+    .close-btn {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ff5f57;
+      border: none;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      transition: all 0.2s;
+      box-shadow: 0 0 6px rgba(255, 95, 87, 0.3);
+    }
+
+    .close-btn:hover {
+      background: #ff3b30;
+      box-shadow: 0 0 12px rgba(255, 59, 48, 0.5);
+      transform: scale(1.15);
+    }
+
+    /* Header section */
+    .header {
+      z-index: 2;
+      text-align: center;
+      margin-top: 8px;
+      margin-bottom: 20px;
+      animation: fadeInDown 0.8s ease-out forwards;
+    }
+
+    .header-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 0 15px rgba(80, 140, 255, 0.4));
+    }
+
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 3px;
+      margin-bottom: 6px;
+    }
+
+    .header p {
+      font-size: 12px;
+      color: rgba(180, 200, 255, 0.5);
+      letter-spacing: 1px;
+    }
+
+    @keyframes fadeInDown {
+      0% { opacity: 0; transform: translateY(-20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Mode cards container */
+    .cards-container {
+      display: flex;
+      gap: 24px;
+      padding: 0 32px;
+      z-index: 2;
+      animation: fadeInUp 0.8s ease-out 0.3s forwards;
+      opacity: 0;
+    }
+
+    @keyframes fadeInUp {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .mode-card {
+      width: 280px;
+      height: 260px;
+      background: linear-gradient(160deg, rgba(20, 20, 60, 0.8), rgba(15, 15, 45, 0.9));
+      border: 1px solid rgba(100, 140, 255, 0.1);
+      border-radius: 20px;
+      padding: 28px 24px;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mode-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .mode-card:hover {
+      border-color: rgba(100, 160, 255, 0.3);
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(59, 130, 246, 0.1);
+    }
+
+    .mode-card:hover::before {
+      opacity: 1;
+    }
+
+    .mode-card:active {
+      transform: translateY(-2px) scale(0.98);
+    }
+
+    .mode-card.online-card:hover {
+      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(59, 130, 246, 0.15);
+    }
+
+    .mode-card.offline-card:hover {
+      border-color: rgba(139, 92, 246, 0.4);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(139, 92, 246, 0.15);
+    }
+
+    .mode-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .online-card .mode-icon {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(6, 182, 212, 0.1));
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .offline-card .mode-icon {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.1));
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+
+    .mode-icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .mode-card h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .mode-card p {
+      font-size: 12px;
+      color: rgba(180, 200, 255, 0.55);
+      line-height: 1.7;
+    }
+
+    .mode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-top: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .online-card .mode-badge {
+      background: rgba(59, 130, 246, 0.12);
+      color: rgba(147, 197, 253, 0.9);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .offline-card .mode-badge {
+      background: rgba(139, 92, 246, 0.12);
+      color: rgba(196, 181, 253, 0.9);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .online-card .status-dot {
+      background: #3b82f6;
+      box-shadow: 0 0 6px #3b82f6;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .offline-card .status-dot {
+      background: #8b5cf6;
+      box-shadow: 0 0 6px #8b5cf6;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Status section */
+    .status-section {
+      z-index: 2;
+      margin-top: 20px;
+      text-align: center;
+      animation: fadeInUp 0.8s ease-out 0.6s forwards;
+      opacity: 0;
+    }
+
+    .status-text {
+      font-size: 11px;
+      color: rgba(150, 180, 255, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-indicator.online {
+      background: #22c55e;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .status-indicator.offline {
+      background: #f59e0b;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+    }
+
+    .status-indicator.checking {
+      background: #6b7280;
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+
+    /* Particles */
+    .particle {
+      position: absolute;
+      background: rgba(100, 160, 255, 0.2);
+      border-radius: 50%;
+      z-index: 1;
+    }
+    .particle:nth-child(1) { width: 2px; height: 2px; top: 15%; left: 10%; animation: pfloat 6s ease-in-out infinite; }
+    .particle:nth-child(2) { width: 3px; height: 3px; bottom: 20%; right: 8%; animation: pfloat 8s ease-in-out 1s infinite; }
+    .particle:nth-child(3) { width: 2px; height: 2px; top: 50%; left: 5%; animation: pfloat 7s ease-in-out 2s infinite; background: rgba(139, 92, 246, 0.2); }
+
+    @keyframes pfloat {
+      0%, 100% { transform: translateY(0); opacity: 0.2; }
+      50% { transform: translateY(-15px); opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+  <div class="mode-container">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+
+    <div class="title-bar">
+      <div></div>
+      <button class="close-btn" id="closeBtn" title="إغلاق"></button>
+    </div>
+
+    <div class="header">
+      <img class="header-logo" src="icon.png" alt="APAS">
+      <h1>APAS</h1>
+      <p>اختر وضع التشغيل</p>
+    </div>
+
+    <div class="cards-container">
+      <!-- Online Mode Card -->
+      <div class="mode-card online-card" id="onlineCard">
+        <div class="mode-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+        </div>
+        <h2>وضع الاتصال</h2>
+        <p>اتصال مباشر بأحدث إصدار<br>مع جميع الميزات والذكاء الاصطناعي</p>
+        <div class="mode-badge"><span class="status-dot"></span> Online</div>
+      </div>
+
+      <!-- Offline Mode Card -->
+      <div class="mode-card offline-card" id="offlineCard">
+        <div class="mode-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M8 10h8M8 14h4"/>
+          </svg>
+        </div>
+        <h2>وضع بدون اتصال</h2>
+        <p>استخدم النسخة المحفوظة<br>بدون الحاجة للإنترنت</p>
+        <div class="mode-badge"><span class="status-dot"></span> Offline</div>
+      </div>
+    </div>
+
+    <div class="status-section">
+      <div class="status-text" id="statusText">
+        <span class="status-indicator checking" id="statusDot"></span>
+        <span id="statusLabel">جاري فحص الاتصال...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Check connectivity and cache status on load
+    async function checkStatus() {
+      const statusDot = document.getElementById('statusDot');
+      const statusLabel = document.getElementById('statusLabel');
+      
+      try {
+        const isOnline = await window.electronAPI.checkOnline();
+        const hasCache = await window.electronAPI.checkCache();
+        
+        if (isOnline) {
+          statusDot.className = 'status-indicator online';
+          statusLabel.textContent = '\u0645\u062a\u0635\u0644 \u0628\u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a';
+        } else {
+          statusDot.className = 'status-indicator offline';
+          statusLabel.textContent = '\u063a\u064a\u0631 \u0645\u062a\u0635\u0644 \u0628\u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a';
+          if (!hasCache) {
+            document.getElementById('offlineCard').style.opacity = '0.4';
+            document.getElementById('offlineCard').style.pointerEvents = 'none';
+            statusLabel.textContent += ' - \u0644\u0627 \u062a\u0648\u062c\u062f \u0646\u0633\u062e\u0629 \u0645\u062d\u0641\u0648\u0638\u0629';
+          }
+        }
+      } catch (err) {
+        statusDot.className = 'status-indicator offline';
+        statusLabel.textContent = '\u062a\u0639\u0630\u0631 \u0641\u062d\u0635 \u0627\u0644\u0627\u062a\u0635\u0627\u0644';
+      }
+    }
+
+    // Mode selection handlers
+    document.getElementById('onlineCard').addEventListener('click', () => {
+      window.electronAPI.selectMode('online');
+    });
+
+    document.getElementById('offlineCard').addEventListener('click', () => {
+      window.electronAPI.selectMode('offline');
+    });
+
+    document.getElementById('closeBtn').addEventListener('click', () => {
+      window.electronAPI.closeModeWindow();
+    });
+
+    // Check status on load
+    checkStatus();
+  </script>
+</body>
+</html>

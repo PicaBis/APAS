@@ -106,26 +106,80 @@ export function useSimulation() {
   // Calculate trajectory whenever params change
   const recalculate = useCallback(() => {
     const result = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod, initialX, spinRate, projectileRadius, advancedParamsRef.current);
-    setTrajectoryData(result.points);
     setTheoreticalData(result.theoPoints);
     setPrediction(result.prediction);
     setBounceEvents(result.bounceEvents || []);
-    // Detect collision with second body
+    // Detect collision with second body and compute post-collision response
     if (secondBodyEnabled) {
-      const cp = result.points.find(p => {
+      const cpIdx = result.points.findIndex(p => {
         const dx = p.x - secondBodyX;
         const dy = p.y - secondBodyY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         return dist <= (projectileRadius + secondBodyRadius);
       });
-      setCollisionPoint(cp ? { x: cp.x, y: cp.y, time: cp.time } : null);
+      if (cpIdx >= 0) {
+        const cp = result.points[cpIdx];
+        setCollisionPoint({ x: cp.x, y: cp.y, time: cp.time });
+
+        // Compute post-collision velocities using 1D collision along the line of impact
+        const m1 = mass;
+        const m2 = secondBodyMass;
+        const e = collisionCOR; // coefficient of restitution (1 = elastic, 0 = perfectly inelastic)
+
+        // Normal vector from projectile to second body
+        const nx = secondBodyX - cp.x;
+        const ny = secondBodyY - cp.y;
+        const nLen = Math.sqrt(nx * nx + ny * ny) || 1;
+        const ux = nx / nLen;
+        const uy = ny / nLen;
+
+        // Relative velocity along normal (second body is stationary)
+        const vRel = cp.vx * ux + cp.vy * uy;
+
+        // Only respond if projectile is approaching the second body
+        if (vRel > 0) {
+          // Impulse magnitude from Newton's law of restitution
+          const j = (1 + e) * vRel / (1 / m1 + 1 / m2);
+
+          // Post-collision velocity of projectile
+          const newVx = cp.vx - (j / m1) * ux;
+          const newVy = cp.vy - (j / m1) * uy;
+
+          // Truncate trajectory at collision point and append post-collision trajectory
+          const preCollision = result.points.slice(0, cpIdx + 1);
+
+          // Compute post-collision trajectory using the same physics engine
+          const postAngle = Math.atan2(newVy, newVx) * (180 / Math.PI);
+          const postSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
+          if (postSpeed > 0.1) {
+            const postResult = calculateTrajectory(
+              postSpeed, postAngle, cp.y, gravity, airResistance, mass,
+              enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod,
+              cp.x, spinRate, projectileRadius, advancedParamsRef.current
+            );
+            // Offset post-collision times by collision time
+            const postPoints = postResult.points.map(p => ({
+              ...p,
+              time: p.time + cp.time,
+            }));
+            const merged = [...preCollision, ...postPoints.slice(1)];
+            result.points = merged;
+          } else {
+            result.points = preCollision;
+          }
+        }
+      } else {
+        setCollisionPoint(null);
+      }
     } else {
       setCollisionPoint(null);
     }
+    // Update trajectory data with potentially modified points (post-collision)
+    setTrajectoryData(result.points);
     const models = buildAIModels(result.points, result.theoPoints, T);
     setAiModels(models);
     return result.points;
-  }, [velocity, angle, height, gravity, airResistance, mass, T, enableBounce, bounceCoefficient, windSpeed, selectedIntegrationMethod, initialX, spinRate, projectileRadius, secondBodyEnabled, secondBodyX, secondBodyY, secondBodyRadius]);
+  }, [velocity, angle, height, gravity, airResistance, mass, T, enableBounce, bounceCoefficient, windSpeed, selectedIntegrationMethod, initialX, spinRate, projectileRadius, secondBodyEnabled, secondBodyX, secondBodyY, secondBodyRadius, secondBodyMass, collisionCOR]);
 
   useEffect(() => { recalculate(); }, [recalculate]);
 

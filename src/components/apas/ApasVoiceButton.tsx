@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Mic, MicOff, Loader2, X, Volume2, CheckCircle } from 'lucide-react';
+import { Mic, MicOff, Loader2, X, Volume2, CheckCircle, History, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EDGE_VOICE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-process`;
@@ -16,6 +16,9 @@ interface Props {
     airResistance: number;
     mass: number;
   };
+  autoOpen?: boolean;
+  onDismiss?: () => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
 }
 
 interface ExtractedParams {
@@ -26,16 +29,37 @@ interface ExtractedParams {
   gravity?: number;
 }
 
-export default function ApasVoiceButton({ lang, onUpdateParams, simulationContext }: Props) {
+interface VoiceHistoryEntry {
+  id: number;
+  timestamp: Date;
+  transcript: string;
+  params: ExtractedParams | null;
+  aiMessage: string;
+  applied: boolean;
+}
+
+export default function ApasVoiceButton({ lang, onUpdateParams, simulationContext, autoOpen, onDismiss, onAnalysisComplete }: Props) {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [extractedParams, setExtractedParams] = useState<ExtractedParams | null>(null);
   const [applied, setApplied] = useState(false);
+  const [history, setHistory] = useState<VoiceHistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const isAr = lang === 'ar';
+
+  // Auto-start listening when autoOpen prop is set (for mobile header direct access)
+  const autoOpenTriggered = useRef(false);
+  useEffect(() => {
+    if (autoOpen && !autoOpenTriggered.current) {
+      autoOpenTriggered.current = true;
+      startListening();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
 
   const parseParamsFromAI = useCallback((text: string): { params: ExtractedParams | null; missing: string[]; message: string } => {
     const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
@@ -87,13 +111,20 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     setAiMessage('');
     setMissingParams([]);
 
+    // Guard: block when Supabase is not configured
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+      toast.error(isAr ? 'خدمة Supabase غير مهيأة. تحقق من إعدادات البيئة.' : 'Supabase is not configured. Check environment settings.');
+      setIsProcessing(false);
+      return;
+    }
+
     try {
       const resp = await fetch(EDGE_VOICE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
           transcript: spokenText,
@@ -114,6 +145,19 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
           setExtractedParams(result.params);
           onUpdateParams(result.params);
           setApplied(true);
+          setHistory(prev => [{
+            id: Date.now(),
+            timestamp: new Date(),
+            transcript: spokenText,
+            params: result.params,
+            aiMessage: result.message,
+            applied: true,
+          }, ...prev].slice(0, 20));
+          onAnalysisComplete?.({
+            type: 'voice',
+            report: result.message || spokenText,
+            params: result.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+          });
           toast.success(isAr ? 'تم تطبيق الأوامر الصوتية على المحاكاة' : 'Voice commands applied to simulation');
         } else if (result.missing.length > 0) {
           toast.info(result.message || (isAr ? 'بعض المعطيات ناقصة' : 'Some parameters are missing'));
@@ -124,8 +168,29 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
             setExtractedParams(directResult.params);
             onUpdateParams(directResult.params);
             setApplied(true);
+            setHistory(prev => [{
+              id: Date.now(),
+              timestamp: new Date(),
+              transcript: spokenText,
+              params: directResult.params,
+              aiMessage: '',
+              applied: true,
+            }, ...prev].slice(0, 20));
+            onAnalysisComplete?.({
+              type: 'voice',
+              report: spokenText,
+              params: directResult.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+            });
             toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
           } else {
+            setHistory(prev => [{
+              id: Date.now(),
+              timestamp: new Date(),
+              transcript: spokenText,
+              params: null,
+              aiMessage: '',
+              applied: false,
+            }, ...prev].slice(0, 20));
             toast.info(isAr ? 'لم أتمكن من استخراج قيم فيزيائية من الكلام' : 'Could not extract physics values from speech');
           }
         }
@@ -136,8 +201,29 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
           setExtractedParams(directResult.params);
           onUpdateParams(directResult.params);
           setApplied(true);
+          setHistory(prev => [{
+            id: Date.now(),
+            timestamp: new Date(),
+            transcript: spokenText,
+            params: directResult.params,
+            aiMessage: '',
+            applied: true,
+          }, ...prev].slice(0, 20));
+          onAnalysisComplete?.({
+            type: 'voice',
+            report: spokenText,
+            params: directResult.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+          });
           toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
         } else {
+          setHistory(prev => [{
+            id: Date.now(),
+            timestamp: new Date(),
+            transcript: spokenText,
+            params: null,
+            aiMessage: '',
+            applied: false,
+          }, ...prev].slice(0, 20));
           toast.error(isAr ? 'تعذر معالجة الأمر الصوتي' : 'Could not process voice command');
         }
       }
@@ -145,7 +231,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
       toast.error(isAr ? 'خطأ في المعالجة' : 'Processing error');
     }
     setIsProcessing(false);
-  }, [isAr, lang, onUpdateParams, parseParamsFromAI, simulationContext]);
+  }, [isAr, lang, onUpdateParams, parseParamsFromAI, simulationContext, onAnalysisComplete]);
 
   const startListening = useCallback(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -163,14 +249,97 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = lang === 'ar' ? 'ar-SA' : lang === 'fr' ? 'fr-FR' : 'en-US';
     recognition.interimResults = true;
-    recognition.continuous = true;
+    recognition.continuous = true; // Continuous mode — let the user talk as long as they want
     recognition.maxAlternatives = 1;
 
     let finalTranscript = '';
+    let lastInterim = '';
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let silenceTimer: ReturnType<typeof setTimeout> | null = null;
+    let hasReceivedSpeech = false; // Track if user has spoken at all
+    let initialNoSpeechTimer: ReturnType<typeof setTimeout> | null = null;
+    const SILENCE_AFTER_SPEECH_MS = 5000; // 5 seconds of silence after speaking → stop
+    const INITIAL_NO_SPEECH_MS = 5000;    // 5 seconds with no speech at all → stop
 
-    recognition.onstart = () => setIsListening(true);
+    // Aggressive transcript cleaning for Arabic and all languages
+    const cleanTranscript = (text: string): string => {
+      if (!text) return text;
+      let t = text;
+      // 1. Remove consecutive duplicate characters (3+)
+      t = t.replace(/(.)\1{2,}/g, '$1$1');
+      // 2. Split into words
+      const words = t.split(/\s+/).filter(Boolean);
+      // 3. Remove consecutive duplicate words
+      const deduped: string[] = [];
+      for (let i = 0; i < words.length; i++) {
+        if (i === 0 || words[i] !== words[i - 1]) {
+          deduped.push(words[i]);
+        }
+      }
+      t = deduped.join(' ');
+      // 4. Remove repeated phrases (2-5 word patterns repeated consecutively)
+      for (let phraseLen = 5; phraseLen >= 2; phraseLen--) {
+        const phraseWords = t.split(/\s+/);
+        const result: string[] = [];
+        let i = 0;
+        while (i < phraseWords.length) {
+          const phrase = phraseWords.slice(i, i + phraseLen).join(' ');
+          let j = i + phraseLen;
+          while (j + phraseLen <= phraseWords.length) {
+            const next = phraseWords.slice(j, j + phraseLen).join(' ');
+            if (next === phrase) { j += phraseLen; } else { break; }
+          }
+          result.push(...phraseWords.slice(i, i + phraseLen));
+          i = j > i + phraseLen ? j : i + phraseLen;
+          if (i > phraseWords.length) break;
+        }
+        // Add any remaining words
+        const usedLen = result.length;
+        if (usedLen < phraseWords.length) {
+          result.push(...phraseWords.slice(usedLen));
+        }
+        t = result.join(' ');
+      }
+      // 5. Remove stuck-together repeated Arabic words (e.g., "حسناحسناحسنا" → "حسنا")
+      t = t.replace(/([؀-ۿ]{2,})\1+/g, '$1');
+      return t.trim();
+    };
+
+    // Reset silence timer — called whenever speech activity is detected
+    // After the user speaks and then goes silent for 5s, auto-stop and process
+    const resetSilenceTimer = () => {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        // 5s of silence after speech → stop and process
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch { /* ignore */ }
+        }
+      }, SILENCE_AFTER_SPEECH_MS);
+    };
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      hasReceivedSpeech = false;
+      // Start initial "no speech at all" timer — if no speech within 5s, stop
+      initialNoSpeechTimer = setTimeout(() => {
+        if (!hasReceivedSpeech && recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch { /* ignore */ }
+        }
+      }, INITIAL_NO_SPEECH_MS);
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
+      // User is speaking — cancel the initial no-speech timer
+      if (!hasReceivedSpeech) {
+        hasReceivedSpeech = true;
+        if (initialNoSpeechTimer) {
+          clearTimeout(initialNoSpeechTimer);
+          initialNoSpeechTimer = null;
+        }
+      }
+      // Reset the 5s silence timer every time we get new results
+      resetSilenceTimer();
+
       let interim = '';
       finalTranscript = '';
       for (let i = 0; i < event.results.length; i++) {
@@ -181,9 +350,29 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
           interim += result[0].transcript;
         }
       }
-      setTranscript(finalTranscript + interim);
+
+      // Apply cleaning to both final and interim transcripts
+      const cleanedFinal = cleanTranscript(finalTranscript);
+      const cleanedInterim = cleanTranscript(interim);
+
+      // Debounce interim updates to avoid rapid flickering
+      if (cleanedInterim !== lastInterim) {
+        lastInterim = cleanedInterim;
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          setTranscript(cleanedFinal + (cleanedInterim ? ' ' + cleanedInterim : ''));
+        }, 150);
+      }
+
+      // Always update immediately when we get final results
+      if (finalTranscript) {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        setTranscript(cleanedFinal + (cleanedInterim ? ' ' + cleanedInterim : ''));
+      }
     };
     recognition.onerror = (e: Event & { error?: string }) => {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      if (initialNoSpeechTimer) clearTimeout(initialNoSpeechTimer);
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       setIsListening(false);
       recognitionRef.current = null;
@@ -192,8 +381,12 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     recognition.onend = () => {
       setIsListening(false);
       recognitionRef.current = null;
-      if (finalTranscript.trim()) {
-        processVoiceInput(finalTranscript.trim());
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (silenceTimer) clearTimeout(silenceTimer);
+      if (initialNoSpeechTimer) clearTimeout(initialNoSpeechTimer);
+      const cleaned = cleanTranscript(finalTranscript).trim();
+      if (cleaned) {
+        processVoiceInput(cleaned);
       }
     };
 
@@ -221,22 +414,117 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     setApplied(false);
     setAiMessage('');
     setMissingParams([]);
+    onDismiss?.();
   };
 
   return (
     <>
-      <button
-        onClick={startListening}
-        disabled={isProcessing}
-        className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-purple-500/30 bg-secondary/50 hover:bg-purple-500/10 transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
-        title={isAr ? 'الأوامر الصوتية' : 'Voice Commands'}
-      >
-        <Mic className="w-4 h-4 text-purple-500 transition-transform duration-200 group-hover:scale-110" />
-        <span className="text-[10px] sm:text-xs font-semibold text-foreground">
-          {isAr ? 'الأوامر الصوتية' : 'Voice Commands'}
-        </span>
-        <span className="text-[9px] text-purple-500 ms-auto font-medium">APAS Voice</span>
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={startListening}
+          disabled={isProcessing}
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border border-purple-500/20 hover:border-purple-500/40 text-foreground font-medium text-sm transition-all duration-300 disabled:opacity-50"
+          title={isAr ? 'الأوامر الصوتية' : 'Voice Commands'}
+        >
+          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+          <span>{isAr ? 'APAS الأوامر الصوتية' : 'APAS Voice'}</span>
+          <Sparkles className="w-3 h-3 text-purple-400" />
+        </button>
+
+        {history.length > 0 && (
+          <button
+            onClick={() => setShowHistory(true)}
+            className="p-2 rounded-xl border border-purple-500/20 hover:border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 transition-all duration-300 relative"
+            title={isAr ? 'سجل الأوامر الصوتية' : 'Voice History'}
+          >
+            <History className="w-3.5 h-3.5 text-foreground" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[8px] font-bold rounded-full flex items-center justify-center">
+              {history.length}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Voice History Modal */}
+      {showHistory && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowHistory(false)}>
+          <div
+            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
+            dir={isAr ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">{isAr ? 'سجل الأوامر الصوتية' : 'Voice Command History'}</h3>
+              </div>
+              <button onClick={() => setShowHistory(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {history.map(entry => (
+                <div
+                  key={entry.id}
+                  className="w-full text-start p-3 rounded-lg border border-border hover:bg-secondary/50 hover:shadow-sm transition-all duration-200 relative group"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); e.preventDefault();
+                      setHistory(prev => prev.filter(h => h.id !== entry.id));
+                    }}
+                    className="absolute top-2 end-2 z-10 p-2 -m-1 rounded-md hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                    title={isAr ? 'حذف' : 'Delete'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (entry.params) {
+                        onUpdateParams(entry.params);
+                        toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
+                      }
+                      setShowHistory(false);
+                    }}
+                    className="w-full text-start pe-6"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-purple-500/10">
+                        <Volume2 className="w-4 h-4 text-purple-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 pe-5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${entry.applied ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                            {entry.applied ? (isAr ? 'مُطبّق' : 'Applied') : (isAr ? 'لم يُطبّق' : 'Not applied')}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {entry.timestamp.toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground truncate mb-1">"{entry.transcript}"</p>
+                        {entry.params && (
+                          <div className="grid grid-cols-2 gap-1.5 text-[9px]">
+                            {Object.entries(entry.params).filter(([, v]) => v != null).map(([key, value]) => (
+                              <div key={key} className="bg-secondary/50 rounded p-1 text-center">
+                                <span className="text-muted-foreground">{key}: </span>
+                                <span className="font-mono font-medium text-foreground">{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {!entry.params && (
+                          <span className="text-[10px] text-muted-foreground">{isAr ? 'لم تُستخرج قيم' : 'No values extracted'}</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Voice Modal */}
       {showModal && createPortal(
@@ -297,7 +585,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
               {/* Status text */}
               <p className="text-sm font-semibold text-foreground text-center">
                 {isListening
-                  ? (isAr ? 'جاري الاستماع... تحدث الآن' : 'Listening... speak now')
+                  ? (isAr ? 'جاري الاستماع... تحدث بحرية' : 'Listening... speak freely')
                   : isProcessing
                   ? (isAr ? 'جاري معالجة الأمر...' : 'Processing command...')
                   : applied
@@ -305,8 +593,17 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
                   : (isAr ? 'اضغط للتحدث' : 'Tap to speak')}
               </p>
 
+              {/* Listening hint — tell user they can take their time */}
+              {isListening && (
+                <p className="text-[10px] text-muted-foreground text-center max-w-[250px] animate-pulse">
+                  {isAr
+                    ? 'تحدث بحرية وخذ وقتك... سأنتظر 5 ثوانٍ بعد توقفك للمعالجة'
+                    : 'Take your time... I\'ll wait 5 seconds after you stop to process'}
+                </p>
+              )}
+
               {/* Hint text */}
-              {!transcript && !isProcessing && !applied && (
+              {!transcript && !isProcessing && !applied && !isListening && (
                 <p className="text-[10px] text-muted-foreground text-center max-w-[250px]">
                   {isAr
                     ? 'قل مثلاً: "السرعة 50 متر في الثانية والزاوية 30 درجة والارتفاع 2 متر"'
@@ -336,8 +633,8 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
                 </div>
               )}
 
-              {/* Live transcript */}
-              {transcript && (
+              {/* Live transcript — shown during listening and after processing */}
+              {transcript && !isProcessing && (
                 <div className="w-full bg-secondary/50 border border-border/50 rounded-lg p-3">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                     {isAr ? 'ما سمعته' : 'What I heard'}

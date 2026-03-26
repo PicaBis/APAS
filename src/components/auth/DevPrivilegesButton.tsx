@@ -36,10 +36,10 @@ export default function DevPrivilegesButton({ lang = 'en' }: Props) {
       <button
         ref={buttonRef}
         onClick={() => setShowModal(true)}
-        className="group flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300"
+        className="group flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary p-1.5 sm:px-3 sm:py-1.5 rounded-lg hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all duration-300"
         title={isAr ? 'صلاحيات المطور' : 'Developer Privileges'}
       >
-        <Shield className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
+        <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-300 group-hover:scale-110" />
         <span className="hidden sm:inline">{isAr ? 'صلاحيات المطور' : 'Dev Access'}</span>
       </button>
 
@@ -48,7 +48,7 @@ export default function DevPrivilegesButton({ lang = 'en' }: Props) {
           <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={() => setShowModal(false)} />
           <div
             ref={popupRef}
-            className="absolute top-full mt-2 right-0 z-50 bg-card border border-border rounded-xl shadow-2xl p-6 w-80"
+            className="fixed sm:absolute top-1/2 sm:top-full left-1/2 sm:left-auto -translate-x-1/2 sm:translate-x-0 -translate-y-1/2 sm:translate-y-0 sm:mt-2 sm:right-0 z-50 bg-card border border-border rounded-xl shadow-2xl p-5 sm:p-6 w-[calc(100vw-2rem)] sm:w-80 max-w-80"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">

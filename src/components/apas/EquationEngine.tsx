@@ -120,12 +120,12 @@ export default function EquationEngine({ lang, muted, onTrajectoryGenerated }: P
   }, [expanded, onTrajectoryGenerated]);
 
   return (
-    <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+    <div className="border border-border/40 rounded-xl overflow-hidden bg-card/50 backdrop-blur-sm transition-all duration-300 hover:border-border/60">
       <button
         onClick={() => { setExpanded(!expanded); playSectionToggle(muted); }}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <span className="text-base">🔬</span>
           {isAr ? 'محرك المعادلات العام' : lang === 'fr' ? 'Moteur d\'Équations' : 'Equation Engine'}
         </h3>
@@ -135,7 +135,9 @@ export default function EquationEngine({ lang, muted, onTrajectoryGenerated }: P
               {isAr ? 'Physics Sandbox' : 'Physics Sandbox'}
             </span>
           )}
-          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+          <div className="w-6 h-6 rounded-md bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+          </div>
         </div>
       </button>
 

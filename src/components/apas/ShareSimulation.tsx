@@ -99,14 +99,14 @@ export default function ShareSimulation({
     <div className="flex items-center justify-center gap-2">
       <button
         onClick={handleCopy}
-        className="group p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-border/40 hover:border-primary/30 hover:shadow-md transition-all duration-300"
+        className="group p-2 rounded-lg bg-white dark:bg-card hover:bg-primary/10 text-muted-foreground hover:text-primary border border-border/40 hover:border-primary/30 shadow-md hover:shadow-lg transition-all duration-300"
         title={copied ? (isAr ? 'تم النسخ!' : 'Copied!') : (isAr ? 'نسخ الرابط' : 'Copy Link')}
       >
         {copied ? <Check className="w-4 h-4 text-green-500" /> : <Link className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />}
       </button>
       <button
         onClick={handleNativeShare}
-        className="group p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary border border-border/40 hover:border-primary/30 hover:shadow-md transition-all duration-300"
+        className="group p-2 rounded-lg bg-white dark:bg-card hover:bg-primary/10 text-muted-foreground hover:text-primary border border-border/40 hover:border-primary/30 shadow-md hover:shadow-lg transition-all duration-300"
         title={isAr ? 'مشاركة' : 'Share'}
       >
         <Share2 className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />

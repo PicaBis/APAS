@@ -1,0 +1,86 @@
+{
+  "name": "apas-desktop",
+  "version": "1.0.0",
+  "description": "APAS - AI Projectile Analysis System - Desktop App",
+  "main": "main.js",
+  "author": {
+    "name": "APAS Team",
+    "email": "apas@ensl.dz"
+  },
+  "license": "MIT",
+  "homepage": "https://a-p-a-s.vercel.app",
+  "scripts": {
+    "start": "electron .",
+    "build:web": "cd .. && npm run build",
+    "prebuild": "node build-prepare.js",
+    "build:win": "npm run prebuild && electron-builder --win --x64",
+    "build:linux": "npm run prebuild && electron-builder --linux",
+    "build:mac": "npm run prebuild && electron-builder --mac",
+    "build:all": "npm run prebuild && electron-builder --win --linux --mac"
+  },
+  "build": {
+    "appId": "com.apas.desktop",
+    "productName": "APAS",
+    "artifactName": "APAS-Setup-${version}.${ext}",
+    "copyright": "Copyright © 2024 APAS Team - ENS Laghouat",
+    "directories": {
+      "output": "dist",
+      "buildResources": "installer"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "splash.html",
+      "mode-select.html",
+      "offline-fallback.html",
+      "icon.png",
+      "icon.ico",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "icon.ico",
+      "publisherName": "APAS Team"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "installerHeader": "installer/installerHeader.bmp",
+      "installerSidebar": "installer/installerSidebar.bmp",
+      "uninstallerSidebar": "installer/installerSidebar.bmp",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "APAS",
+      "include": "installer/installer.nsh",
+      "language": 1033,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "menuCategory": "APAS",
+      "license": null
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "icon.png",
+      "category": "Education",
+      "description": "AI Projectile Analysis System"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "icon.png",
+      "category": "public.app-category.education"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

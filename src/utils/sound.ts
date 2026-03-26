@@ -286,40 +286,55 @@ export const playLangSwitch = (muted: boolean) => {
   try { playTone('triangle', 700, 900, 0.025, 0.1);   } catch { /* ignore */ }
 };
 
-// Loading state sound — a pleasant, ambient pulsing hum that conveys progress
+// Loading state sound — a gentle, crystalline cascade that feels modern and calming
 export const playLoadingSound = (muted: boolean) => {
   if (muted) return;
   try {
     const ctx = getAudioCtx();
     if (!ctx) return;
     const t = ctx.currentTime;
-    const dur = 1.8;
-    // Warm pad tone
-    const osc1 = ctx.createOscillator();
-    const g1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(330, t);
-    osc1.frequency.exponentialRampToValueAtTime(440, t + dur * 0.5);
-    osc1.frequency.exponentialRampToValueAtTime(330, t + dur);
-    g1.gain.setValueAtTime(0, t);
-    g1.gain.linearRampToValueAtTime(0.04, t + 0.15);
-    g1.gain.setValueAtTime(0.04, t + dur * 0.7);
-    g1.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc1.connect(g1); g1.connect(ctx.destination);
-    osc1.start(t); osc1.stop(t + dur);
-    // Soft shimmer overtone
-    const osc2 = ctx.createOscillator();
-    const g2 = ctx.createGain();
-    osc2.type = 'triangle';
-    osc2.frequency.setValueAtTime(660, t);
-    osc2.frequency.exponentialRampToValueAtTime(880, t + dur * 0.5);
-    osc2.frequency.exponentialRampToValueAtTime(660, t + dur);
-    g2.gain.setValueAtTime(0, t);
-    g2.gain.linearRampToValueAtTime(0.015, t + 0.2);
-    g2.gain.setValueAtTime(0.015, t + dur * 0.6);
-    g2.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc2.connect(g2); g2.connect(ctx.destination);
-    osc2.start(t); osc2.stop(t + dur);
+    const dur = 2.2;
+
+    // Soft sub-bass foundation — warm low hum
+    const sub = ctx.createOscillator();
+    const subG = ctx.createGain();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(110, t);
+    sub.frequency.linearRampToValueAtTime(130, t + dur);
+    subG.gain.setValueAtTime(0, t);
+    subG.gain.linearRampToValueAtTime(0.025, t + 0.4);
+    subG.gain.setValueAtTime(0.025, t + dur * 0.75);
+    subG.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    sub.connect(subG); subG.connect(ctx.destination);
+    sub.start(t); sub.stop(t + dur);
+
+    // Ascending crystal arpeggio — soft bell-like notes
+    const notes = [392, 523.25, 659.25, 783.99]; // G4, C5, E5, G5
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      const noteStart = t + i * 0.18;
+      osc.frequency.setValueAtTime(freq, noteStart);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.005, noteStart + 0.6);
+      g.gain.setValueAtTime(0, noteStart);
+      g.gain.linearRampToValueAtTime(0.035, noteStart + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, noteStart + 0.8);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(noteStart); osc.stop(noteStart + 0.85);
+    });
+
+    // Airy shimmer layer — very soft high harmonic
+    const shimmer = ctx.createOscillator();
+    const shimG = ctx.createGain();
+    shimmer.type = 'sine';
+    shimmer.frequency.setValueAtTime(1568, t + 0.5);
+    shimmer.frequency.exponentialRampToValueAtTime(1318, t + dur);
+    shimG.gain.setValueAtTime(0, t + 0.5);
+    shimG.gain.linearRampToValueAtTime(0.008, t + 0.8);
+    shimG.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    shimmer.connect(shimG); shimG.connect(ctx.destination);
+    shimmer.start(t + 0.5); shimmer.stop(t + dur);
   } catch { /* ignore */ }
 };
 
@@ -415,6 +430,20 @@ export const playModeSwitch = (muted: boolean, to3D: boolean) => {
 export const playSpeedChange = (muted: boolean) => {
   if (muted) return;
   try { playTone('sine', 600, 750, 0.025, 0.06); } catch { /* ignore */ }
+};
+
+/**
+ * Explicitly close the AudioContext and clean up module-level state.
+ * Call this when the app unmounts or sound is no longer needed.
+ */
+export const cleanupAudio = () => {
+  try {
+    stopWhizz();
+    if (audioCtx) {
+      audioCtx.close().catch(() => {});
+      audioCtx = null;
+    }
+  } catch { /* ignore */ }
 };
 
 // Guided tour step transition sound (gentle chime)

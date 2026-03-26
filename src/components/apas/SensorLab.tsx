@@ -176,11 +176,13 @@ export default function SensorLab({ lang, muted, onDataCollected }: Props) {
     <>
       <button
         onClick={() => { setIsOpen(true); if (hasPermission === null) requestPermission(); }}
-        className="group w-full text-xs font-medium py-3 px-4 rounded-lg flex items-center gap-2 text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 hover:shadow-md transition-all duration-300"
+        className="w-full text-sm font-semibold py-3 px-4 rounded-xl flex items-center gap-3 text-foreground hover:bg-primary/5 border border-border/40 hover:border-border/60 transition-all duration-300 bg-card/50 backdrop-blur-sm"
       >
-        <Smartphone className="w-4 h-4 text-primary transition-transform duration-200 group-hover:scale-110" />
-        <span className="font-semibold">{isAr ? 'مختبر المستشعرات' : 'Sensor Lab'}</span>
-        <span className="ml-auto text-[10px] text-muted-foreground">{isAr ? 'مقياس التسارع + الجيروسكوب' : 'Accel + Gyro'}</span>
+        <Smartphone className="w-5 h-5 text-primary" />
+        <div className="text-left rtl:text-right">
+          <div className="font-semibold">{isAr ? 'مختبر المستشعرات' : 'Sensor Lab'}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">{isAr ? 'مقياس التسارع + الجيروسكوب' : 'Accel + Gyro'}</div>
+        </div>
       </button>
 
       {isOpen && createPortal(

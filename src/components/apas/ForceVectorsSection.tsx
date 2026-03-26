@@ -20,11 +20,11 @@ const BASE_VECTORS: { key: keyof VectorVisibility; color: string; labelAr: strin
   { key: 'Fd', color: '#f59e0b', labelAr: 'قوة السحب Fd', labelEn: 'Drag Fd' },
   { key: 'Fw', color: '#0ea5e9', labelAr: 'قوة الرياح Fw', labelEn: 'Wind Force Fw' },
   { key: 'Fnet', color: '#8b5cf6', labelAr: 'القوة المحصلة Fnet', labelEn: 'Net Force Fnet' },
-  { key: 'acc', color: '#06b6d4', labelAr: 'متجه التسارع a', labelEn: 'Acceleration a' },
+  { key: 'acc', color: '#6b7db5', labelAr: 'متجه التسارع a', labelEn: 'Acceleration a' },
 ];
 
 const FLUID_VECTOR: { key: keyof VectorVisibility; color: string; labelAr: string; labelEn: string } = {
-  key: 'Ffluid', color: '#14b8a6', labelAr: 'قوة مقاومة المائع Ffluid', labelEn: 'Fluid Resistance Ffluid',
+  key: 'Ffluid', color: '#4a6fa5', labelAr: 'قوة مقاومة المائع Ffluid', labelEn: 'Fluid Resistance Ffluid',
 };
 
 export default function ForceVectorsSection({ lang, showExternalForces, onToggle, vectorVisibility, onVectorToggle, isWaterEnvironment = false, hydrodynamicEnabled = false }: Props) {
@@ -38,11 +38,11 @@ export default function ForceVectorsSection({ lang, showExternalForces, onToggle
     <div className="rounded overflow-hidden">
       <button
         onClick={onToggle}
-        className={`w-full text-xs font-medium py-2.5 px-3 rounded-lg flex items-center gap-2 transition-all duration-300 ${
-          showExternalForces ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border border-primary/50 shadow-md shadow-primary/20' : 'text-foreground hover:bg-primary/10 border border-border/50 hover:border-primary/20 hover:shadow-md'
+        className={`group w-full text-xs font-medium py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-all duration-200 ${
+          showExternalForces ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md' : 'text-foreground border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md'
         }`}
       >
-        <ArrowRight className="w-3.5 h-3.5" />
+        <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
         {isAr ? 'متجهات القوى' : 'Force Vectors'}
       </button>
 

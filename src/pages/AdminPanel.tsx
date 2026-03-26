@@ -182,8 +182,8 @@ export default function AdminPanel() {
                       <tr key={p.id} className="border-b border-border/50 hover:bg-secondary/10 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            {p.avatar_url ? (
-                              <img src={p.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                            {p.avatar_url && /^https:\/\/.+/i.test(p.avatar_url) ? (
+                              <img src={p.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                                 {p.display_name.charAt(0).toUpperCase()}

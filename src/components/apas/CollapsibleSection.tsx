@@ -13,19 +13,21 @@ interface CollapsibleSectionProps {
 
 const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, open, toggle, children, miniPreview }) => {
   return (
-    <div className="border border-border/50 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+    <div className="border border-border/40 rounded-xl overflow-hidden bg-card/50 backdrop-blur-sm transition-all duration-300 hover:border-border/60">
       <button onClick={() => { toggle(); playSectionToggle(false); }}
-        className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-primary/5 transition-all duration-300">
-        <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group">
+        <span className="text-sm font-bold text-foreground flex items-center gap-2">
           {title}
         </span>
         <div className="flex items-center gap-2">
           {!open && miniPreview && (
-            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono animate-slideDown">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono animate-slideDown">
               {miniPreview}
             </span>
           )}
-          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+          <div className="w-6 h-6 rounded-md bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+          </div>
         </div>
       </button>
       {open && (

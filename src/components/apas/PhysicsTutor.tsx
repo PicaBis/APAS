@@ -5,6 +5,7 @@ import { MessageCircle, X, Send, Loader2, Trash2, User, Volume2, VolumeX, Mic, A
 import ApasLogo from '@/components/apas/ApasLogo';
 import { toast } from 'sonner';
 import { playClick } from '@/utils/sound';
+import { cleanLatex } from '@/utils/cleanLatex';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -26,47 +27,9 @@ interface Props {
   hasModel?: boolean;
 }
 
-const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY ?? '';
+// AI calls go through edge functions which handle provider fallback internally
 
-/** Strip LaTeX artifacts from AI responses */
-function cleanLatex(text: string): string {
-  let s = text;
-  // Remove $...$ wrappers
-  s = s.replace(/\$\$([^$]+)\$\$/g, '`$1`');
-  s = s.replace(/\$([^$]+)\$/g, '`$1`');
-  // Replace common LaTeX commands
-  s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1) / ($2)');
-  s = s.replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)');
-  s = s.replace(/\\cdot/g, '*');
-  s = s.replace(/\\times/g, '*');
-  s = s.replace(/\\theta/g, 'theta');
-  s = s.replace(/\\alpha/g, 'alpha');
-  s = s.replace(/\\beta/g, 'beta');
-  s = s.replace(/\\pi/g, 'pi');
-  s = s.replace(/\\sin/g, 'sin');
-  s = s.replace(/\\cos/g, 'cos');
-  s = s.replace(/\\tan/g, 'tan');
-  s = s.replace(/\\left/g, '');
-  s = s.replace(/\\right/g, '');
-  s = s.replace(/\\text\{([^}]+)\}/g, '$1');
-  s = s.replace(/\\_/g, '_');
-  s = s.replace(/\\,/g, ' ');
-  s = s.replace(/\\;/g, ' ');
-  s = s.replace(/\\quad/g, '  ');
-  // Replace Unicode math symbols
-  s = s.replace(/·/g, '*');
-  s = s.replace(/θ/g, 'theta');
-  s = s.replace(/π/g, 'pi');
-  s = s.replace(/²/g, '^2');
-  s = s.replace(/³/g, '^3');
-  s = s.replace(/₀/g, '0');
-  s = s.replace(/₁/g, '1');
-  s = s.replace(/₂/g, '2');
-  s = s.replace(/ₓ/g, 'x');
-  s = s.replace(/ᵧ/g, 'y');
-  return s;
-}
-const OPENROUTER_MODEL = 'google/gemini-2.5-flash';
+// cleanLatex is now imported from @/utils/cleanLatex
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function getGracefulFallback(text: string, lang: string) {
@@ -94,7 +57,7 @@ You can also ask about: **range, launch angle, initial velocity, and gravity eff
 💡 You can also ask me about **how to use the app** and its features!`;
 }
 
-async function consumeOpenRouterStream(
+async function consumeAIStream(
   body: ReadableStream<Uint8Array>,
   onChunk: (content: string) => void,
 ) {
@@ -396,8 +359,8 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
             messages: [{ role: 'user', content: voicePrompt }],
@@ -406,39 +369,14 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
         });
 
         if (resp.ok && resp.body) {
-          await consumeOpenRouterStream(resp.body, (chunk) => {
+          await consumeAIStream(resp.body, (chunk) => {
             analysisResult += chunk;
             setVoiceAnalysisText(analysisResult);
           });
         }
       } catch {
-        // Fallback to direct OpenRouter API
-        try {
-          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: OPENROUTER_MODEL,
-              stream: true,
-              messages: [
-                { role: 'system', content: 'You are APAS Assistant, an expert physics tutor. Respond concisely for text-to-speech.' },
-                { role: 'user', content: voicePrompt },
-              ],
-            }),
-          });
-
-          if (resp.ok && resp.body) {
-            await consumeOpenRouterStream(resp.body, (chunk) => {
-              analysisResult += chunk;
-              setVoiceAnalysisText(analysisResult);
-            });
-          }
-        } catch {
-          // silently fail, handled below
-        }
+        // Edge function handles provider fallback internally
+        // No direct API calls needed from the client
       }
 
       if (analysisResult) {
@@ -505,26 +443,52 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
     let assistantSoFar = '';
     const allMessages = [...messages, userMsg];
 
-    const systemPrompt = `You are APAS Assistant — an expert physics teacher AND application guide for the APAS projectile motion simulator.
+    const systemPrompt = `You are APAS Assistant — an expert, passionate physics teacher AND application guide for the APAS projectile motion simulator.
+
+LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
+- You MUST respond ONLY in ${lang === 'ar' ? 'Arabic (العربية)' : 'English'}. Every single word must be in ${lang === 'ar' ? 'Arabic' : 'English'}.
+- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language. Not even a single word or character.
+- ${lang === 'ar' ? 'اكتب كل شيء بالعربية الفصحى الواضحة. لا تستخدم أي لغة أخرى مطلقاً.' : 'Write everything in clear English. Never use any other language.'}
 
 You have TWO roles:
 1. **Physics Tutor:** Answer questions about projectile motion, kinematics, and classical mechanics
 2. **App Guide:** Help users navigate and use the APAS application features
 
 Your personality:
-- Patient, encouraging, and enthusiastic about physics
-- Use analogies and real-world examples
-- Respond in ${lang === 'ar' ? 'Arabic' : 'English'}
-- Use equations in VERY SIMPLE format like: vy = v0 * sin(theta) - g * t
-- NEVER use LaTeX notation like $v_y = v_0 \\cdot \\sin(\\theta) - g \\cdot t$
-- NEVER use complex symbols like v₀, θ, ·, etc.
-- Use only basic characters: v0, theta, sin, cos, *, /, +, -, ^
-- Format equations as: vy = v0 * sin(theta) - g * t
-- Keep answers concise but thorough
-- Format responses with bullet points and clear structure
-- Each point should be on a separate line
-- Use short, clear sentences
-- Avoid long paragraphs
+- You are knowledgeable, clear, and helpful. Write in a confident, professional tone.
+- Use AT MOST 3 emojis per response — only where they genuinely add meaning. Do NOT scatter emojis everywhere.
+- Start each response with a direct, clear answer to the question
+- Use analogies and real-world examples to explain concepts
+- Be warm and motivating — make the student feel excited about learning
+- Ask follow-up questions to keep the conversation going
+- Celebrate good questions with phrases like "${lang === 'ar' ? 'سؤال ممتاز!' : 'Great question!'}"
+
+FORMATTING RULES:
+- Use **bold** for key terms and important concepts
+- Use bullet points (- ) for lists, one idea per bullet
+- Add blank lines between sections for visual breathing room
+- Use ## for section headings (NO emoji before headings)
+- Keep each point concise but clear (1-3 sentences)
+- Make the text scannable — avoid long dense paragraphs
+- Use numbered lists (1. 2. 3.) for step-by-step explanations
+- Write in a clear, readable style with proper sentence structure — NOT tiny fragmented text
+
+EQUATION FORMATTING RULES (VERY IMPORTANT — MUST FOLLOW):
+- NEVER use LaTeX notation. Specifically NEVER use any of these:
+  * Dollar signs: $...$ or $$...$$
+  * Backslash commands: \\frac, \\cdot, \\theta, \\sqrt, \\text, \\left, \\right, \\implies, \\circ, \\times
+  * Curly brace groups for math: {numerator}{denominator}
+  * Unicode subscripts/superscripts: v₀, θ, ², ·
+- Write equations in simple readable format using only basic ASCII characters
+- Use: v0, theta, sin(), cos(), tan(), sqrt(), ^2, *, /, +, -
+- CORRECT equation format examples:
+  * vy = v0 * sin(theta) - g * t
+  * R = v0^2 * sin(2 * theta) / g
+  * F = m * a
+- WRONG equation format (NEVER do this):
+  * $v_y = v_0 \\cdot \\sin(\\theta)$
+  * v₀·cos(θ)·t
+  * \\frac{v^2}{2g}
 
 **APAS Application Features (use this to answer app questions):**
 - **Left Panel:** Contains parameter inputs (velocity, angle, height, mass, gravity, air resistance), equations panel, export section, and display options
@@ -571,58 +535,31 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
     try {
       let handled = false;
 
-      // 1) PRIMARY: OpenRouter API via edge function
+      // 1) PRIMARY: AI via edge function
       try {
         const backupResp = await fetch(EDGE_TUTOR_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
             messages: allMessages,
             simulationContext,
+            systemPrompt,
           }),
         });
 
         if (backupResp.ok && backupResp.body) {
-          await consumeOpenRouterStream(backupResp.body, upsertAssistant);
+          await consumeAIStream(backupResp.body, upsertAssistant);
           handled = true;
         }
       } catch (edgeErr) {
-        console.warn('Edge function failed, trying direct OpenRouter:', edgeErr);
+        console.warn('Edge function failed:', edgeErr);
       }
 
-      // 2) FALLBACK: Direct OpenRouter API
-      if (!handled && OPENROUTER_API_KEY) {
-        try {
-          const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: OPENROUTER_MODEL,
-              stream: true,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                ...allMessages,
-              ],
-            }),
-          });
-
-          if (resp.ok && resp.body) {
-            await consumeOpenRouterStream(resp.body, upsertAssistant);
-            handled = true;
-          }
-        } catch {
-          // fall through to graceful fallback
-        }
-      }
-
-      // 3) Final graceful fallback
+      // 2) Final graceful fallback (edge function handles provider fallback internally)
       if (!handled) {
         const graceful = getGracefulFallback(text, lang);
         setMessages(prev => [...prev, { role: 'assistant', content: graceful }]);
@@ -694,7 +631,7 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
         <div className="fixed inset-0 z-[59]" onClick={() => { if (!isLoading) { setOpen(false); playClick(false); } }} />
         <div
           className="fixed z-[60] w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl border border-primary/20 flex flex-col overflow-hidden animate-slideDown bg-background/95 backdrop-blur-xl"
-          style={{ top: '3.75rem', left: '50%', transform: 'translateX(-50%)', height: '480px' }}
+          style={{ top: '3.75rem', right: '1rem', left: 'auto', transform: 'none', height: '480px' }}
           dir={isRTL ? 'rtl' : 'ltr'}
         >
           {/* Header */}
@@ -882,13 +819,13 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
                   )}
                 </div>
                 {/* Message bubble */}
-                <div className={`max-w-[80%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                <div className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed ${
                   m.role === 'user'
                     ? 'bg-foreground text-background'
                     : 'bg-secondary text-foreground border border-border/50'
                 }`}>
                   {m.role === 'assistant' ? (
-                    <div className="prose prose-sm max-w-none [&_p]:my-2 [&_p]:leading-relaxed [&_li]:my-1 [&_li]:leading-relaxed [&_ul]:my-2 [&_ol]:my-2 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-[11px] [&_code]:bg-background [&_code]:px-2 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:font-normal">
+                    <div className="prose prose-sm max-w-none [&_p]:my-2 [&_p]:leading-relaxed [&_li]:my-1 [&_li]:leading-relaxed [&_ul]:my-2 [&_ol]:my-2 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-xs [&_code]:bg-background [&_code]:px-2 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:font-normal">
                       <ReactMarkdown>
                         {cleanLatex(m.content)}
                       </ReactMarkdown>

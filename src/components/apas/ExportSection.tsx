@@ -17,10 +17,15 @@ interface Props {
   mass: number;
   onExportPNG: () => void;
   muted: boolean;
+  spinRate?: number;
+  projectileRadius?: number;
+  windSpeed?: number;
+  integrationMethod?: string;
 }
 
 export default function ExportSection({
   lang, trajectoryData, prediction, velocity, angle, height, gravity, airResistance, mass, onExportPNG, muted,
+  spinRate = 0, projectileRadius = 0.05, windSpeed = 0, integrationMethod = 'ai-apas',
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -175,51 +180,159 @@ ${trajectoryData.length ? `
     URL.revokeObjectURL(url);
   };
 
-  const qrData = `APAS|V=${velocity}|θ=${angle}|h=${height}|g=${gravity}|k=${airResistance}|m=${mass}` +
+  const exportLabReport = () => {
+    if (!trajectoryData.length || !prediction) return;
+
+    // Statistical analysis
+    const speeds = trajectoryData.map(p => p.speed);
+    const accelerations = trajectoryData.map(p => p.acceleration);
+    const meanSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+    const maxSpeed = Math.max(...speeds);
+    const minSpeed = Math.min(...speeds);
+    const stdSpeed = Math.sqrt(speeds.reduce((sum, s) => sum + (s - meanSpeed) ** 2, 0) / speeds.length);
+    const meanAccel = accelerations.reduce((a, b) => a + b, 0) / accelerations.length;
+
+    // Energy analysis
+    const initialKE = trajectoryData[0].kineticEnergy;
+    const initialPE = trajectoryData[0].potentialEnergy;
+    const finalKE = trajectoryData[trajectoryData.length - 1].kineticEnergy;
+    const finalPE = trajectoryData[trajectoryData.length - 1].potentialEnergy;
+    const energyLoss = (initialKE + initialPE) - (finalKE + finalPE);
+
+    const rad = angle * Math.PI / 180;
+    const v0x = velocity * Math.cos(rad);
+    const v0y = velocity * Math.sin(rad);
+
+    const report = `
+================================================================================
+                    APAS - COMPREHENSIVE LAB REPORT
+          Advanced Projectile Analysis System - Physics Laboratory
+================================================================================
+Date: ${new Date().toISOString().split('T')[0]}
+Time: ${new Date().toLocaleTimeString()}
+
+1. EXPERIMENTAL PARAMETERS
+--------------------------------------------------------------------------------
+  Initial Velocity (v0):      ${velocity} m/s
+  Launch Angle (theta):       ${angle} deg
+  Initial Height (h0):        ${height} m
+  Gravitational Accel. (g):   ${gravity} m/s^2
+  Air Resistance Coeff. (k):  ${airResistance}
+  Projectile Mass (m):        ${mass} kg
+  Projectile Radius (r):      ${projectileRadius} m
+  Spin Rate (omega):          ${spinRate} rad/s
+  Wind Speed:                 ${windSpeed} m/s
+  Integration Method:         ${integrationMethod}
+
+2. VELOCITY DECOMPOSITION
+--------------------------------------------------------------------------------
+  v0x = v0 * cos(theta) = ${v0x.toFixed(4)} m/s
+  v0y = v0 * sin(theta) = ${v0y.toFixed(4)} m/s
+
+3. RESULTS SUMMARY
+--------------------------------------------------------------------------------
+  Horizontal Range (R):       ${prediction.range.toFixed(4)} m
+  Maximum Height (H):         ${prediction.maxHeight.toFixed(4)} m
+  Time of Flight (T):         ${prediction.timeOfFlight.toFixed(4)} s
+  Final Velocity (v_f):       ${prediction.finalVelocity.toFixed(4)} m/s
+
+4. STATISTICAL ANALYSIS
+--------------------------------------------------------------------------------
+  Speed Statistics:
+    Mean:                     ${meanSpeed.toFixed(4)} m/s
+    Max:                      ${maxSpeed.toFixed(4)} m/s
+    Min:                      ${minSpeed.toFixed(4)} m/s
+    Std. Deviation:           ${stdSpeed.toFixed(4)} m/s
+
+  Acceleration Statistics:
+    Mean Acceleration:        ${meanAccel.toFixed(4)} m/s^2
+
+5. ENERGY ANALYSIS
+--------------------------------------------------------------------------------
+  Initial State:
+    Kinetic Energy:           ${initialKE.toFixed(4)} J
+    Potential Energy:         ${initialPE.toFixed(4)} J
+    Total Energy:             ${(initialKE + initialPE).toFixed(4)} J
+
+  Final State:
+    Kinetic Energy:           ${finalKE.toFixed(4)} J
+    Potential Energy:         ${finalPE.toFixed(4)} J
+    Total Energy:             ${(finalKE + finalPE).toFixed(4)} J
+
+  Energy Loss (drag):         ${energyLoss.toFixed(4)} J (${((initialKE + initialPE) > 0 ? (energyLoss / (initialKE + initialPE) * 100) : 0).toFixed(2)}%)
+  Energy Efficiency:          ${((initialKE + initialPE) > 0 ? ((finalKE + finalPE) / (initialKE + initialPE) * 100) : 100).toFixed(2)}%
+
+6. TRAJECTORY DATA (sampled)
+--------------------------------------------------------------------------------
+  ${'Time(s)'.padEnd(10)} ${'X(m)'.padEnd(12)} ${'Y(m)'.padEnd(12)} ${'Vx(m/s)'.padEnd(12)} ${'Vy(m/s)'.padEnd(12)} ${'Speed(m/s)'.padEnd(12)} ${'KE(J)'.padEnd(12)} ${'PE(J)'.padEnd(12)}
+  ${'-'.repeat(96)}
+${trajectoryData
+  .filter((_, i) => i % Math.max(1, Math.floor(trajectoryData.length / 40)) === 0 || i === trajectoryData.length - 1)
+  .map(p =>
+    `  ${p.time.toFixed(4).padEnd(10)} ${p.x.toFixed(4).padEnd(12)} ${p.y.toFixed(4).padEnd(12)} ${p.vx.toFixed(4).padEnd(12)} ${p.vy.toFixed(4).padEnd(12)} ${p.speed.toFixed(4).padEnd(12)} ${p.kineticEnergy.toFixed(4).padEnd(12)} ${p.potentialEnergy.toFixed(4).padEnd(12)}`
+  ).join('\n')}
+
+================================================================================
+  Generated by APAS - Advanced Projectile Analysis System
+  https://github.com/PicaBis/APAS
+================================================================================
+`.trim();
+
+    downloadFile(report, 'APAS_Lab_Report.txt', 'text/plain');
+  };
+
+  const qrData = `APAS|V=${velocity}|\u03B8=${angle}|h=${height}|g=${gravity}|k=${airResistance}|m=${mass}` +
     (prediction ? `|R=${prediction.range.toFixed(2)}|H=${prediction.maxHeight.toFixed(2)}|T=${prediction.timeOfFlight.toFixed(2)}` : '');
 
   return (
-    <div className="border border-border rounded-xl overflow-hidden bg-card/80 backdrop-blur-sm shadow-lg shadow-black/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+    <div className="border-2 border-border/40 rounded-2xl overflow-hidden bg-card/70 backdrop-blur-sm shadow-md shadow-black/[0.03] dark:shadow-black/10 transition-all duration-300 hover:shadow-lg hover:shadow-primary/[0.05] dark:border-border/30">
       <button
         onClick={() => { setExpanded(!expanded); playSectionToggle(muted); }}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-primary/5 transition-all duration-300"
+        className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-primary/5 transition-all duration-300 group"
       >
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-tight flex items-center gap-2">
-          <FileDown className="w-3.5 h-3.5 text-primary" />
+        <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight flex items-center gap-2.5">
+          <FileDown className="w-5 h-5 text-primary" />
           {isAr ? 'التصدير' : 'Export'}
         </h3>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+        <div className="w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center group-hover:bg-primary/10 transition-all duration-300">
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+        </div>
       </button>
 
       {expanded && (
         <div className="px-3 pb-3 border-t border-border space-y-1.5 pt-2 animate-slideDown">
           <button onClick={() => { onExportPNG(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#2563eb' }}>
             <Camera className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'تصدير PNG' : 'Export PNG'}
           </button>
           <button onClick={() => { exportCSV(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#16a34a' }}>
             <FileText className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'CSV' : 'Export CSV'}
           </button>
           <button onClick={() => { exportTXT(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#9333ea' }}>
             <FileText className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'TXT' : 'Export TXT'}
           </button>
           <button onClick={() => { exportPDF(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#dc2626' }}>
             <FileDown className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'PDF' : 'Export PDF'}
           </button>
           <button onClick={() => { exportDOCX(); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#2563eb' }}>
             <FileType className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'تصدير DOCX' : 'Export DOCX'}
           </button>
+          <button onClick={() => { exportLabReport(); playClick(muted); }}
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
+            style={{ color: '#059669' }}>
+            <FileText className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'تقرير مختبر شامل' : 'Lab Report'}
+          </button>
           <button onClick={() => { setShowQR(!showQR); playClick(muted); }}
-            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center gap-2"
+            className="group w-full text-xs font-medium py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5"
             style={{ color: '#ea580c' }}>
             <QrCode className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {isAr ? 'QR' : 'QR Code'}
           </button>

@@ -1,0 +1,220 @@
+import React, { useMemo } from 'react';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Activity, TrendingUp, Zap } from 'lucide-react';
+import type { TrajectoryPoint } from '@/utils/physics';
+
+interface DynamicAnalyticsDashboardProps {
+  lang: string;
+  trajectoryData: TrajectoryPoint[];
+  currentTime: number;
+  mass: number;
+  gravity: number;
+  observerType?: 'stationary' | 'moving';
+  frameVelocity?: number;
+}
+
+const DynamicAnalyticsDashboard: React.FC<DynamicAnalyticsDashboardProps> = ({
+  lang, trajectoryData, currentTime, mass, gravity,
+  observerType = 'stationary', frameVelocity = 0,
+}) => {
+  const isRTL = lang === 'ar';
+
+  // Filter data up to current animation time
+  const visibleData = useMemo(() => {
+    if (!trajectoryData.length) return [];
+    return trajectoryData.filter(p => p.time <= currentTime);
+  }, [trajectoryData, currentTime]);
+
+  // Velocity vs Time data
+  const velocityData = useMemo(() => {
+    return visibleData.map(p => {
+      if (!p) return null;
+      let vx = p.vx ?? 0;
+      const vy = p.vy ?? 0;
+      // If moving observer, subtract frame velocity from horizontal component
+      if (observerType === 'moving' && frameVelocity !== 0) {
+        vx = (p.vx ?? 0) - frameVelocity;
+      }
+      return {
+        time: +((p.time ?? 0).toFixed(3)),
+        vx: +(vx.toFixed(2)),
+        vy: +(vy.toFixed(2)),
+        speed: +(Math.sqrt(vx * vx + vy * vy).toFixed(2)),
+      };
+    }).filter((d): d is NonNullable<typeof d> => d != null);
+  }, [visibleData, observerType, frameVelocity]);
+
+  // Height vs Distance data
+  const trajectoryChartData = useMemo(() => {
+    return visibleData.map(p => {
+      if (!p) return null;
+      let x = p.x ?? 0;
+      // If moving observer, transform x position
+      if (observerType === 'moving' && frameVelocity !== 0) {
+        x = (p.x ?? 0) - frameVelocity * (p.time ?? 0);
+      }
+      return {
+        x: +(x.toFixed(3)),
+        y: +((p.y ?? 0).toFixed(3)),
+      };
+    }).filter((d): d is NonNullable<typeof d> => d != null);
+  }, [visibleData, observerType, frameVelocity]);
+
+  // Energy data
+  const energyData = useMemo(() => {
+    return visibleData.map(p => {
+      if (!p) return null;
+      let vx = p.vx ?? 0;
+      const vy = p.vy ?? 0;
+      if (observerType === 'moving' && frameVelocity !== 0) {
+        vx = (p.vx ?? 0) - frameVelocity;
+      }
+      const speed = Math.sqrt(vx * vx + vy * vy);
+      const ke = 0.5 * mass * speed * speed;
+      const pe = mass * gravity * Math.max(0, p.y ?? 0);
+      return {
+        time: +((p.time ?? 0).toFixed(3)),
+        KE: +(ke.toFixed(2)),
+        PE: +(pe.toFixed(2)),
+        Total: +((ke + pe).toFixed(2)),
+      };
+    }).filter((d): d is NonNullable<typeof d> => d != null);
+  }, [visibleData, mass, gravity, observerType, frameVelocity]);
+
+  const fmtTick = (v: number) => v != null && typeof v === 'number' && !isNaN(v) ? (Math.abs(v) >= 1000 ? v.toExponential(1) : v.toFixed(1)) : '0';
+
+  const chartStyle = {
+    backgroundColor: 'hsl(var(--background))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: 6,
+    color: 'hsl(var(--foreground))',
+    fontSize: 12,
+  };
+
+  const noData = !visibleData.length;
+
+  return (
+    <div dir={isRTL ? 'rtl' : 'ltr'}>
+      {observerType === 'moving' && (
+        <div className="px-3 pt-2">
+          <span className="text-xs px-2 py-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">
+            {lang === 'ar' ? 'مراقب متحرك' : lang === 'fr' ? 'Observateur Mobile' : 'Moving Observer'}
+            {frameVelocity !== 0 && ` (${frameVelocity.toFixed(1)} m/s)`}
+          </span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 p-4">
+        {/* Velocity vs Time */}
+        <div className="border border-border/30 rounded-xl p-4 bg-background/50">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-bold text-foreground">
+              {lang === 'ar' ? 'السرعة / الزمن' : 'v / t'}
+            </span>
+          </div>
+          {noData ? (
+            <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+              {lang === 'ar' ? 'ابدأ المحاكاة' : 'Start simulation'}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={velocityData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="time" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtTick} />
+                <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtTick} width={40} />
+                <Tooltip contentStyle={chartStyle} />
+                <Line type="monotone" dataKey="vx" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="Vx" isAnimationActive={false} />
+                <Line type="monotone" dataKey="vy" stroke="#ef4444" strokeWidth={1.5} dot={false} name="Vy" isAnimationActive={false} />
+                <Line type="monotone" dataKey="speed" stroke="#8b5cf6" strokeWidth={1.5} dot={false} name="|V|" strokeDasharray="4 2" isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+          <div className="flex items-center justify-center gap-4 mt-2">
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="w-3 h-0.5 bg-blue-500 inline-block rounded" />Vx</span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="w-3 h-0.5 bg-red-500 inline-block rounded" />Vy</span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="w-3 h-0.5 bg-purple-500 inline-block rounded" />|V|</span>
+          </div>
+        </div>
+
+        {/* Height vs Distance (y/x) */}
+        <div className="border border-border/30 rounded-xl p-4 bg-background/50">
+          <div className="flex items-center gap-2 mb-3">
+            <Activity className="w-4 h-4 text-emerald-500" />
+            <span className="text-sm font-bold text-foreground">
+              {lang === 'ar' ? 'الارتفاع / المسافة' : 'y / x'}
+            </span>
+          </div>
+          {noData ? (
+            <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+              {lang === 'ar' ? 'ابدأ المحاكاة' : 'Start simulation'}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={160}>
+              <AreaChart data={trajectoryChartData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="trajectoryGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="x" type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtTick} />
+                <YAxis dataKey="y" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtTick} width={40} />
+                <Tooltip contentStyle={chartStyle} />
+                <Area type="monotone" dataKey="y" stroke="#10b981" strokeWidth={2} fill="url(#trajectoryGrad)" dot={false} isAnimationActive={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            {lang === 'ar' ? 'المسار القطع مكافئ' : 'Parabolic trajectory'}
+          </p>
+        </div>
+
+        {/* Mechanical Energy */}
+        <div className="border border-border/30 rounded-xl p-4 bg-background/50">
+          <div className="flex items-center gap-2 mb-3">
+            <Zap className="w-4 h-4 text-amber-500" />
+            <span className="text-sm font-bold text-foreground">
+              {lang === 'ar' ? 'الطاقة الميكانيكية' : lang === 'fr' ? '\u00c9nergie M\u00e9canique' : 'Mechanical Energy'}
+            </span>
+          </div>
+          {noData ? (
+            <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+              {lang === 'ar' ? 'ابدأ المحاكاة' : 'Start simulation'}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={160}>
+              <AreaChart data={energyData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="keGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="peGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="time"                 tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtTick} />
+                                <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtTick} width={40} />
+                <Tooltip contentStyle={chartStyle} />
+                <Area type="monotone" dataKey="KE" stroke="#f59e0b" strokeWidth={1.5} fill="url(#keGrad)" dot={false} name={lang === 'ar' ? 'حركية' : 'KE'} isAnimationActive={false} />
+                <Area type="monotone" dataKey="PE" stroke="#6366f1" strokeWidth={1.5} fill="url(#peGrad)" dot={false} name={lang === 'ar' ? 'كامنة' : 'PE'} isAnimationActive={false} />
+                <Line type="monotone" dataKey="Total" stroke="#10b981" strokeWidth={1.5} dot={false} strokeDasharray="4 2" name={lang === 'ar' ? 'كلية' : 'Total'} isAnimationActive={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+          <div className="flex items-center justify-center gap-4 mt-2">
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="w-3 h-0.5 bg-amber-500 inline-block rounded" />{lang === 'ar' ? 'حركية' : 'KE'}</span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="w-3 h-0.5 bg-indigo-500 inline-block rounded" />{lang === 'ar' ? 'كامنة' : 'PE'}</span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />{lang === 'ar' ? 'كلية' : 'Total'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DynamicAnalyticsDashboard;

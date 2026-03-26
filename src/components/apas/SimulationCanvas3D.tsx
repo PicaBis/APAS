@@ -93,7 +93,7 @@ function createPersistentArrows(scene: THREE.Scene, nightMode: boolean, themeId:
   const d = new THREE.Vector3(1, 0, 0);
   const o = new THREE.Vector3(0, 0, 0);
   const make = (color: number) => {
-    const a = new THREE.ArrowHelper(d, o, 1, color, 0.18, 0.09);
+    const a = new THREE.ArrowHelper(d, o, 1, color, 0.25, 0.14);
     a.visible = false;
     scene.add(a);
     return a;
@@ -111,7 +111,7 @@ function setArrow(arrow: THREE.ArrowHelper, origin: THREE.Vector3, dir: THREE.Ve
   if (!vis || length < 0.001 || dir.lengthSq() < 1e-12) { arrow.visible = false; return; }
   arrow.position.copy(origin);
   arrow.setDirection(dir.clone().normalize());
-  arrow.setLength(length, length * 0.18, length * 0.09);
+  arrow.setLength(length, Math.max(length * 0.22, 0.08), Math.max(length * 0.13, 0.05));
   arrow.visible = true;
 }
 
@@ -137,10 +137,10 @@ function syncArrows(
   const vLen = Math.max(minVel, Math.min(vs, sp * vs / Math.max(refSpeed * 2, 5)));
   setArrow(ar.V, o, new THREE.Vector3(pt.vx, pt.vy, 0), vLen, vis.V && sp > 0.005);
 
-  const vxLen = Math.max(minVel, Math.min(vs * 0.85, Math.abs(pt.vx) * vs / Math.max(refSpeed * 2, 5)));
+  const vxLen = Math.max(minVel, Math.min(vs, Math.abs(pt.vx) * vs / Math.max(refSpeed * 2, 5)));
   setArrow(ar.Vx, o, new THREE.Vector3(pt.vx, 0, 0), vxLen, vis.Vx && Math.abs(pt.vx) > 0.005);
 
-  const vyLen = Math.max(minVel, Math.min(vs * 0.85, Math.abs(pt.vy) * vs / Math.max(refSpeed * 2, 5)));
+  const vyLen = Math.max(minVel, Math.min(vs, Math.abs(pt.vy) * vs / Math.max(refSpeed * 2, 5)));
   setArrow(ar.Vy, o, new THREE.Vector3(0, pt.vy, 0), vyLen, vis.Vy && Math.abs(pt.vy) > 0.005);
 
   const wf = Math.max(mass * gravity, 0.01);
@@ -1015,6 +1015,20 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
         }
         projectile.position.copy(pos3D);
 
+        // Ground collision: clamp projectile so it sits ON the ground, not inside it.
+        // The projectile is a sphere with a radius that depends on the preset type.
+        // We must offset by the ball's radius so the bottom of the sphere
+        // touches y=0 rather than its center being at y=0.
+        const ballRadius = bounds.span * (
+          activePresetEmoji === '💣' ? 0.018
+          : (activePresetEmoji === '⚽' || activePresetEmoji === '🏀') ? 0.016
+          : activePresetEmoji === '🚀' || activePresetEmoji === '🏹' ? 0.008
+          : 0.014
+        );
+        if (projectile.position.y < ballRadius) {
+          projectile.position.y = ballRadius;
+        }
+
         // Align directional models (rocket, arrow) tangent to the path
         if (isDirectional && trajMeshes && trajMeshes.curve) {
           // Get tangent direction from the curve at the current parameter
@@ -1137,7 +1151,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
       projectileRef.current = null;
       rendererRef.current = null;
     };
-  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance, theme3d]);
+  }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance, theme3d, showGrid]);
 
   // ── Toggle 3D grid visibility ──
   useEffect(() => {
