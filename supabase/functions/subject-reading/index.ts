@@ -10,8 +10,6 @@ const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
 const MISTRAL_VISION_MODEL = "pixtral-large-latest";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
-const GEMINI_API_BASE = "https://generativelanguage.googleapis.com";
-const GEMINI_MODEL = "gemini-2.0-flash";
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -22,9 +20,8 @@ serve(async (req) => {
 
     const mistralKey = Deno.env.get("MISTRAL_API_KEY");
     const groqKey = Deno.env.get("GROQ_API_KEY");
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!mistralKey && !groqKey && !geminiKey) {
-      throw new Error("No AI provider configured (set MISTRAL_API_KEY, GROQ_API_KEY, and/or GEMINI_API_KEY)");
+    if (!mistralKey && !groqKey) {
+      throw new Error("No AI provider configured (set MISTRAL_API_KEY and/or GROQ_API_KEY)");
     }
 
     const isAr = lang === "ar";
@@ -137,11 +134,10 @@ IMPORTANT RULES:
 - If gravity is not specified, use g = 9.81 m/s^2 (or 10 m/s^2 if the exercise says so)
 - LANGUAGE REMINDER: Every word of your response must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
-    // Build provider list with fallback — Mistral Pixtral is primary for subject reading
-    const providers: Array<{ name: string; url: string; key: string; model: string; imageUrlFormat: 'object' | 'string'; isGemini?: boolean }> = [];
-    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_VISION_MODEL, imageUrlFormat: 'string' });
-    if (geminiKey) providers.push({ name: "Gemini", url: `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`, key: geminiKey, model: GEMINI_MODEL, imageUrlFormat: 'object', isGemini: true });
+    // Build provider list with fallback — Groq is primary, Mistral is fallback for subject reading
+    const providers: Array<{ name: string; url: string; key: string; model: string; imageUrlFormat: 'object' | 'string' }> = [];
     if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_VISION_MODEL, imageUrlFormat: 'object' });
+    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_VISION_MODEL, imageUrlFormat: 'string' });
 
     const userText = isAr
       ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي الخاص بالمقذوفات وحله خطوة بخطوة. استخرج جميع المعطيات وطبقها.`
@@ -155,86 +151,44 @@ IMPORTANT RULES:
       try {
         console.log(`[subject-reading] Trying ${provider.name}...`);
 
-        let response: Response;
+        // OpenAI-compatible providers (Groq, Mistral)
+        const imageUrlValue = provider.imageUrlFormat === 'string' ? imageDataUri : { url: imageDataUri };
 
-        if (provider.isGemini) {
-          // Gemini uses a different API format
-          response = await fetch(provider.url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    { text: systemPrompt + "\n\n" + userText },
-                    {
-                      inline_data: {
-                        mime_type: mimeType || "image/jpeg",
-                        data: imageBase64,
-                      },
-                    },
-                  ],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.3,
-                maxOutputTokens: 8000,
+        const response = await fetch(provider.url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: provider.model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: userText },
+                  { type: "image_url", image_url: imageUrlValue },
+                ],
               },
-            }),
-          });
+            ],
+            temperature: 0.3,
+            max_tokens: 8000,
+            stream: false,
+          }),
+        });
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`[subject-reading] Gemini error ${response.status}: ${errorText}`);
-            continue;
-          }
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[subject-reading] ${provider.name} error ${response.status}: ${errorText}`);
+          continue;
+        }
 
-          const data = await response.json();
-          text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          if (!text) {
-            console.warn(`[subject-reading] Gemini returned empty response`);
-            continue;
-          }
-        } else {
-          // OpenAI-compatible providers (Mistral, Groq)
-          const imageUrlValue = provider.imageUrlFormat === 'string' ? imageDataUri : { url: imageDataUri };
-
-          response = await fetch(provider.url, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${provider.key}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: provider.model,
-              messages: [
-                { role: "system", content: systemPrompt },
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: userText },
-                    { type: "image_url", image_url: imageUrlValue },
-                  ],
-                },
-              ],
-              temperature: 0.3,
-              max_tokens: 8000,
-              stream: false,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`[subject-reading] ${provider.name} error ${response.status}: ${errorText}`);
-            continue;
-          }
-
-          const data = await response.json();
-          text = data?.choices?.[0]?.message?.content || "";
-          if (!text) {
-            console.warn(`[subject-reading] ${provider.name} returned empty response`);
-            continue;
-          }
+        const data = await response.json();
+        text = data?.choices?.[0]?.message?.content || "";
+        if (!text) {
+          console.warn(`[subject-reading] ${provider.name} returned empty response`);
+          continue;
         }
 
         usedProvider = provider.name;

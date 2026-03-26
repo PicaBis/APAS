@@ -101,75 +101,7 @@ function buildVideoVisionPrompt(): string {
 
 // ── Stage 1 Providers: Analyze video frames ──
 
-function buildFrameParts(
-  frames: Array<{ data: string; timestamp: number }>,
-): Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> {
-  const parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
-  parts.push({ text: buildVideoVisionPrompt() });
-
-  for (let i = 0; i < frames.length; i++) {
-    const ts = typeof frames[i].timestamp === "number" ? frames[i].timestamp.toFixed(3) : String(i * 0.1);
-    parts.push({ text: "--- Frame " + (i + 1) + "/" + frames.length + " (Time: " + ts + "s) ---" });
-
-    let base64Data = frames[i].data;
-    let frameMime = "image/jpeg";
-    if (base64Data.startsWith("data:")) {
-      const match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        frameMime = match[1];
-        base64Data = match[2];
-      }
-    }
-    parts.push({ inline_data: { mime_type: frameMime, data: base64Data } });
-  }
-
-  return parts;
-}
-
-// Provider 1: Gemini (primary for video vision)
-async function callGeminiVideoAnalysis(
-  frames: Array<{ data: string; timestamp: number }>,
-): Promise<string> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
-
-  const parts = buildFrameParts(frames);
-
-  const body = {
-    contents: [{ role: "user", parts }],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 4000 },
-    systemInstruction: {
-      parts: [
-        {
-          text: "You are a precise video physics analyzer. Watch the frames carefully. Track the moving object. Estimate physics values from visual context ONLY. Output valid JSON only.",
-        },
-      ],
-    },
-  };
-
-  return retryWithBackoff(async () => {
-    const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      },
-    );
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error("Gemini API error (" + res.status + "): " + err);
-    }
-
-    const data = await res.json();
-    const candidate = data.candidates?.[0];
-    if (!candidate?.content?.parts?.length) throw new Error("Gemini returned no content");
-    return candidate.content.parts.map((p: { text?: string }) => p.text || "").join("");
-  }, "Gemini-Video");
-}
-
-// Provider 2: Mistral Pixtral (vision fallback for video frames)
+// Provider 1: Mistral Pixtral (vision fallback for video frames)
 async function callMistralVideoAnalysis(
   frames: Array<{ data: string; timestamp: number }>,
 ): Promise<string> {

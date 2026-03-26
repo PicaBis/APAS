@@ -1,10 +1,10 @@
 /**
- * Shared AI Provider — Gemini (vision) + Mistral (logic/math) + Groq (fallback).
+ * Shared AI Provider — Groq (vision + chat) + Mistral (logic/math).
  *
  * Strategy:
- * - Vision tasks: Gemini 2.5 Flash (best for image/video understanding)
- * - Math/logic tasks: Mistral Large (best for mathematical reasoning & curve fitting)
- * - Chat fallback: Groq (fast inference for simple text tasks)
+ * - Vision tasks: Groq Llama 3 (primary) -> Mistral (fallback)
+ * - Math/logic tasks: Mistral Large (primary) -> Groq (fallback)
+ * - Chat: Groq (primary) -> Mistral (fallback)
  */
 
 type ModelType = "chat" | "vision" | "math";
@@ -46,84 +46,6 @@ interface AIRequestOptions {
   messages: ChatMessage[];
   temperature?: number;
   max_tokens?: number;
-}
-
-// ── Gemini API (Vision + Chat) ──
-
-async function callGemini(
-  messages: ChatMessage[],
-  temperature = 0.3,
-  maxTokens = 4000,
-): Promise<string> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
-
-  const contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> = [];
-  let systemInstruction: string | undefined;
-
-  for (const msg of messages) {
-    if (msg.role === "system") {
-      systemInstruction = typeof msg.content === "string" ? msg.content : "";
-      continue;
-    }
-
-    const parts: Array<Record<string, unknown>> = [];
-
-    if (typeof msg.content === "string") {
-      parts.push({ text: msg.content });
-    } else if (Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        if (part.type === "text" && part.text) {
-          parts.push({ text: part.text });
-        } else if (part.type === "image_url" && part.image_url?.url) {
-          const url = part.image_url.url;
-          const dataMatch = url.match(/^data:([^;]+);base64,(.+)$/);
-          if (dataMatch) {
-            parts.push({
-              inline_data: { mime_type: dataMatch[1], data: dataMatch[2] },
-            });
-          } else {
-            parts.push({ text: `[Image URL: ${url}]` });
-          }
-        }
-      }
-    }
-
-    if (parts.length > 0) {
-      contents.push({ role: msg.role === "assistant" ? "model" : "user", parts });
-    }
-  }
-
-  const body: Record<string, unknown> = {
-    contents,
-    generationConfig: { temperature, maxOutputTokens: maxTokens },
-  };
-
-  if (systemInstruction) {
-    body.systemInstruction = { parts: [{ text: systemInstruction }] };
-  }
-
-  const model = "gemini-2.5-flash";
-
-  return retryWithBackoff(async () => {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
-    );
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Gemini API error (${res.status}): ${errText}`);
-    }
-
-    const data = await res.json();
-    const candidate = data.candidates?.[0];
-    if (!candidate?.content?.parts?.length) {
-      throw new Error("Gemini returned no content");
-    }
-
-    return candidate.content.parts.map((p: { text?: string }) => p.text || "").join("");
-  }, "Gemini");
 }
 
 // ── Mistral API (Math/Logic) ──
@@ -222,9 +144,9 @@ async function callGroq(
 
 /**
  * Non-streaming AI completion with provider fallback chain.
- * - vision: Gemini 1.5 Flash -> Mistral Large -> Groq Llama 3 (fallback)
- * - math: Mistral -> Gemini (fallback)
- * - chat: Groq -> Mistral (fallback)
+ * - vision: Groq Llama 3 (primary) -> Mistral (fallback)
+ * - math: Mistral (primary) -> Groq (fallback)
+ * - chat: Groq (primary) -> Mistral (fallback)
  */
 export async function aiComplete(
   options: AIRequestOptions & { modelType: ModelType },
@@ -233,28 +155,21 @@ export async function aiComplete(
 
   if (modelType === "vision") {
     try {
-      console.log("[AI] Trying Gemini 1.5 Flash for vision task...");
-      const text = await callGemini(messages, temperature, max_tokens);
-      console.log("[AI] Gemini succeeded, response length:", text.length);
-      return { text, provider: "Gemini" };
+      console.log("[AI] Trying Groq Llama 3 for vision task...");
+      const text = await callGroq(messages, temperature, max_tokens);
+      console.log("[AI] Groq succeeded, response length:", text.length);
+      return { text, provider: "Groq" };
     } catch (err) {
-      console.warn("[AI] Gemini failed:", (err as Error).message);
+      console.warn("[AI] Groq failed:", (err as Error).message);
     }
     try {
-      console.log("[AI] Falling back to Mistral Large for vision...");
+      console.log("[AI] Falling back to Mistral for vision...");
       const text = await callMistral(messages, temperature, max_tokens);
       return { text, provider: "Mistral" };
     } catch (err) {
       console.warn("[AI] Mistral failed:", (err as Error).message);
     }
-    try {
-      console.log("[AI] Falling back to Groq Llama 3...");
-      const text = await callGroq(messages, temperature, max_tokens);
-      return { text, provider: "Groq" };
-    } catch (err) {
-      console.warn("[AI] Groq failed:", (err as Error).message);
-    }
-    throw new Error("All vision providers failed (Gemini, Mistral, Groq)");
+    throw new Error("All vision providers failed (Groq, Mistral)");
   }
 
   if (modelType === "math") {
@@ -267,13 +182,13 @@ export async function aiComplete(
       console.warn("[AI] Mistral failed:", (err as Error).message);
     }
     try {
-      console.log("[AI] Falling back to Gemini for math...");
-      const text = await callGemini(messages, temperature, max_tokens);
-      return { text, provider: "Gemini" };
+      console.log("[AI] Falling back to Groq for math...");
+      const text = await callGroq(messages, temperature, max_tokens);
+      return { text, provider: "Groq" };
     } catch (err) {
-      console.warn("[AI] Gemini failed for math:", (err as Error).message);
+      console.warn("[AI] Groq failed for math:", (err as Error).message);
     }
-    throw new Error("All math providers failed (Mistral, Gemini)");
+    throw new Error("All math providers failed (Mistral, Groq)");
   }
 
   // Chat: Groq primary

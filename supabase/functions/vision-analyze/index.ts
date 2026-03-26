@@ -88,60 +88,7 @@ function buildExtractionPrompt(lang: string): string {
   ].join("\n");
 }
 
-// Provider 1: Gemini (primary for vision)
-async function callGeminiExtract(
-  imageBase64: string,
-  mimeType: string,
-  lang: string,
-): Promise<string> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
-
-  const extractionPrompt = buildExtractionPrompt(lang);
-
-  const body = {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: extractionPrompt },
-          { inline_data: { mime_type: mimeType, data: imageBase64 } },
-        ],
-      },
-    ],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 3000 },
-    systemInstruction: {
-      parts: [
-        {
-          text: "You are a precise data extractor. Extract ONLY what you see. Do NOT solve, compute, or infer. Output ONLY valid JSON.",
-        },
-      ],
-    },
-  };
-
-  return retryWithBackoff(async () => {
-    const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      },
-    );
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error("Gemini API error (" + res.status + "): " + err);
-    }
-
-    const data = await res.json();
-    const candidate = data.candidates?.[0];
-    if (!candidate?.content?.parts?.length) throw new Error("Gemini returned no content");
-    return candidate.content.parts.map((p: { text?: string }) => p.text || "").join("");
-  }, "Gemini-Extract");
-}
-
-// Provider 2: Mistral Pixtral (vision fallback)
+// Provider 1: Mistral Pixtral (vision fallback)
 async function callMistralExtract(
   imageBase64: string,
   mimeType: string,
