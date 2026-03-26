@@ -110,6 +110,13 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     setAiMessage('');
     setMissingParams([]);
 
+    // Guard: block when Supabase is not configured
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+      toast.error(isAr ? 'خدمة Supabase غير مهيأة. تحقق من إعدادات البيئة.' : 'Supabase is not configured. Check environment settings.');
+      setIsProcessing(false);
+      return;
+    }
+
     try {
       const resp = await fetch(EDGE_VOICE_URL, {
         method: 'POST',

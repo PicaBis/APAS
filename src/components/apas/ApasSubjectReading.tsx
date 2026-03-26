@@ -207,6 +207,14 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
     setSolutionText('');
     setShowSolution(false);
     setAnalysisStep('analyze');
+
+    // Guard: block uploads when Supabase is not configured
+    if (!SUPABASE_EDGE_URL || !SUPABASE_EDGE_ANON_KEY) {
+      toast.error(isAr ? 'خدمة Supabase غير مهيأة. تحقق من إعدادات البيئة.' : 'Supabase is not configured. Check environment settings.');
+      setIsAnalyzing(false);
+      return;
+    }
+
     try {
       const resp = await fetch(EDGE_SUBJECT_URL, {
         method: 'POST',
