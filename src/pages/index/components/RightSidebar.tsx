@@ -163,11 +163,13 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             if (p.mass !== undefined) setMass(p.mass);
             playClick(isMuted);
           }}
+          onAnalysisComplete={onAnalysisComplete}
         />
         <ApasVoiceButton
           lang={lang}
           onUpdateParams={handleVoiceParams}
           simulationContext={{ velocity, angle, height, gravity, airResistance, mass }}
+          onAnalysisComplete={onAnalysisComplete}
         />
         {analysisHistory && analysisHistory.length > 0 && (
           <AnalysisHistory

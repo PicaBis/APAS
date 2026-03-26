@@ -18,6 +18,7 @@ interface Props {
   };
   autoOpen?: boolean;
   onDismiss?: () => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
 }
 
 interface ExtractedParams {
@@ -37,7 +38,7 @@ interface VoiceHistoryEntry {
   applied: boolean;
 }
 
-export default function ApasVoiceButton({ lang, onUpdateParams, simulationContext, autoOpen, onDismiss }: Props) {
+export default function ApasVoiceButton({ lang, onUpdateParams, simulationContext, autoOpen, onDismiss, onAnalysisComplete }: Props) {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -152,6 +153,11 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
             aiMessage: result.message,
             applied: true,
           }, ...prev].slice(0, 20));
+          onAnalysisComplete?.({
+            type: 'voice',
+            report: result.message || spokenText,
+            params: result.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+          });
           toast.success(isAr ? 'تم تطبيق الأوامر الصوتية على المحاكاة' : 'Voice commands applied to simulation');
         } else if (result.missing.length > 0) {
           toast.info(result.message || (isAr ? 'بعض المعطيات ناقصة' : 'Some parameters are missing'));
@@ -170,6 +176,11 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
               aiMessage: '',
               applied: true,
             }, ...prev].slice(0, 20));
+            onAnalysisComplete?.({
+              type: 'voice',
+              report: spokenText,
+              params: directResult.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+            });
             toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
           } else {
             setHistory(prev => [{
@@ -198,6 +209,11 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
             aiMessage: '',
             applied: true,
           }, ...prev].slice(0, 20));
+          onAnalysisComplete?.({
+            type: 'voice',
+            report: spokenText,
+            params: directResult.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+          });
           toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
         } else {
           setHistory(prev => [{
@@ -215,7 +231,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
       toast.error(isAr ? 'خطأ في المعالجة' : 'Processing error');
     }
     setIsProcessing(false);
-  }, [isAr, lang, onUpdateParams, parseParamsFromAI, simulationContext]);
+  }, [isAr, lang, onUpdateParams, parseParamsFromAI, simulationContext, onAnalysisComplete]);
 
   const startListening = useCallback(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -538,8 +554,8 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
                 </div>
               )}
 
-              {/* Live transcript */}
-              {transcript && (
+              {/* Live transcript — only shown after processing is complete (not during listening) */}
+              {transcript && !isListening && !isProcessing && (
                 <div className="w-full bg-secondary/50 border border-border/50 rounded-lg p-3">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                     {isAr ? 'ما سمعته' : 'What I heard'}

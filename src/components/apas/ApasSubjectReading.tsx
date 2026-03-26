@@ -16,6 +16,7 @@ interface Props {
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
   autoOpen?: boolean;
   onDismiss?: () => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
 }
 
 interface SubjectData {
@@ -112,7 +113,7 @@ function SolutionRenderer({ text }: { text: string }) {
 /*  Main Component                                                     */
 /* ------------------------------------------------------------------ */
 
-export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onDismiss }: Props) {
+export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onDismiss, onAnalysisComplete }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
@@ -256,11 +257,17 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
           if (parsed.recognized && parsed.extractedData) {
             const ed = parsed.extractedData;
             if (parsed.isProjectileMotion) {
-              onUpdateParams({
+              const appliedParams = {
                 velocity: ed.velocity,
                 angle: ed.angle,
                 height: ed.height,
                 mass: ed.mass,
+              };
+              onUpdateParams(appliedParams);
+              onAnalysisComplete?.({
+                type: 'subject',
+                report: parsed.explanation || '',
+                params: appliedParams,
               });
               toast.success(isAr ? 'تم استخراج بيانات التمرين وتطبيقها على المحاكاة' : 'Exercise data extracted and applied to simulation');
             }

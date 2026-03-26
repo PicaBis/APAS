@@ -210,11 +210,92 @@ export async function aiComplete(
 }
 
 /**
- * Streaming AI completion — creates a single-chunk readable stream.
+ * Streaming AI completion — pipes real SSE stream from provider to client.
+ * Falls back through providers: Groq (primary) -> Mistral (fallback).
+ * Last resort: falls back to aiComplete-then-wrap if all streaming attempts fail.
  */
 export async function aiStream(
   options: AIRequestOptions & { modelType: ModelType },
 ): Promise<{ body: ReadableStream<Uint8Array>; provider: string }> {
+  const { messages, temperature = 0.3, max_tokens = 4000, modelType } = options;
+
+  // Prepare messages for each provider (strip image parts for text-only providers)
+  const textOnlyMessages = messages.map((msg) => {
+    if (typeof msg.content === "string") return { role: msg.role, content: msg.content };
+    const textParts = (msg.content as Array<{ type: string; text?: string }>)
+      .filter((p) => p.type === "text" && p.text)
+      .map((p) => p.text)
+      .join("\n");
+    return { role: msg.role, content: textParts };
+  });
+
+  // Determine provider order based on model type
+  const providers = modelType === "math"
+    ? ["mistral", "groq"] as const
+    : ["groq", "mistral"] as const;
+
+  for (const providerName of providers) {
+    try {
+      if (providerName === "groq") {
+        const apiKey = Deno.env.get("GROQ_API_KEY");
+        if (!apiKey) { console.warn("[aiStream] GROQ_API_KEY not set, skipping"); continue; }
+
+        console.log(`[aiStream] Trying Groq streaming...`);
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: textOnlyMessages,
+            temperature,
+            max_tokens,
+            stream: true,
+          }),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.warn(`[aiStream] Groq streaming failed (${res.status}): ${errText}`);
+          continue;
+        }
+
+        console.log("[aiStream] Groq streaming connected");
+        return { body: res.body!, provider: "Groq" };
+      }
+
+      if (providerName === "mistral") {
+        const apiKey = Deno.env.get("MISTRAL_API_KEY");
+        if (!apiKey) { console.warn("[aiStream] MISTRAL_API_KEY not set, skipping"); continue; }
+
+        console.log(`[aiStream] Trying Mistral streaming...`);
+        const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "mistral-large-latest",
+            messages: textOnlyMessages,
+            temperature,
+            max_tokens,
+            stream: true,
+          }),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.warn(`[aiStream] Mistral streaming failed (${res.status}): ${errText}`);
+          continue;
+        }
+
+        console.log("[aiStream] Mistral streaming connected");
+        return { body: res.body!, provider: "Mistral" };
+      }
+    } catch (err) {
+      console.warn(`[aiStream] ${providerName} streaming error:`, (err as Error).message);
+    }
+  }
+
+  // Last resort: fall back to non-streaming aiComplete, then wrap as SSE
+  console.warn("[aiStream] All streaming providers failed, falling back to aiComplete + wrap");
   const { text, provider } = await aiComplete(options);
   const encoder = new TextEncoder();
   const ssePayload = JSON.stringify({ choices: [{ delta: { content: text } }] });

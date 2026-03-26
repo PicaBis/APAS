@@ -1437,7 +1437,7 @@ const Index = () => {
           )}
           {showMobileSubject && (
             <div className="hidden">
-              <ApasSubjectReading lang={lang} onUpdateParams={handleMobileVisionParams} autoOpen onDismiss={() => setShowMobileSubject(false)} />
+              <ApasSubjectReading lang={lang} onUpdateParams={handleMobileVisionParams} autoOpen onDismiss={() => setShowMobileSubject(false)} onAnalysisComplete={handleAnalysisComplete} />
             </div>
           )}
           {showMobileVoice && (
@@ -1448,6 +1448,7 @@ const Index = () => {
                 simulationContext={{ velocity: sim.velocity, angle: sim.angle, height: sim.height, gravity: sim.gravity, airResistance: sim.airResistance, mass: sim.mass }}
                 autoOpen
                 onDismiss={() => setShowMobileVoice(false)}
+                onAnalysisComplete={handleAnalysisComplete}
               />
             </div>
           )}
