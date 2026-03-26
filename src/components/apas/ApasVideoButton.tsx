@@ -178,20 +178,6 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     if (onDismiss) onDismiss();
   }, [onDismiss]);
 
-  const uploadToVercelBlob = async (file: File): Promise<string> => {
-    const token = 'vercel_blob_rw_obifXYu3ACSz5YU6_0zYy4QEQLsAqZ4yZhhMSlKYb87cz3M';
-    const res = await fetch(`https://blob.vercel-storage.com/apas-video/${Date.now()}-${file.name}`, {
-      method: 'PUT',
-      headers: {
-        'authorization': `Bearer ${token}`,
-        'x-content-type': file.type,
-      },
-      body: file,
-    });
-    if (!res.ok) throw new Error('Vercel Blob upload failed');
-    const data = await res.json();
-    return data.url;
-  };
 
   const analyzeVideo = useCallback(async (file: File) => {
     setLoading(true);
@@ -203,19 +189,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       const sizeIssue = checkFileSize(file);
       if (sizeIssue) toast.warning(getIssueMessage(sizeIssue, lang));
 
-      // Step 1: Upload to Vercel Blob
-      setStatusMsg(isAr ? 'جاري رفع الفيديو...' : 'Uploading video...');
-      setProgress(10);
-
-      let blobUrl: string | null = null;
-      try {
-        blobUrl = await uploadToVercelBlob(file);
-        setProgress(20);
-      } catch {
-        console.warn('Vercel Blob upload failed, continuing with frame extraction');
-      }
-
-      // Step 2: Load video and extract frames
+      // Step 1: Load video and extract frames
       setStatusMsg(isAr ? 'جاري استخراج الإطارات...' : 'Extracting frames...');
       setProgress(30);
 
@@ -276,7 +250,6 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           frames,
           lang,
           videoName: file.name,
-          blobUrl,
         }),
       });
 

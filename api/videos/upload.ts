@@ -44,7 +44,7 @@ export default async function handler(req: Request): Promise<Response> {
 
     // Validate file type
     const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/avi'];
-    if (!allowedTypes.some(t => file.type.startsWith('video/'))) {
+    if (!allowedTypes.includes(file.type) && !file.type.startsWith('video/')) {
       return new Response(JSON.stringify({ error: 'Invalid file type. Only video files are allowed.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },

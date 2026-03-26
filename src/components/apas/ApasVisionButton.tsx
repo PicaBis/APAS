@@ -144,20 +144,6 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
     if (onDismiss) onDismiss();
   }, [onDismiss]);
 
-  const uploadToVercelBlob = async (file: File): Promise<string> => {
-    const token = 'vercel_blob_rw_obifXYu3ACSz5YU6_0zYy4QEQLsAqZ4yZhhMSlKYb87cz3M';
-    const res = await fetch(`https://blob.vercel-storage.com/apas-vision/${Date.now()}-${file.name}`, {
-      method: 'PUT',
-      headers: {
-        'authorization': `Bearer ${token}`,
-        'x-content-type': file.type,
-      },
-      body: file,
-    });
-    if (!res.ok) throw new Error('Vercel Blob upload failed');
-    const data = await res.json();
-    return data.url;
-  };
 
   const analyzeImage = useCallback(async (file: File) => {
     setLoading(true);
@@ -169,21 +155,9 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       const sizeIssue = checkFileSize(file);
       if (sizeIssue) toast.warning(getIssueMessage(sizeIssue, lang));
 
-      // Step 1: Upload to Vercel Blob
-      setStatusMsg(isAr ? 'جاري رفع الصورة...' : 'Uploading image...');
-      setProgress(15);
-
-      let blobUrl: string | null = null;
-      try {
-        blobUrl = await uploadToVercelBlob(file);
-        setProgress(30);
-      } catch {
-        console.warn('Vercel Blob upload failed, continuing with direct analysis');
-      }
-
-      // Step 2: Convert to base64
+      // Step 1: Convert to base64
       setStatusMsg(isAr ? 'جاري تحليل الصورة بالذكاء الاصطناعي...' : 'Analyzing image with AI...');
-      setProgress(40);
+      setProgress(30);
 
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -211,6 +185,15 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
 
       setPreview(base64);
 
+      // Step 2: Extract base64 data and mime type from data URL
+      let imageBase64 = base64;
+      let mimeType = 'image/jpeg';
+      const dataUrlMatch = base64.match(/^data:([^;]+);base64,(.+)$/);
+      if (dataUrlMatch) {
+        mimeType = dataUrlMatch[1];
+        imageBase64 = dataUrlMatch[2];
+      }
+
       // Step 3: Call vision-analyze edge function
       setStatusMsg(isAr ? 'Gemini يستخرج المعطيات...' : 'Gemini extracting data...');
       setProgress(55);
@@ -222,9 +205,9 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
-          image: base64,
+          imageBase64,
+          mimeType,
           lang,
-          blobUrl,
         }),
       });
 
