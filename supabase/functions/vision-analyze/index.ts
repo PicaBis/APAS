@@ -38,6 +38,32 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
+// \u2500\u2500 Smart Defaults Based on Object Type \u2500\u2500
+
+interface PhysicsDefaults {
+  velocity: number;
+  angle: number;
+  height: number;
+  mass: number;
+}
+
+function getSmartDefaults(objectType: string): PhysicsDefaults {
+  const t = (objectType || "").toLowerCase();
+  if (t.includes("cannon") || t.includes("cannonball")) return { velocity: 120, angle: 40, height: 1.5, mass: 4.5 };
+  if (t.includes("rocket") || t.includes("missile")) return { velocity: 200, angle: 55, height: 2.0, mass: 15 };
+  if (t.includes("basketball")) return { velocity: 8, angle: 55, height: 2.2, mass: 0.62 };
+  if (t.includes("football") || t.includes("soccer")) return { velocity: 25, angle: 38, height: 0.3, mass: 0.43 };
+  if (t.includes("tennis")) return { velocity: 30, angle: 15, height: 1.0, mass: 0.058 };
+  if (t.includes("baseball")) return { velocity: 35, angle: 35, height: 1.8, mass: 0.145 };
+  if (t.includes("javelin")) return { velocity: 28, angle: 38, height: 2.0, mass: 0.8 };
+  if (t.includes("arrow")) return { velocity: 60, angle: 25, height: 1.5, mass: 0.025 };
+  if (t.includes("stone") || t.includes("rock")) return { velocity: 15, angle: 45, height: 1.7, mass: 0.3 };
+  if (t.includes("grenade")) return { velocity: 18, angle: 42, height: 1.8, mass: 0.4 };
+  if (t.includes("bullet")) return { velocity: 400, angle: 5, height: 1.5, mass: 0.01 };
+  if (t.includes("ball")) return { velocity: 15, angle: 45, height: 1.5, mass: 0.5 };
+  return { velocity: 20, angle: 45, height: 1.5, mass: 0.5 };
+}
+
 // \u2500\u2500 ENS Professor Prompt Builder \u2500\u2500
 
 function buildGroqVisionPrompt(lang: string): string {
@@ -61,20 +87,35 @@ function buildGroqVisionPrompt(lang: string): string {
     "STEP 1 - DETECT PROJECTILE:",
     "Look for ANY object being launched, thrown, shot, or in mid-flight trajectory.",
     "Valid projectiles: ball (basketball, football, tennis, etc.), rocket, stone, bullet, grenade, arrow, javelin, cannonball, missile, any thrown/launched object.",
+    "Also detect diagrams, illustrations, animations, or educational images showing projectile motion - these are VALID.",
+    "Even if it is a cartoon, diagram, or educational illustration of projectile motion, you MUST analyze it as a real projectile scenario.",
     "If NO clear projectile or projectile motion is visible, respond with ONLY this JSON:",
     '{"detected": false, "error": "' + noProjectileMsg + '"}',
     "",
     "STEP 2 - EXPERT ANALYSIS (only if projectile detected):",
     "Analyze the visual context carefully like a real physics professor:",
-    "- Identify the projectile object specifically (e.g., 'basketball', 'soccer ball', 'stone')",
-    "- Use reference objects for scale: person ~1.7m, door ~2m, car ~1.5m tall, basketball hoop 3.05m, football goal 2.44m",
-    "- Estimate launch angle from trajectory arc, body posture, arm position",
-    "- Estimate initial velocity from context (sport type, throw strength, visible arc)",
+    "- Identify the projectile object specifically (e.g., 'basketball', 'soccer ball', 'cannonball', 'stone')",
+    "- Use reference objects for scale: person ~1.7m, door ~2m, car ~1.5m tall, basketball hoop 3.05m, football goal 2.44m, cannon ~1.2m tall",
+    "- Estimate launch angle from trajectory arc, body posture, arm position, or trajectory curve visible",
+    "- Estimate initial velocity from context (sport type, throw strength, visible arc, weapon type)",
     "- Estimate launch height from ground reference",
-    "- Estimate mass from object type",
+    "- Estimate mass from object type (basketball ~0.62kg, football ~0.43kg, cannonball ~4.5kg, stone ~0.3kg, etc.)",
     "- Consider air resistance qualitatively",
     "",
-    "STEP 3 - COMPUTE ALL PHYSICS:",
+    "CRITICAL RULES FOR ESTIMATION:",
+    "- You MUST provide NON-ZERO values for initial_velocity, launch_angle, and launch_height.",
+    "- NEVER return 0 for initial_velocity. A projectile MUST have a non-zero initial velocity to be in motion.",
+    "- NEVER return 0 for launch_angle. Even a horizontal throw has a small angle (~5 degrees). Estimate from the visual trajectory.",
+    "- Use your extensive physics knowledge to provide REALISTIC estimates based on the type of projectile and scenario.",
+    "- For a cannonball: velocity is typically 80-200 m/s, angle 30-50 degrees",
+    "- For a ball throw: velocity is typically 8-30 m/s, angle 30-60 degrees",
+    "- For a rocket/missile: velocity is typically 100-500 m/s, angle 30-70 degrees",
+    "- For a stone throw: velocity is typically 10-20 m/s, angle 35-55 degrees",
+    "- If unsure, provide your BEST ESTIMATE based on physics principles - professors estimate, they NEVER return zeros!",
+    "",
+    "STEP 3 - COMPUTE ALL PHYSICS using the projectile motion equation:",
+    "The fundamental equation is: y = x*tan(\\u03B8) - (g*x\\u00B2)/(2*v0\\u00B2*cos\\u00B2(\\u03B8))",
+    "Ensure your angle (\\u03B8) and velocity (v0) estimates are CONSISTENT with the visual trajectory.",
     "Using your estimates, compute precisely:",
     "- v0x = v0 * cos(angle), v0y = v0 * sin(angle)",
     "- Max height: H = h0 + v0y^2 / (2*g)",
@@ -84,35 +125,40 @@ function buildGroqVisionPrompt(lang: string): string {
     "- Kinetic energy at launch: KE = 0.5 * m * v0^2",
     "- Potential energy at max height: PE = m * g * H",
     "",
-    "STEP 4 - SCIENTIFIC EXPLANATION:",
-    "Write a detailed scientific explanation " + langInstruction + " of HOW you arrived at these values.",
-    "Reference visual cues: 'Based on the ball elevation relative to the hoop...', 'The player arm angle suggests...'",
+    "STEP 4 - DESCRIBE WHAT YOU SEE:",
+    "Write a detailed description " + langInstruction + " of WHAT you see in the image.",
+    "Describe the scene, the projectile, the launch mechanism, the trajectory, reference objects, colors, background.",
+    "Then explain HOW you arrived at these physics values based on visual cues.",
+    "Reference visual cues: 'Based on the cannon barrel length...', 'The trajectory arc suggests...', 'The ball elevation relative to...'",
     "This section is called '" + sciLabel + "'.",
     "",
     "RESPOND WITH ONLY valid JSON (no markdown fences, no extra text):",
     "{",
     '  "detected": true,',
-    '  "object_type": "specific object name",',
-    '  "estimated_mass": 0.5,',
-    '  "initial_velocity": 0,',
-    '  "launch_angle": 0,',
-    '  "launch_height": 0,',
+    '  "object_type": "specific object name in English",',
+    '  "estimated_mass": 4.5,',
+    '  "initial_velocity": 120,',
+    '  "launch_angle": 42,',
+    '  "launch_height": 1.5,',
     '  "gravity": 9.81,',
-    '  "v0x": 0,',
-    '  "v0y": 0,',
-    '  "max_altitude": 0,',
-    '  "horizontal_range": 0,',
-    '  "time_of_flight": 0,',
-    '  "impact_velocity": 0,',
-    '  "kinetic_energy_launch": 0,',
-    '  "potential_energy_max": 0,',
-    '  "drag_effect": "none|slight|significant",',
+    '  "v0x": 89.17,',
+    '  "v0y": 80.26,',
+    '  "max_altitude": 329.96,',
+    '  "horizontal_range": 1461.74,',
+    '  "time_of_flight": 16.39,',
+    '  "impact_velocity": 120.12,',
+    '  "kinetic_energy_launch": 32400,',
+    '  "potential_energy_max": 14588.73,',
+    '  "drag_effect": "slight",',
     '  "motion_type": "projectile",',
-    '  "confidence_score": 0,',
-    '  "calibration_reference": "reference object used for scale",',
+    '  "confidence_score": 75,',
+    '  "calibration_reference": "cannon barrel ~1.2m used as scale reference",',
+    '  "image_description": "detailed description of what you see in the image ' + langInstruction + '",',
     '  "analysis_summary_ar": "' + summaryPlaceholder + '",',
     '  "scientific_explanation": "' + sciPlaceholder + '"',
     "}",
+    "",
+    "REMEMBER: ALL numeric values MUST be non-zero and physically realistic. You are a professor - provide expert estimates!",
   ].join("\n");
 }
 
@@ -137,11 +183,11 @@ async function callGroqVision(
         Authorization: "Bearer " + apiKey,
       },
       body: JSON.stringify({
-        model: "llama-3.2-90b-vision-preview",
+        model: "llama-3.2-11b-vision-preview",
         messages: [
           {
             role: "system",
-            content: "You are Professor APAS from ENS (Ecole Normale Superieure). You are the world's foremost expert in projectile motion and Newtonian mechanics. You analyze images with scientific rigor and provide authoritative, precise physics analysis. You MUST respond with ONLY valid JSON - no markdown, no extra text.",
+            content: "You are Professor APAS, the Elite Analyzer from ENS (Ecole Normale Superieure). You are the world's foremost expert in projectile motion and Newtonian mechanics. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. CONTEXT AWARENESS: Identify the object (e.g., ball, cannonball), the scale (e.g., human height ~1.7m), and the environment. CALCULATION: Use the projectile motion equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) to ensure your estimates for angle (theta) and velocity (v0) are consistent with the visual trajectory. You MUST respond with ONLY valid JSON - no markdown, no extra text. CRITICAL: You MUST provide realistic NON-ZERO values for initial_velocity, launch_angle, and all computed physics. A professor NEVER returns zeros - they provide expert estimates based on visual analysis and physics knowledge.",
           },
           {
             role: "user",
@@ -151,7 +197,7 @@ async function callGroqVision(
             ],
           },
         ],
-        temperature: 0.2,
+        temperature: 0.3,
         max_tokens: 4000,
       }),
     });
@@ -291,6 +337,7 @@ function buildReport(
   totalTime: number, impactVelocity: number,
   kineticEnergy: number, potentialEnergy: number,
   scientificExplanation: string,
+  imageDescription: string,
   verification: { verified: boolean; note: string },
   processingTime: number,
 ): string {
@@ -330,7 +377,7 @@ function buildReport(
     isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check",
     (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
     "",
-    (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Groq (Exclusive)",
+    (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Providers: ") + "Extraction=Groq (Llama), Solving=Groq (Llama)",
     (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",
   ];
   return lines.join("\n");
@@ -392,43 +439,50 @@ serve(async (req) => {
       );
     }
 
-    // Extract and validate physics values
-    const v0 = Number(parsed.initial_velocity) || 0;
-    const angle = Number(parsed.launch_angle) || 0;
-    const h0 = Number(parsed.launch_height) || 0;
-    const g = Number(parsed.gravity) || 9.81;
-    const mass = Number(parsed.estimated_mass) || 0.5;
+    // Extract object type first to get smart defaults
     const objectType = String(parsed.object_type || "projectile");
+    const defaults = getSmartDefaults(objectType);
+
+    // Extract and validate physics values - USE SMART DEFAULTS if AI returns 0
+    const rawV0 = Number(parsed.initial_velocity) || 0;
+    const rawAngle = Number(parsed.launch_angle) || 0;
+    const rawH0 = Number(parsed.launch_height) || 0;
+
+    const v0 = rawV0 > 0 ? rawV0 : defaults.velocity;
+    const angle = rawAngle > 0 ? rawAngle : defaults.angle;
+    const h0 = rawH0 > 0 ? rawH0 : defaults.height;
+    const g = Number(parsed.gravity) || 9.81;
+    const mass = Number(parsed.estimated_mass) || defaults.mass;
     const confidence = Number(parsed.confidence_score) || 70;
 
-    // Compute/verify values
+    if (rawV0 === 0 || rawAngle === 0) {
+      console.log("[vision-analyze] AI returned zeros, using smart defaults for: " + objectType);
+      console.log("[vision-analyze] Defaults applied: v0=" + v0 + ", angle=" + angle + ", h0=" + h0 + ", mass=" + mass);
+    }
+
+    // Always recompute physics from v0 and angle for consistency
     const rad = angle * Math.PI / 180;
-    const v0x = parsed.v0x ? Number(parsed.v0x) : Math.round(v0 * Math.cos(rad) * 100) / 100;
-    const v0y = parsed.v0y ? Number(parsed.v0y) : Math.round(v0 * Math.sin(rad) * 100) / 100;
-    const maxHeight = parsed.max_altitude ? Number(parsed.max_altitude) : Math.round((h0 + (v0y * v0y) / (2 * g)) * 100) / 100;
+    const v0x = Math.round(v0 * Math.cos(rad) * 100) / 100;
+    const v0y = Math.round(v0 * Math.sin(rad) * 100) / 100;
+    const maxHeight = Math.round((h0 + (v0y * v0y) / (2 * g)) * 100) / 100;
 
-    let totalTime = Number(parsed.time_of_flight) || 0;
-    if (!totalTime) {
-      const tUp = v0y / g;
-      const tDown = Math.sqrt(Math.max(0, 2 * maxHeight / g));
-      totalTime = Math.round((tUp + tDown) * 100) / 100;
-    }
+    const tUp = v0y / g;
+    const tDown = Math.sqrt(Math.max(0, 2 * maxHeight / g));
+    const totalTime = Math.round((tUp + tDown) * 100) / 100;
 
-    const maxRange = parsed.horizontal_range ? Number(parsed.horizontal_range) : Math.round(v0x * totalTime * 100) / 100;
+    const maxRange = Math.round(v0x * totalTime * 100) / 100;
 
-    let impactVelocity = Number(parsed.impact_velocity) || 0;
-    if (!impactVelocity) {
-      const vyEnd = g * totalTime - v0y;
-      impactVelocity = Math.round(Math.sqrt(v0x * v0x + vyEnd * vyEnd) * 100) / 100;
-    }
+    const vyEnd = g * totalTime - v0y;
+    const impactVelocity = Math.round(Math.sqrt(v0x * v0x + vyEnd * vyEnd) * 100) / 100;
 
-    const kineticEnergy = Number(parsed.kinetic_energy_launch) || Math.round(0.5 * mass * v0 * v0 * 100) / 100;
-    const potentialEnergy = Number(parsed.potential_energy_max) || Math.round(mass * g * maxHeight * 100) / 100;
-    const dragEffect = String(parsed.drag_effect || "none");
+    const kineticEnergy = Math.round(0.5 * mass * v0 * v0 * 100) / 100;
+    const potentialEnergy = Math.round(mass * g * maxHeight * 100) / 100;
+    const dragEffect = String(parsed.drag_effect || "slight");
     const motionType = String(parsed.motion_type || "projectile");
     const calibrationRef = String(parsed.calibration_reference || "");
     const analysisSummaryAr = String(parsed.analysis_summary_ar || "");
     const scientificExplanation = String(parsed.scientific_explanation || "");
+    const imageDescription = String(parsed.image_description || "");
 
     // Energy verification
     const verification = verifyWithEnergy({
@@ -462,6 +516,7 @@ serve(async (req) => {
       calibrationRef: calibrationRef,
       analysisSummaryAr: analysisSummaryAr,
       scientificExplanation: scientificExplanation,
+      imageDescription: imageDescription,
       verified: verification.verified,
       energyError: Math.round(verification.energyError * 10000) / 100,
       providers: { extraction: "Groq", solving: "Groq" },
@@ -489,7 +544,7 @@ serve(async (req) => {
       motion_type: motionType,
       confidence_score: confidence,
       analysis_method: "estimated",
-      analysis_engine: "groq_vision_llama3",
+      analysis_engine: "groq_vision_llama3_11b",
       calibration_source: "auto",
       calibration_reference: calibrationRef,
       gravity: g,
@@ -508,7 +563,7 @@ serve(async (req) => {
     }
 
     // Build rich report
-    const report = buildReport(isAr, finalJson, objectType, mass, confidence, v0, angle, h0, g, v0x, v0y, maxHeight, maxRange, totalTime, impactVelocity, kineticEnergy, potentialEnergy, scientificExplanation, verification, processingTime);
+    const report = buildReport(isAr, finalJson, objectType, mass, confidence, v0, angle, h0, g, v0x, v0y, maxHeight, maxRange, totalTime, impactVelocity, kineticEnergy, potentialEnergy, scientificExplanation, imageDescription, verification, processingTime);
 
     return new Response(
       JSON.stringify({ text: report, analysis: finalJson }),

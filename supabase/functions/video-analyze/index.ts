@@ -38,6 +38,33 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
+
+// \u2500\u2500 Smart Defaults Based on Object Type \u2500\u2500
+
+interface PhysicsDefaults {
+  velocity: number;
+  angle: number;
+  height: number;
+  mass: number;
+}
+
+function getSmartDefaults(objectType: string): PhysicsDefaults {
+  const t = (objectType || "").toLowerCase();
+  if (t.includes("cannon") || t.includes("cannonball")) return { velocity: 120, angle: 40, height: 1.5, mass: 4.5 };
+  if (t.includes("rocket") || t.includes("missile")) return { velocity: 200, angle: 55, height: 2.0, mass: 15 };
+  if (t.includes("basketball")) return { velocity: 8, angle: 55, height: 2.2, mass: 0.62 };
+  if (t.includes("football") || t.includes("soccer")) return { velocity: 25, angle: 38, height: 0.3, mass: 0.43 };
+  if (t.includes("tennis")) return { velocity: 30, angle: 15, height: 1.0, mass: 0.058 };
+  if (t.includes("baseball")) return { velocity: 35, angle: 35, height: 1.8, mass: 0.145 };
+  if (t.includes("javelin")) return { velocity: 28, angle: 38, height: 2.0, mass: 0.8 };
+  if (t.includes("arrow")) return { velocity: 60, angle: 25, height: 1.5, mass: 0.025 };
+  if (t.includes("stone") || t.includes("rock")) return { velocity: 15, angle: 45, height: 1.7, mass: 0.3 };
+  if (t.includes("grenade")) return { velocity: 18, angle: 42, height: 1.8, mass: 0.4 };
+  if (t.includes("bullet")) return { velocity: 400, angle: 5, height: 1.5, mass: 0.01 };
+  if (t.includes("ball")) return { velocity: 15, angle: 45, height: 1.5, mass: 0.5 };
+  return { velocity: 20, angle: 45, height: 1.5, mass: 0.5 };
+}
+
 // \u2500\u2500 Frame Limiting \u2500\u2500
 const MAX_FRAMES = 8;
 
@@ -57,7 +84,7 @@ function limitFrames(
 
 // \u2500\u2500 Groq Vision for Video (EXCLUSIVE) \u2500\u2500
 
-function buildVideoVisionPrompt(): string {
+function buildVideoVisionPrompt(_lang?: string): string {
   return [
     "You are Professor APAS - a world-renowned expert in Mechanical Physics from ENS (Ecole Normale Superieure, Paris).",
     "You specialize in projectile motion analysis from video footage.",
@@ -67,7 +94,8 @@ function buildVideoVisionPrompt(): string {
     "",
     "STEP 1 - DETECT PROJECTILE:",
     "Watch ALL frames sequentially. Look for ANY object being launched, thrown, shot, or in mid-flight.",
-    "Valid projectiles: ball (basketball, football, tennis, etc.), rocket, stone, bullet, grenade, arrow, javelin, any thrown/launched object.",
+    "Valid projectiles: ball (basketball, football, tennis, etc.), rocket, stone, bullet, grenade, arrow, javelin, cannonball, any thrown/launched object.",
+    "Also detect diagrams, illustrations, animations, or educational videos showing projectile motion - these are VALID.",
     "If NO clear projectile motion is visible, respond with ONLY:",
     '{"detected": false, "error": "No projectile motion detected in this video."}',
     "",
@@ -78,9 +106,20 @@ function buildVideoVisionPrompt(): string {
     "- Estimate launch angle from trajectory arc",
     "- Estimate initial velocity from frame-to-frame displacement",
     "- Estimate launch height from ground reference",
-    "- Estimate mass from object type",
+    "- Estimate mass from object type (basketball ~0.62kg, cannonball ~4.5kg, stone ~0.3kg, etc.)",
     "",
-    "STEP 3 - COMPUTE PHYSICS:",
+    "CRITICAL RULES FOR ESTIMATION:",
+    "- You MUST provide NON-ZERO values for velocity, angle, and height.",
+    "- NEVER return 0 for velocity. A projectile MUST have a non-zero initial velocity.",
+    "- NEVER return 0 for angle. Even a horizontal throw has a small angle (~5 degrees).",
+    "- For a cannonball: velocity is typically 80-200 m/s, angle 30-50 degrees",
+    "- For a ball throw: velocity is typically 8-30 m/s, angle 30-60 degrees",
+    "- For a rocket/missile: velocity is typically 100-500 m/s, angle 30-70 degrees",
+    "- Professors estimate, they NEVER return zeros!",
+    "",
+    "STEP 3 - COMPUTE PHYSICS using the projectile motion equation:",
+    "The fundamental equation is: y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta))",
+    "Ensure your angle and velocity estimates are CONSISTENT with the visual trajectory.",
     "- v0x = v0 * cos(angle), v0y = v0 * sin(angle)",
     "- Max height: H = h0 + v0y^2 / (2*g)",
     "- Time of flight: solve y(t) = 0",
@@ -90,33 +129,36 @@ function buildVideoVisionPrompt(): string {
     "RESPOND WITH ONLY valid JSON (no markdown fences):",
     "{",
     '  "detected": true,',
-    '  "objectType": "specific object name",',
-    '  "confidence": 0,',
-    '  "angle": 0,',
-    '  "velocity": 0,',
-    '  "height": 0,',
-    '  "mass": 0.5,',
+    '  "objectType": "specific object name in English",',
+    '  "confidence": 75,',
+    '  "angle": 42,',
+    '  "velocity": 120,',
+    '  "height": 1.5,',
+    '  "mass": 4.5,',
     '  "gravity": 9.81,',
-    '  "v0x": 0,',
-    '  "v0y": 0,',
-    '  "maxHeight": 0,',
-    '  "maxRange": 0,',
-    '  "totalTime": 0,',
-    '  "impactVelocity": 0,',
+    '  "v0x": 89.17,',
+    '  "v0y": 80.26,',
+    '  "maxHeight": 329.96,',
+    '  "maxRange": 1461.74,',
+    '  "totalTime": 16.39,',
+    '  "impactVelocity": 120.12,',
     '  "calibrationRef": "reference object used for scale",',
     '  "motionDescription": "description of the motion observed",',
     '  "analysis_summary_ar": "Arabic summary of the analysis"',
     "}",
+    "",
+    "REMEMBER: ALL numeric values MUST be non-zero and physically realistic!",
   ].join("\n");
 }
 
 async function callGroqVideoAnalysis(
   frames: Array<{ data: string; timestamp: number }>,
+  lang: string,
 ): Promise<string> {
   const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) throw new Error("GROQ_API_KEY not configured");
 
-  const visionPrompt = buildVideoVisionPrompt();
+  const visionPrompt = buildVideoVisionPrompt(lang);
 
   const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
   content.push({ type: "text", text: visionPrompt + "\n\nNote: Showing key frames from the video." });
@@ -150,15 +192,15 @@ async function callGroqVideoAnalysis(
         Authorization: "Bearer " + apiKey,
       },
       body: JSON.stringify({
-        model: "llama-3.2-90b-vision-preview",
+        model: "llama-3.2-11b-vision-preview",
         messages: [
           {
             role: "system",
-            content: "You are Professor APAS from ENS. Analyze video frames for projectile motion with scientific rigor. Respond with ONLY valid JSON.",
+            content: "You are Professor APAS, the Elite Analyzer from ENS. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. Use the equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) for consistency. Respond with ONLY valid JSON. NEVER return zeros.",
           },
           { role: "user", content },
         ],
-        temperature: 0.2,
+        temperature: 0.3,
         max_tokens: 4000,
       }),
     });
@@ -267,7 +309,7 @@ serve(async (req) => {
 
     // Call Groq Vision (EXCLUSIVE - no fallback)
     console.log("[video-analyze] Calling Groq Vision (exclusive provider)...");
-    const rawResponse = await callGroqVideoAnalysis(limitedFrames);
+    const rawResponse = await callGroqVideoAnalysis(limitedFrames, lang || "ar");
     console.log("[video-analyze] Groq response length:", rawResponse.length);
 
     const visionData = parseJsonFromText(rawResponse);
@@ -282,27 +324,42 @@ serve(async (req) => {
       );
     }
 
-    const v0 = (visionData as { velocity?: number }).velocity || 15;
-    const angle = (visionData as { angle?: number }).angle || 45;
-    const h0 = (visionData as { height?: number }).height || 1;
-    const mass = (visionData as { mass?: number }).mass || 0.5;
-    const g = (visionData as { gravity?: number }).gravity || 9.81;
-    const objectType = (visionData as { objectType?: string }).objectType || "projectile";
-    const confidence = (visionData as { confidence?: number }).confidence || 60;
+    // Extract object type first to get smart defaults
+    const objectType = String((visionData as { objectType?: string }).objectType || "projectile");
+    const defaults = getSmartDefaults(objectType);
+
+    // Extract and validate physics values - USE SMART DEFAULTS if AI returns 0
+    const rawV0 = Number((visionData as { velocity?: number }).velocity) || 0;
+    const rawAngle = Number((visionData as { angle?: number }).angle) || 0;
+    const rawH0 = Number((visionData as { height?: number }).height) || 0;
+
+    const v0 = rawV0 > 0 ? rawV0 : defaults.velocity;
+    const angle = rawAngle > 0 ? rawAngle : defaults.angle;
+    const h0 = rawH0 > 0 ? rawH0 : defaults.height;
+    const g = Number((visionData as { gravity?: number }).gravity) || 9.81;
+    const mass = Number((visionData as { mass?: number }).mass) || defaults.mass;
+    const confidence = Number((visionData as { confidence?: number }).confidence) || 70;
     const analysisSummaryAr = String((visionData as { analysis_summary_ar?: string }).analysis_summary_ar || "");
     const motionDescription = String((visionData as { motionDescription?: string }).motionDescription || "");
 
-    // Compute/verify physics values
+    if (rawV0 === 0 || rawAngle === 0) {
+      console.log("[video-analyze] AI returned zeros, using smart defaults for: " + objectType);
+      console.log("[video-analyze] Defaults applied: v0=" + v0 + ", angle=" + angle + ", h0=" + h0 + ", mass=" + mass);
+    }
+
+    // Always recompute physics from v0 and angle for consistency
     const rad = angle * Math.PI / 180;
-    const v0x = (visionData as { v0x?: number }).v0x || Math.round(v0 * Math.cos(rad) * 100) / 100;
-    const v0y = (visionData as { v0y?: number }).v0y || Math.round(v0 * Math.sin(rad) * 100) / 100;
-    const maxHeight = (visionData as { maxHeight?: number }).maxHeight || Math.round((h0 + (v0y * v0y) / (2 * g)) * 100) / 100;
+    const v0x = Math.round(v0 * Math.cos(rad) * 100) / 100;
+    const v0y = Math.round(v0 * Math.sin(rad) * 100) / 100;
+    const maxHeight = Math.round((h0 + (v0y * v0y) / (2 * g)) * 100) / 100;
     const tUp = v0y / g;
     const tDown = Math.sqrt(Math.max(0, 2 * maxHeight / g));
-    const totalTime = (visionData as { totalTime?: number }).totalTime || Math.round((tUp + tDown) * 100) / 100;
-    const maxRange = (visionData as { maxRange?: number }).maxRange || Math.round(v0x * totalTime * 100) / 100;
+    const totalTime = Math.round((tUp + tDown) * 100) / 100;
+    const maxRange = Math.round(v0x * totalTime * 100) / 100;
     const vyEnd = g * totalTime - v0y;
-    const impactVelocity = (visionData as { impactVelocity?: number }).impactVelocity || Math.round(Math.sqrt(v0x * v0x + vyEnd * vyEnd) * 100) / 100;
+    const impactVelocity = Math.round(Math.sqrt(v0x * v0x + vyEnd * vyEnd) * 100) / 100;
+    const kineticEnergy = Math.round(0.5 * mass * v0 * v0 * 100) / 100;
+    const potentialEnergy = Math.round(mass * g * maxHeight * 100) / 100;
 
     // Energy verification
     const verification = verifyWithEnergy({
@@ -316,6 +373,7 @@ serve(async (req) => {
       detected: true, confidence, angle, velocity: v0,
       mass, height: h0, objectType, gravity: g,
       v0x, v0y, maxHeight, maxRange, totalTime, impactVelocity,
+      kineticEnergy, potentialEnergy,
       verified: verification.verified,
       energyError: Math.round(verification.energyError * 10000) / 100,
       framesUsed: limitedFrames.length,
@@ -344,7 +402,7 @@ serve(async (req) => {
       motion_type: "projectile",
       confidence_score: confidence,
       analysis_method: "estimated",
-      analysis_engine: "groq_vision_llama3",
+      analysis_engine: "groq_vision_llama3_11b",
       calibration_source: "auto",
       gravity: g,
       report_text: motionDescription,
@@ -390,7 +448,7 @@ serve(async (req) => {
       isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check",
       (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
       "",
-      (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Groq (Exclusive)",
+      (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Providers: ") + "Extraction=Groq (Llama), Solving=Groq (Llama)",
       (isAr ? "\u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a: " : "Frames: ") + limitedFrames.length + "/" + frames.length + " used",
       (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",
     ];
