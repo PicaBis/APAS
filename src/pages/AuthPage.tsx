@@ -6,6 +6,7 @@ import ApasLogo from '@/components/apas/ApasLogo';
 import PageTransition from '@/components/apas/PageTransition';
 import AboutModal from '@/components/apas/AboutModal';
 import BugReportButton from '@/components/apas/BugReportButton';
+import SlideToVerify from '@/components/auth/SlideToVerify';
 import { playClick, playNav, playPageTransition, playLangSwitch } from '@/utils/sound';
 
 type AuthLang = 'en' | 'ar' | 'fr';
@@ -127,6 +128,7 @@ export default function AuthPage() {
   const [lang, setLang] = useState<AuthLang>('en');
   const [showAbout, setShowAbout] = useState(false);
   const [navigating, setNavigating] = useState(false);
+  const [humanVerified, setHumanVerified] = useState(false);
 
   const T = AUTH_TRANSLATIONS[lang];
   const isRTL = lang === 'ar';
@@ -284,7 +286,7 @@ export default function AuthPage() {
             {/* Mode Tabs - compact on mobile */}
             <div className="flex gap-0.5 sm:gap-1 mb-4 sm:mb-6 bg-secondary/50 rounded-lg p-0.5 sm:p-1">
               <button
-                onClick={() => { playClick(false); setMode('login'); setError(''); setSuccess(''); }}
+                onClick={() => { playClick(false); setMode('login'); setError(''); setSuccess(''); setHumanVerified(false); }}
                 className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
                   mode === 'login' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
@@ -293,7 +295,7 @@ export default function AuthPage() {
                 {T.logIn}
               </button>
               <button
-                onClick={() => { playClick(false); setMode('signup'); setError(''); setSuccess(''); }}
+                onClick={() => { playClick(false); setMode('signup'); setError(''); setSuccess(''); setHumanVerified(false); }}
                 className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
                   mode === 'signup' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
@@ -302,7 +304,7 @@ export default function AuthPage() {
                 {T.signUp}
               </button>
               <button
-                onClick={() => { playClick(false); setMode('otp'); setError(''); setSuccess(''); }}
+                onClick={() => { playClick(false); setMode('otp'); setError(''); setSuccess(''); setHumanVerified(false); }}
                 className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 px-1.5 sm:px-3 rounded-md text-[11px] sm:text-sm font-medium transition-all duration-300 ${
                   mode === 'otp' ? 'bg-background text-foreground shadow-sm auth-tab-active' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                 }`}
@@ -384,10 +386,13 @@ export default function AuthPage() {
                 </div>
               )}
 
+              {/* Human Verification */}
+              <SlideToVerify lang={lang} onVerified={() => setHumanVerified(true)} />
+
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !humanVerified}
                 className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ animation: 'heroFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both' }}
               >
