@@ -598,7 +598,7 @@ CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no extra text
       {/* Header button */}
       <button
         onClick={handleOpen}
-        disabled={!isUnlocked}
+        aria-disabled={!isUnlocked}
         className={`relative flex items-center gap-1.5 group transition-all duration-300 ${
           isUnlocked
             ? 'apas-assistant-btn rounded-lg px-2.5 py-1.5 text-white shadow-lg cursor-pointer'

@@ -1455,7 +1455,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                             <p>• θ = {analysisData.angle ?? '—'}°</p>
                             <p>• h₀ = {analysisData.height ?? 0} m</p>
                             <p>• m = {analysisData.mass ?? '—'} kg</p>
-                            <p>• g = 9.81 m/s²</p>
+                            <p>• g = {gravity ?? 9.81} m/s²</p>
                             {ballisticsResult && (
                               <>
                                 <p>• {isAr ? 'أقصى ارتفاع' : 'Max Height'} = {ballisticsResult.maxAltitude.toFixed(2)} m</p>

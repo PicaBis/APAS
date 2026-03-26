@@ -215,6 +215,8 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
   const [showCamera, setShowCamera] = useState(false);
   const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [showCalcMethod, setShowCalcMethod] = useState(false);
+  const [showDetailedReport, setShowDetailedReport] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -1026,18 +1028,16 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
               {!isAnalyzing && analysisData?.detected && (
                 <div className="border border-primary/20 rounded-lg bg-primary/5 overflow-hidden">
                   <button
-                    onClick={() => {
-                      const el = document.getElementById('vision-calc-method');
-                      if (el) el.classList.toggle('hidden');
-                    }}
+                    onClick={() => setShowCalcMethod(prev => !prev)}
                     className="w-full flex items-center justify-between p-3 hover:bg-primary/10 transition-all duration-200"
                   >
                     <span className="text-xs font-semibold text-foreground flex items-center gap-2">
                       📐 {isAr ? 'كيف تم حساب APAS' : 'How APAS Calculated'}
                     </span>
-                    <span className="text-xs text-muted-foreground">▼</span>
+                    <span className={`text-xs text-muted-foreground transition-transform duration-200 ${showCalcMethod ? 'rotate-180' : ''}`}>▼</span>
                   </button>
-                  <div id="vision-calc-method" className="hidden p-3 border-t border-primary/20 space-y-2">
+                  {showCalcMethod && (
+                  <div className="p-3 border-t border-primary/20 space-y-2">
                     <div className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto" dir="ltr">
                       x(t) = v₀ · cos(θ) · t
                     </div>
@@ -1056,26 +1056,26 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               )}
 
               {!isAnalyzing && analysisText && (
                 <div className="border border-border rounded-lg bg-secondary/20 overflow-hidden">
                   <button
-                    onClick={() => {
-                      const el = document.getElementById('vision-detailed-report');
-                      if (el) el.classList.toggle('hidden');
-                    }}
+                    onClick={() => setShowDetailedReport(prev => !prev)}
                     className="w-full flex items-center justify-between p-3 hover:bg-secondary/40 transition-all duration-200"
                   >
                     <span className="text-xs font-semibold text-foreground flex items-center gap-2">
                       📋 {isAr ? 'التقرير المفصل' : 'Detailed Report'}
                     </span>
-                    <span className="text-xs text-muted-foreground">▼</span>
+                    <span className={`text-xs text-muted-foreground transition-transform duration-200 ${showDetailedReport ? 'rotate-180' : ''}`}>▼</span>
                   </button>
-                  <div id="vision-detailed-report" className="p-4 border-t border-border/50">
+                  {showDetailedReport && (
+                  <div className="p-4 border-t border-border/50">
                     <ReportRenderer text={cleanLatex(analysisText)} />
                   </div>
+                  )}
                 </div>
               )}
             </div>
