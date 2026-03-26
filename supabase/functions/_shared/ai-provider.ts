@@ -9,6 +9,34 @@
 
 type ModelType = "chat" | "vision" | "math";
 
+// ── Retry Utilities ──
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries = 3,
+  initialDelay = 2000,
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err as Error;
+      const is429 = lastError.message.includes("429");
+      if (!is429 || attempt === maxRetries) throw lastError;
+      const delay = initialDelay * Math.pow(2, attempt);
+      console.log(`[Retry] ${label} rate limited (429), waiting ${delay}ms before retry ${attempt + 1}/${maxRetries}...`);
+      await sleep(delay);
+    }
+  }
+  throw lastError!;
+}
+
 interface ChatMessage {
   role: string;
   content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
@@ -76,23 +104,26 @@ async function callGemini(
   }
 
   const model = "gemini-2.5-flash";
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
-  );
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API error (${res.status}): ${errText}`);
-  }
+  return retryWithBackoff(async () => {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    );
 
-  const data = await res.json();
-  const candidate = data.candidates?.[0];
-  if (!candidate?.content?.parts?.length) {
-    throw new Error("Gemini returned no content");
-  }
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini API error (${res.status}): ${errText}`);
+    }
 
-  return candidate.content.parts.map((p: { text?: string }) => p.text || "").join("");
+    const data = await res.json();
+    const candidate = data.candidates?.[0];
+    if (!candidate?.content?.parts?.length) {
+      throw new Error("Gemini returned no content");
+    }
+
+    return candidate.content.parts.map((p: { text?: string }) => p.text || "").join("");
+  }, "Gemini");
 }
 
 // ── Mistral API (Math/Logic) ──
@@ -116,27 +147,29 @@ async function callMistral(
     return { role: msg.role, content: textParts };
   });
 
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "mistral-large-latest",
-      messages: mistralMessages,
-      temperature,
-      max_tokens: maxTokens,
-    }),
-  });
+  return retryWithBackoff(async () => {
+    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: mistralMessages,
+        temperature,
+        max_tokens: maxTokens,
+      }),
+    });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Mistral API error (${res.status}): ${errText}`);
-  }
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Mistral API error (${res.status}): ${errText}`);
+    }
 
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || "";
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  }, "Mistral");
 }
 
 // ── Groq API (Fast fallback) ──
@@ -160,27 +193,29 @@ async function callGroq(
     return { role: msg.role, content: textParts };
   });
 
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: groqMessages,
-      temperature,
-      max_tokens: maxTokens,
-    }),
-  });
+  return retryWithBackoff(async () => {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: groqMessages,
+        temperature,
+        max_tokens: maxTokens,
+      }),
+    });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Groq API error (${res.status}): ${errText}`);
-  }
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Groq API error (${res.status}): ${errText}`);
+    }
 
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || "";
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  }, "Groq");
 }
 
 // ── Public API ──
@@ -206,13 +241,20 @@ export async function aiComplete(
       console.warn("[AI] Gemini failed:", (err as Error).message);
     }
     try {
+      console.log("[AI] Falling back to Mistral for vision...");
+      const text = await callMistral(messages, temperature, max_tokens);
+      return { text, provider: "Mistral" };
+    } catch (err) {
+      console.warn("[AI] Mistral failed:", (err as Error).message);
+    }
+    try {
       console.log("[AI] Falling back to Groq...");
       const text = await callGroq(messages, temperature, max_tokens);
       return { text, provider: "Groq" };
     } catch (err) {
       console.warn("[AI] Groq failed:", (err as Error).message);
     }
-    throw new Error("All vision providers failed (Gemini, Groq)");
+    throw new Error("All vision providers failed (Gemini, Mistral, Groq)");
   }
 
   if (modelType === "math") {

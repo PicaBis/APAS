@@ -7,18 +7,41 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Stage 1: Gemini extracts raw data from image
-async function callGeminiExtract(
-  imageBase64: string,
-  mimeType: string,
-  lang: string,
-): Promise<string> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+// ── Retry Utilities ──
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries = 3,
+  initialDelay = 2000,
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err as Error;
+      const is429 = lastError.message.includes("429");
+      if (!is429 || attempt === maxRetries) throw lastError;
+      const delay = initialDelay * Math.pow(2, attempt);
+      console.log(
+        "[Retry] " + label + " rate limited (429), waiting " + delay + "ms before retry " + (attempt + 1) + "/" + maxRetries + "...",
+      );
+      await sleep(delay);
+    }
+  }
+  throw lastError!;
+}
+
+// ── Stage 1 Providers: Extract raw data from image ──
+
+function buildExtractionPrompt(lang: string): string {
   const isAr = lang === "ar";
-
-  const extractionPrompt = [
+  return [
     "You are APAS Vision Extractor. Your ONLY job is to extract raw data from this image. DO NOT solve any problem.",
     "",
     "TYPES OF IMAGES:",
@@ -63,6 +86,18 @@ async function callGeminiExtract(
     "  }",
     "}",
   ].join("\n");
+}
+
+// Provider 1: Gemini (primary for vision)
+async function callGeminiExtract(
+  imageBase64: string,
+  mimeType: string,
+  lang: string,
+): Promise<string> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+
+  const extractionPrompt = buildExtractionPrompt(lang);
 
   const body = {
     contents: [
@@ -84,37 +119,167 @@ async function callGeminiExtract(
     },
   };
 
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    },
-  );
+  return retryWithBackoff(async () => {
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error("Gemini API error (" + res.status + "): " + err);
-  }
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error("Gemini API error (" + res.status + "): " + err);
+    }
 
-  const data = await res.json();
-  const candidate = data.candidates?.[0];
-  if (!candidate?.content?.parts?.length) throw new Error("Gemini returned no content");
-  return candidate.content.parts.map((p: { text?: string }) => p.text || "").join("");
+    const data = await res.json();
+    const candidate = data.candidates?.[0];
+    if (!candidate?.content?.parts?.length) throw new Error("Gemini returned no content");
+    return candidate.content.parts.map((p: { text?: string }) => p.text || "").join("");
+  }, "Gemini-Extract");
 }
 
-// Stage 2: Mistral solves the physics problem
-async function callMistralSolve(
-  extractedJson: string,
+// Provider 2: Mistral Pixtral (vision fallback)
+async function callMistralExtract(
+  imageBase64: string,
+  mimeType: string,
   lang: string,
 ): Promise<string> {
   const apiKey = Deno.env.get("MISTRAL_API_KEY");
   if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
 
-  const isAr = lang === "ar";
+  const extractionPrompt = buildExtractionPrompt(lang);
+  const dataUrl = "data:" + mimeType + ";base64," + imageBase64;
 
-  const solvePrompt = [
+  return retryWithBackoff(async () => {
+    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "pixtral-large-latest",
+        messages: [
+          {
+            role: "system",
+            content: "You are a precise data extractor. Extract ONLY what you see. Do NOT solve, compute, or infer. Output ONLY valid JSON.",
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: extractionPrompt },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+        temperature: 0.2,
+        max_tokens: 3000,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error("Mistral API error (" + res.status + "): " + err);
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  }, "Mistral-Extract");
+}
+
+// Provider 3: Groq Vision (fallback)
+async function callGroqExtract(
+  imageBase64: string,
+  mimeType: string,
+  lang: string,
+): Promise<string> {
+  const apiKey = Deno.env.get("GROQ_API_KEY");
+  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
+
+  const extractionPrompt = buildExtractionPrompt(lang);
+  const dataUrl = "data:" + mimeType + ";base64," + imageBase64;
+
+  return retryWithBackoff(async () => {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "llama-3.2-90b-vision-preview",
+        messages: [
+          {
+            role: "system",
+            content: "You are a precise data extractor. Extract ONLY what you see. Do NOT solve, compute, or infer. Output ONLY valid JSON.",
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: extractionPrompt },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+        temperature: 0.2,
+        max_tokens: 3000,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error("Groq API error (" + res.status + "): " + err);
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  }, "Groq-Extract");
+}
+
+// Stage 1: Extract with fallback chain Gemini -> Mistral Pixtral -> Groq Vision
+async function extractFromImage(
+  imageBase64: string,
+  mimeType: string,
+  lang: string,
+): Promise<{ response: string; provider: string }> {
+  try {
+    console.log("[vision-analyze] Trying Gemini for extraction...");
+    const response = await callGeminiExtract(imageBase64, mimeType, lang);
+    console.log("[vision-analyze] Gemini extraction succeeded, length:", response.length);
+    return { response, provider: "Gemini" };
+  } catch (err) {
+    console.warn("[vision-analyze] Gemini extraction failed:", (err as Error).message);
+  }
+
+  try {
+    console.log("[vision-analyze] Falling back to Mistral Pixtral for extraction...");
+    const response = await callMistralExtract(imageBase64, mimeType, lang);
+    console.log("[vision-analyze] Mistral extraction succeeded, length:", response.length);
+    return { response, provider: "Mistral" };
+  } catch (err) {
+    console.warn("[vision-analyze] Mistral extraction failed:", (err as Error).message);
+  }
+
+  try {
+    console.log("[vision-analyze] Falling back to Groq Vision for extraction...");
+    const response = await callGroqExtract(imageBase64, mimeType, lang);
+    console.log("[vision-analyze] Groq extraction succeeded, length:", response.length);
+    return { response, provider: "Groq" };
+  } catch (err) {
+    console.warn("[vision-analyze] Groq extraction failed:", (err as Error).message);
+  }
+
+  throw new Error("All extraction providers failed (Gemini, Mistral, Groq)");
+}
+
+// ── Stage 2 Providers: Solve physics problem ──
+
+function buildSolvePrompt(extractedJson: string, lang: string): string {
+  const isAr = lang === "ar";
+  return [
     "You are APAS Physics Solver. Solve the physics problem step by step.",
     "",
     "EXTRACTED DATA:",
@@ -151,37 +316,110 @@ async function callMistralSolve(
     '  "answeredQuestions": [{"question": "...", "answer": "..."}]',
     "}",
   ].join("\n");
-
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + apiKey,
-    },
-    body: JSON.stringify({
-      model: "mistral-large-latest",
-      messages: [
-        {
-          role: "system",
-          content: "You are a precise physics solver. Use Newton's laws and kinematic equations. Show every calculation step. Be exact. Respond with valid JSON only.",
-        },
-        { role: "user", content: solvePrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 4000,
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error("Mistral API error (" + res.status + "): " + err);
-  }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || "";
 }
 
-// Stage 3: Energy conservation verification
+async function callMistralSolve(extractedJson: string, lang: string): Promise<string> {
+  const apiKey = Deno.env.get("MISTRAL_API_KEY");
+  if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
+
+  const solvePrompt = buildSolvePrompt(extractedJson, lang);
+
+  return retryWithBackoff(async () => {
+    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: [
+          {
+            role: "system",
+            content: "You are a precise physics solver. Use Newton's laws and kinematic equations. Show every calculation step. Be exact. Respond with valid JSON only.",
+          },
+          { role: "user", content: solvePrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 4000,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error("Mistral API error (" + res.status + "): " + err);
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  }, "Mistral-Solve");
+}
+
+async function callGroqSolve(extractedJson: string, lang: string): Promise<string> {
+  const apiKey = Deno.env.get("GROQ_API_KEY");
+  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
+
+  const solvePrompt = buildSolvePrompt(extractedJson, lang);
+
+  return retryWithBackoff(async () => {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "You are a precise physics solver. Use Newton's laws and kinematic equations. Show every calculation step. Be exact. Respond with valid JSON only.",
+          },
+          { role: "user", content: solvePrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 4000,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error("Groq API error (" + res.status + "): " + err);
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  }, "Groq-Solve");
+}
+
+// Stage 2: Solve with fallback chain Mistral -> Groq
+async function solvePhysics(
+  extractedJson: string,
+  lang: string,
+): Promise<{ response: string; provider: string }> {
+  try {
+    console.log("[vision-analyze] Trying Mistral for solving...");
+    const response = await callMistralSolve(extractedJson, lang);
+    console.log("[vision-analyze] Mistral solving succeeded, length:", response.length);
+    return { response, provider: "Mistral" };
+  } catch (err) {
+    console.warn("[vision-analyze] Mistral solving failed:", (err as Error).message);
+  }
+
+  try {
+    console.log("[vision-analyze] Falling back to Groq for solving...");
+    const response = await callGroqSolve(extractedJson, lang);
+    console.log("[vision-analyze] Groq solving succeeded, length:", response.length);
+    return { response, provider: "Groq" };
+  } catch (err) {
+    console.warn("[vision-analyze] Groq solving failed:", (err as Error).message);
+  }
+
+  throw new Error("All solving providers failed (Mistral, Groq)");
+}
+
+// ── Stage 3: Energy conservation verification ──
+
 function verifyWithEnergy(r: {
   velocity?: number;
   angle?: number;
@@ -244,21 +482,21 @@ serve(async (req) => {
 
     const isAr = lang === "ar";
 
-    // Stage 1: Gemini extracts raw data
-    console.log("[vision-analyze] Stage 1: Gemini extraction...");
-    const geminiResponse = await callGeminiExtract(imageBase64, mimeType || "image/jpeg", lang);
-    console.log("[vision-analyze] Stage 1 complete, length:", geminiResponse.length);
+    // Stage 1: Extract raw data with fallback chain
+    console.log("[vision-analyze] Stage 1: Extraction with fallback chain...");
+    const extraction = await extractFromImage(imageBase64, mimeType || "image/jpeg", lang);
+    console.log("[vision-analyze] Stage 1 complete via", extraction.provider);
 
-    const extractedData = parseJsonFromText(geminiResponse);
+    const extractedData = parseJsonFromText(extraction.response);
 
-    // Stage 2: Mistral solves the problem
-    console.log("[vision-analyze] Stage 2: Mistral solving...");
-    const mistralResponse = await callMistralSolve(JSON.stringify(extractedData, null, 2), lang);
-    console.log("[vision-analyze] Stage 2 complete, length:", mistralResponse.length);
+    // Stage 2: Solve the physics problem with fallback chain
+    console.log("[vision-analyze] Stage 2: Physics solving with fallback chain...");
+    const solution = await solvePhysics(JSON.stringify(extractedData, null, 2), lang);
+    console.log("[vision-analyze] Stage 2 complete via", solution.provider);
 
-    const solvedData = parseJsonFromText(mistralResponse);
+    const solvedData = parseJsonFromText(solution.response);
     const results = (solvedData as { results?: Record<string, unknown> }).results || {};
-    const stepSolution = (solvedData as { stepByStepSolution?: string }).stepByStepSolution || mistralResponse.replace(/```(?:json)?[\s\S]*?```/g, "").trim();
+    const stepSolution = (solvedData as { stepByStepSolution?: string }).stepByStepSolution || solution.response.replace(/```(?:json)?[\s\S]*?```/g, "").trim();
     const answeredQuestions = (solvedData as { answeredQuestions?: Array<{ question: string; answer: string }> }).answeredQuestions || [];
 
     // Fill computed values if missing
@@ -307,6 +545,7 @@ serve(async (req) => {
       imageType: (extractedData as { imageType?: string }).imageType || "photo",
       verified: verification.verified,
       energyError: Math.round(verification.energyError * 10000) / 100,
+      providers: { extraction: extraction.provider, solving: solution.provider },
     };
 
     const report = [
@@ -314,31 +553,33 @@ serve(async (req) => {
       JSON.stringify(finalJson, null, 2),
       "```",
       "",
-      isAr ? "# APAS AI تقرير تحليل" : "# APAS AI Analysis Report",
+      isAr ? "# APAS AI \u062a\u0642\u0631\u064a\u0631 \u062a\u062d\u0644\u064a\u0644" : "# APAS AI Analysis Report",
       "",
-      isAr ? "## المعطيات المستخرجة" : "## Extracted Data",
-      (isAr ? "السرعة الابتدائية: " : "Initial velocity: ") + "**" + v0 + "** m/s",
-      (isAr ? "زاوية الإطلاق: " : "Launch angle: ") + "**" + angle + " deg**",
-      (isAr ? "الارتفاع الابتدائي: " : "Initial height: ") + "**" + h0 + "** m",
-      (isAr ? "الجاذبية: " : "Gravity: ") + "**" + g + "** m/s2",
+      isAr ? "## \u0627\u0644\u0645\u0639\u0637\u064a\u0627\u062a \u0627\u0644\u0645\u0633\u062a\u062e\u0631\u062c\u0629" : "## Extracted Data",
+      (isAr ? "\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629: " : "Initial velocity: ") + "**" + v0 + "** m/s",
+      (isAr ? "\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642: " : "Launch angle: ") + "**" + angle + " deg**",
+      (isAr ? "\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a: " : "Initial height: ") + "**" + h0 + "** m",
+      (isAr ? "\u0627\u0644\u062c\u0627\u0630\u0628\u064a\u0629: " : "Gravity: ") + "**" + g + "** m/s2",
       "",
-      isAr ? "## الحل خطوة بخطوة" : "## Step-by-Step Solution",
+      isAr ? "## \u0627\u0644\u062d\u0644 \u062e\u0637\u0648\u0629 \u0628\u062e\u0637\u0648\u0629" : "## Step-by-Step Solution",
       stepSolution,
       "",
-      isAr ? "## النتائج" : "## Results",
+      isAr ? "## \u0627\u0644\u0646\u062a\u0627\u0626\u062c" : "## Results",
       "v0x = " + results.v0x + " m/s",
       "v0y = " + results.v0y + " m/s",
-      (isAr ? "أقصى ارتفاع = " : "Max height = ") + results.maxHeight + " m",
-      (isAr ? "المدى = " : "Range = ") + results.maxRange + " m",
-      (isAr ? "زمن الطيران = " : "Time of flight = ") + results.totalTime + " s",
-      (isAr ? "سرعة الاصطدام = " : "Impact velocity = ") + results.impactVelocity + " m/s",
+      (isAr ? "\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639 = " : "Max height = ") + results.maxHeight + " m",
+      (isAr ? "\u0627\u0644\u0645\u062f\u0649 = " : "Range = ") + results.maxRange + " m",
+      (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0637\u064a\u0631\u0627\u0646 = " : "Time of flight = ") + results.totalTime + " s",
+      (isAr ? "\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0635\u0637\u062f\u0627\u0645 = " : "Impact velocity = ") + results.impactVelocity + " m/s",
       "",
-      isAr ? "## التحقق من حفظ الطاقة" : "## Energy Conservation Check",
+      isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check",
       (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
+      "",
+      (isAr ? "\u0645\u0632\u0648\u062f\u0627\u062a \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Providers: ") + "Extraction=" + extraction.provider + ", Solving=" + solution.provider,
     ];
 
     if (answeredQuestions.length > 0) {
-      report.push("", isAr ? "## إجابات الأسئلة" : "## Answered Questions");
+      report.push("", isAr ? "## \u0625\u062c\u0627\u0628\u0627\u062a \u0627\u0644\u0623\u0633\u0626\u0644\u0629" : "## Answered Questions");
       for (const qa of answeredQuestions) {
         report.push("**" + qa.question + "**", qa.answer, "");
       }
