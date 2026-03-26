@@ -7,6 +7,7 @@ import ApasVisionButton from '@/components/apas/ApasVisionButton';
 import ApasVideoButton from '@/components/apas/ApasVideoButton';
 import ApasSubjectReading from '@/components/apas/ApasSubjectReading';
 import ApasVoiceButton from '@/components/apas/ApasVoiceButton';
+import AnalysisHistory from '@/components/apas/AnalysisHistory';
 import ShareSimulation from '@/components/apas/ShareSimulation';
 import SensorLab from '@/components/apas/SensorLab';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
@@ -43,6 +44,10 @@ interface RightSidebarProps {
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
   onAutoRun?: () => void;
   onDetectedMedia?: (data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
+  analysisHistory?: Array<{ id: number; timestamp: Date; type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }>;
+  onClearAnalysisHistory?: () => void;
+  onDeleteAnalysisEntry?: (id: number) => void;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -51,7 +56,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   currentEnvId, nightMode, selectedIntegrationMethod,
   enableBounce, bounceCoefficient,
   setSelectedIntegrationMethod, setVelocity, setAngle, setHeight, setMass, setGravity,
-  setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed, onAutoRun, onDetectedMedia,
+  setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete,
+  analysisHistory, onClearAnalysisHistory, onDeleteAnalysisEntry,
 }) => {
   const { isGuest, isApproved, isAdmin, isRestricted, user } = useAuth();
   const canAccessRestrictedFeature = isAdmin || (user && isApproved && !isRestricted);
@@ -146,8 +152,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
           </span>
         </h3>
-        <ApasVisionButton lang={lang} onUpdateParams={handleVisionParams} onMediaAnalyzed={onMediaAnalyzed} onAutoRun={onAutoRun} onDetectedMedia={onDetectedMedia} />
-        <ApasVideoButton lang={lang} onUpdateParams={handleVisionParams} onMediaAnalyzed={onMediaAnalyzed} onAutoRun={onAutoRun} onDetectedMedia={onDetectedMedia} />
+        <ApasVisionButton lang={lang} onUpdateParams={handleVisionParams} onMediaAnalyzed={onMediaAnalyzed} onAutoRun={onAutoRun} onDetectedMedia={onDetectedMedia} onAnalysisComplete={onAnalysisComplete} />
+        <ApasVideoButton lang={lang} onUpdateParams={handleVisionParams} onMediaAnalyzed={onMediaAnalyzed} onAutoRun={onAutoRun} onDetectedMedia={onDetectedMedia} onAnalysisComplete={onAnalysisComplete} />
         <ApasSubjectReading
           lang={lang}
           onUpdateParams={(p) => {
@@ -163,6 +169,14 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
           onUpdateParams={handleVoiceParams}
           simulationContext={{ velocity, angle, height, gravity, airResistance, mass }}
         />
+        {analysisHistory && analysisHistory.length > 0 && (
+          <AnalysisHistory
+            lang={lang}
+            history={analysisHistory}
+            onClearHistory={onClearAnalysisHistory}
+            onDeleteEntry={onDeleteAnalysisEntry}
+          />
+        )}
       </div>
 
       {/* Presets / Scenarios */}

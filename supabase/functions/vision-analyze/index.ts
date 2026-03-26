@@ -239,23 +239,23 @@ async function callGroqExtract(
   }, "Groq-Extract");
 }
 
-// Stage 1: Extract with fallback chain Gemini -> Mistral Pixtral -> Groq Vision
+// Stage 1: Extract with fallback chain Groq Llama 3 -> Mistral Large -> Gemini 2.0 Flash
 async function extractFromImage(
   imageBase64: string,
   mimeType: string,
   lang: string,
 ): Promise<{ response: string; provider: string }> {
   try {
-    console.log("[vision-analyze] Trying Gemini for extraction...");
-    const response = await callGeminiExtract(imageBase64, mimeType, lang);
-    console.log("[vision-analyze] Gemini extraction succeeded, length:", response.length);
-    return { response, provider: "Gemini" };
+    console.log("[vision-analyze] Trying Groq Llama 3 for extraction...");
+    const response = await callGroqExtract(imageBase64, mimeType, lang);
+    console.log("[vision-analyze] Groq extraction succeeded, length:", response.length);
+    return { response, provider: "Groq" };
   } catch (err) {
-    console.warn("[vision-analyze] Gemini extraction failed:", (err as Error).message);
+    console.warn("[vision-analyze] Groq extraction failed:", (err as Error).message);
   }
 
   try {
-    console.log("[vision-analyze] Falling back to Mistral Pixtral for extraction...");
+    console.log("[vision-analyze] Falling back to Mistral Large for extraction...");
     const response = await callMistralExtract(imageBase64, mimeType, lang);
     console.log("[vision-analyze] Mistral extraction succeeded, length:", response.length);
     return { response, provider: "Mistral" };
@@ -264,15 +264,15 @@ async function extractFromImage(
   }
 
   try {
-    console.log("[vision-analyze] Falling back to Groq Vision for extraction...");
-    const response = await callGroqExtract(imageBase64, mimeType, lang);
-    console.log("[vision-analyze] Groq extraction succeeded, length:", response.length);
-    return { response, provider: "Groq" };
+    console.log("[vision-analyze] Falling back to Gemini 2.0 Flash for extraction...");
+    const response = await callGeminiExtract(imageBase64, mimeType, lang);
+    console.log("[vision-analyze] Gemini extraction succeeded, length:", response.length);
+    return { response, provider: "Gemini" };
   } catch (err) {
-    console.warn("[vision-analyze] Groq extraction failed:", (err as Error).message);
+    console.warn("[vision-analyze] Gemini extraction failed:", (err as Error).message);
   }
 
-  throw new Error("All extraction providers failed (Gemini, Mistral, Groq)");
+  throw new Error("All extraction providers failed (Groq, Mistral, Gemini)");
 }
 
 // ── Stage 2 Providers: Solve physics problem ──

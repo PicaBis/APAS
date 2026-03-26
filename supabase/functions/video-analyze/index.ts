@@ -296,21 +296,12 @@ async function callGroqVideoAnalysis(
   }, "Groq-Video");
 }
 
-// Stage 1: Analyze video with fallback chain Gemini 2.0 Flash -> Groq -> Mistral
+// Stage 1: Analyze video with fallback chain Groq Llama 3 -> Gemini 2.0 Flash -> Mistral Large
 async function analyzeVideoFrames(
   frames: Array<{ data: string; timestamp: number }>,
 ): Promise<{ response: string; provider: string }> {
   try {
-    console.log("[video-analyze] Trying Gemini 2.0 Flash for video analysis...");
-    const response = await callGeminiVideoAnalysis(frames);
-    console.log("[video-analyze] Gemini video analysis succeeded, length:", response.length);
-    return { response, provider: "Gemini" };
-  } catch (err) {
-    console.warn("[video-analyze] Gemini video analysis failed:", (err as Error).message);
-  }
-
-  try {
-    console.log("[video-analyze] Falling back to Groq Vision for video analysis...");
+    console.log("[video-analyze] Trying Groq Llama 3 for video analysis...");
     const response = await callGroqVideoAnalysis(frames);
     console.log("[video-analyze] Groq video analysis succeeded, length:", response.length);
     return { response, provider: "Groq" };
@@ -319,7 +310,16 @@ async function analyzeVideoFrames(
   }
 
   try {
-    console.log("[video-analyze] Falling back to Mistral Pixtral for video analysis...");
+    console.log("[video-analyze] Falling back to Gemini 2.0 Flash for video analysis...");
+    const response = await callGeminiVideoAnalysis(frames);
+    console.log("[video-analyze] Gemini video analysis succeeded, length:", response.length);
+    return { response, provider: "Gemini" };
+  } catch (err) {
+    console.warn("[video-analyze] Gemini video analysis failed:", (err as Error).message);
+  }
+
+  try {
+    console.log("[video-analyze] Falling back to Mistral Large for video analysis...");
     const response = await callMistralVideoAnalysis(frames);
     console.log("[video-analyze] Mistral video analysis succeeded, length:", response.length);
     return { response, provider: "Mistral" };
@@ -327,7 +327,7 @@ async function analyzeVideoFrames(
     console.warn("[video-analyze] Mistral video analysis failed:", (err as Error).message);
   }
 
-  throw new Error("All video analysis providers failed (Gemini, Groq, Mistral)");
+  throw new Error("All video analysis providers failed (Groq, Gemini, Mistral)");
 }
 
 // ── Stage 2 Providers: Solve physics from extracted data ──

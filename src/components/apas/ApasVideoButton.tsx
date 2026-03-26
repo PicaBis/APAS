@@ -15,6 +15,7 @@ interface Props {
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
   onAutoRun?: () => void;
   onDetectedMedia?: (data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
   autoOpen?: boolean;
   onDismiss?: () => void;
 }
@@ -56,7 +57,7 @@ function extractFrames(video: HTMLVideoElement, count: number): Promise<Array<{ 
   });
 }
 
-export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, autoOpen, onDismiss }: Props) {
+export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, autoOpen, onDismiss }: Props) {
   const [open, setOpen] = useState(autoOpen || false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -205,6 +206,29 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         }
       }
 
+      // Notify analysis complete for record/log and unlocking predictions
+      if (onAnalysisComplete) {
+        const jsonMatch2 = reportText.match(/```json\s*([\s\S]*?)```/);
+        let extractedParams: { velocity?: number; angle?: number; height?: number; mass?: number } | undefined;
+        if (jsonMatch2) {
+          try {
+            const p = JSON.parse(jsonMatch2[1].trim());
+            extractedParams = {};
+            if (p.velocity) extractedParams.velocity = Number(p.velocity);
+            if (p.angle) extractedParams.angle = Number(p.angle);
+            if (p.height) extractedParams.height = Number(p.height);
+            if (p.mass) extractedParams.mass = Number(p.mass);
+          } catch { /* ignore */ }
+        }
+        onAnalysisComplete({
+          type: 'video',
+          report: reportText,
+          mediaSrc: preview || undefined,
+          mediaType: 'video',
+          params: extractedParams,
+        });
+      }
+
       setProgress(100);
       setStatusMsg(isAr ? 'اكتمل التحليل' : 'Analysis complete');
       toast.success(isAr ? 'تم تحليل الفيديو بنجاح' : 'Video analyzed successfully');
@@ -216,7 +240,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
     } finally {
       setLoading(false);
     }
-  }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia]);
+  }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, preview]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

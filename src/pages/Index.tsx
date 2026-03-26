@@ -155,6 +155,16 @@ const Index = () => {
   const [lastAnalyzedMediaSrc, setLastAnalyzedMediaSrc] = useState<string | null>(null);
   const [lastAnalyzedMediaType, setLastAnalyzedMediaType] = useState<'video' | 'image'>('video');
   const [detectedMedia, setDetectedMedia] = useState<DetectedMediaData | null>(null);
+  const [hasModelAnalysis, setHasModelAnalysis] = useState(false);
+  const [analysisHistory, setAnalysisHistory] = useState<Array<{
+    id: number;
+    timestamp: Date;
+    type: 'vision' | 'video' | 'subject' | 'voice';
+    report: string;
+    mediaSrc?: string;
+    mediaType?: 'video' | 'image';
+    params?: { velocity?: number; angle?: number; height?: number; mass?: number };
+  }>>([]);
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const [showDynamicDashboard, setShowDynamicDashboard] = useState(false);
   const [showTheoreticalComparison, setShowTheoreticalComparison] = useState(false);
@@ -210,6 +220,30 @@ const Index = () => {
 
   const handleDetectedMedia = useCallback((data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => {
     setDetectedMedia(data);
+    setHasModelAnalysis(true);
+  }, []);
+
+  const handleAnalysisComplete = useCallback((entry: {
+    type: 'vision' | 'video' | 'subject' | 'voice';
+    report: string;
+    mediaSrc?: string;
+    mediaType?: 'video' | 'image';
+    params?: { velocity?: number; angle?: number; height?: number; mass?: number };
+  }) => {
+    setHasModelAnalysis(true);
+    setAnalysisHistory(prev => [{
+      id: Date.now(),
+      timestamp: new Date(),
+      ...entry,
+    }, ...prev].slice(0, 50));
+  }, []);
+
+  const handleClearAnalysisHistory = useCallback(() => {
+    setAnalysisHistory([]);
+  }, []);
+
+  const handleDeleteAnalysisEntry = useCallback((id: number) => {
+    setAnalysisHistory(prev => prev.filter(e => e.id !== id));
   }, []);
 
   const handleMobileVoiceParams = useCallback((p: { velocity?: number; angle?: number; height?: number; mass?: number; gravity?: number }) => {
@@ -1000,7 +1034,7 @@ const Index = () => {
                       velocity={sim.velocity} angle={sim.angle} height={sim.height}
                       gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
                       showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
-                      hasModelAnalysis={!!detectedMedia}
+                      hasModelAnalysis={hasModelAnalysis}
                     />
 
                     {/* Analytics & Errors Section */}
@@ -2217,7 +2251,7 @@ const Index = () => {
                     velocity={sim.velocity} angle={sim.angle} height={sim.height}
                     gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
                     showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
-                    hasModelAnalysis={!!detectedMedia}
+                    hasModelAnalysis={hasModelAnalysis}
                   />
                 )}
 
@@ -2589,6 +2623,10 @@ const Index = () => {
               onSessionLoad={handleSessionLoad} onShowRestrictionOverlay={setShowRestrictionOverlay}
               onAutoRun={handleAutoRunSimulation}
               onDetectedMedia={handleDetectedMedia}
+              onAnalysisComplete={handleAnalysisComplete}
+              analysisHistory={analysisHistory}
+              onClearAnalysisHistory={handleClearAnalysisHistory}
+              onDeleteAnalysisEntry={handleDeleteAnalysisEntry}
               onMediaAnalyzed={(src: string) => {
                 setLastAnalyzedMediaSrc(src || null);
                 if (src) {
