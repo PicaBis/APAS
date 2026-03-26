@@ -1000,6 +1000,7 @@ const Index = () => {
                       velocity={sim.velocity} angle={sim.angle} height={sim.height}
                       gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
                       showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
+                      hasModelAnalysis={!!detectedMedia}
                     />
 
                     {/* Analytics & Errors Section */}
@@ -2216,6 +2217,7 @@ const Index = () => {
                     velocity={sim.velocity} angle={sim.angle} height={sim.height}
                     gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
                     showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
+                    hasModelAnalysis={!!detectedMedia}
                   />
                 )}
 

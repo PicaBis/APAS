@@ -22,10 +22,12 @@ interface ResultsSectionProps {
 
 const ResultsSection: React.FC<ResultsSectionProps> = ({
   lang, T, prediction, velocity, angle, height, gravity,
-  showPathInfo, onTogglePathInfo, hasModelAnalysis = true,
+  showPathInfo, onTogglePathInfo, hasModelAnalysis = false,
 }) => {
   const { isGuest, user } = useAuth();
-  const predictionsLocked = isGuest || (!hasModelAnalysis && !user);
+  // Predictions are only shown after an actual AI analysis (Vision/Video/Subject/Voice)
+  // Even logged-in users or developers see the locked state until they analyze something
+  const predictionsLocked = !hasModelAnalysis;
 
   if (predictionsLocked) {
     return (
@@ -37,9 +39,7 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
             </div>
             <h3 className="text-sm font-bold text-foreground">{T.aiPredictions}</h3>
             <p className="text-xs text-muted-foreground text-center max-w-xs">
-              {isGuest
-                ? (lang === 'ar' ? 'قم بتسجيل الدخول وتحليل نموذج لتفعيل التوقعات' : lang === 'fr' ? 'Connectez-vous et analysez un modèle pour activer les prédictions' : 'Sign in and analyze a model to activate predictions')
-                : (lang === 'ar' ? 'يرجى رفع نموذج للتحليل أولاً' : lang === 'fr' ? 'Veuillez d\'abord analyser un modèle' : 'Please upload a model for prediction')}
+              {lang === 'ar' ? 'قم بتحليل صورة أو فيديو أو تمرين أو أمر صوتي لتفعيل التوقعات' : lang === 'fr' ? 'Analysez une image, vidéo, exercice ou commande vocale pour activer les prédictions' : 'Analyze an image, video, exercise or voice command to activate predictions'}
             </p>
           </div>
         </div>

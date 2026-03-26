@@ -212,6 +212,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
     if (!SUPABASE_EDGE_URL || !SUPABASE_EDGE_ANON_KEY) {
       toast.error(isAr ? 'خدمة Supabase غير مهيأة. تحقق من إعدادات البيئة.' : 'Supabase is not configured. Check environment settings.');
       setIsAnalyzing(false);
+      setShowModal(false);
       return;
     }
 
