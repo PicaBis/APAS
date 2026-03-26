@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen, Maximize } from 'lucide-react';
+import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen, Maximize, Shield } from 'lucide-react';
 import ApasLogo from '@/components/apas/ApasLogo';
 import PageTransition from '@/components/apas/PageTransition';
 import AboutModal from '@/components/apas/AboutModal';
@@ -135,14 +135,35 @@ export default function AuthPage() {
   const isFr = lang === 'fr';
   const [fullscreenNotice, setFullscreenNotice] = useState(false);
 
-  // Fullscreen is only triggered by explicit user gesture (e.g. clicking the fullscreen button)
-  // Removed auto-fullscreen on mount to avoid "API can only be initiated by a user gesture" errors
+  // Request fullscreen (requires user gesture context)
+  const requestFullscreen = useCallback(() => {
+    const el = document.documentElement;
+    if (document.fullscreenElement) return; // already fullscreen
+    const req = el.requestFullscreen || (el as unknown as Record<string, () => Promise<void>>).webkitRequestFullscreen || (el as unknown as Record<string, () => Promise<void>>).msRequestFullscreen;
+    if (req) {
+      req.call(el).then(() => {
+        setFullscreenNotice(true);
+        setTimeout(() => setFullscreenNotice(false), 3000);
+      }).catch(() => { /* browser blocked it */ });
+    }
+  }, []);
+
+  // Try fullscreen on first user click anywhere on the page
+  useEffect(() => {
+    const handler = () => {
+      requestFullscreen();
+      document.removeEventListener('click', handler);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [requestFullscreen]);
 
   const navigateWithSound = useCallback((path: string) => {
+    requestFullscreen();
     playPageTransition(false);
     setNavigating(true);
     setTimeout(() => navigate(path, { replace: true }), 400);
-  }, [navigate]);
+  }, [navigate, requestFullscreen]);
 
   // If already authenticated, redirect
   React.useEffect(() => {
@@ -189,7 +210,14 @@ export default function AuthPage() {
     setLoading(false);
   };
 
+  const [guestVerifyWarning, setGuestVerifyWarning] = useState(false);
+
   const handleGuestAccess = () => {
+    if (!humanVerified) {
+      setGuestVerifyWarning(true);
+      setTimeout(() => setGuestVerifyWarning(false), 4000);
+      return;
+    }
     playNav(false);
     enterGuestMode();
     navigateWithSound('/home');
@@ -416,10 +444,24 @@ export default function AuthPage() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
+            {/* Guest Verify Warning */}
+            {guestVerifyWarning && (
+              <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs p-3 rounded-lg flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+                <Shield className="w-4 h-4 shrink-0" />
+                <span>
+                  {lang === 'ar' ? 'يجب سحب شريط التحقق أولاً للدخول كزائر' : isFr ? 'Vous devez d\'abord glisser pour vérifier avant de continuer en tant qu\'invité' : 'You must slide to verify before continuing as a guest'}
+                </span>
+              </div>
+            )}
+
             {/* Guest Access */}
             <button
               onClick={handleGuestAccess}
-              className="w-full py-2.5 rounded-lg border border-border bg-secondary/50 text-foreground font-medium text-sm hover:bg-secondary hover:border-primary/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2"
+              className={`w-full py-2.5 rounded-lg border font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                humanVerified
+                  ? 'border-border bg-secondary/50 text-foreground hover:bg-secondary hover:border-primary/20 hover:-translate-y-0.5 active:translate-y-0'
+                  : 'border-border/50 bg-secondary/30 text-muted-foreground cursor-not-allowed opacity-60'
+              }`}
             >
               {T.continueAsGuest}
               <ArrowRight className="w-4 h-4" />
