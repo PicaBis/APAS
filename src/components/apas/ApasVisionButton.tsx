@@ -195,7 +195,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       }
 
       // Step 3: Call vision-analyze edge function
-      setStatusMsg(isAr ? 'Gemini يستخرج المعطيات...' : 'Gemini extracting data...');
+      setStatusMsg(isAr ? 'APAS يستخرج المعطيات...' : 'APAS extracting data...');
       setProgress(55);
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/vision-analyze`, {
@@ -212,7 +212,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       });
 
       setProgress(80);
-      setStatusMsg(isAr ? 'Mistral يحل المسألة...' : 'Mistral solving physics...');
+      setStatusMsg(isAr ? 'APAS يحل المسألة...' : 'APAS solving physics...');
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));

@@ -237,7 +237,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       }
 
       setProgress(55);
-      setStatusMsg(isAr ? 'Gemini يشاهد الفيديو...' : 'Gemini watching video...');
+      setStatusMsg(isAr ? 'APAS يشاهد الفيديو...' : 'APAS watching video...');
 
       // Step 3: Call video-analyze edge function
       const response = await fetch(`${SUPABASE_URL}/functions/v1/video-analyze`, {
@@ -254,7 +254,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       });
 
       setProgress(80);
-      setStatusMsg(isAr ? 'Mistral يحل المسألة...' : 'Mistral solving physics...');
+      setStatusMsg(isAr ? 'APAS يحل المسألة...' : 'APAS solving physics...');
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
