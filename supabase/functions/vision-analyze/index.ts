@@ -1,212 +1,351 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { aiComplete, mathVerify } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Stage 1: Gemini extracts raw data from image
+async function callGeminiExtract(
+  imageBase64: string,
+  mimeType: string,
+  lang: string,
+): Promise<string> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+
+  const isAr = lang === "ar";
+
+  const extractionPrompt = [
+    "You are APAS Vision Extractor. Your ONLY job is to extract raw data from this image. DO NOT solve any problem.",
+    "",
+    "TYPES OF IMAGES:",
+    "A) PHYSICS EXERCISE / HOMEWORK: Extract ALL given values, variables, equations, and what is asked to solve.",
+    "B) REAL PHOTO of projectile motion: Identify the object, estimate angle, speed, height from visual cues.",
+    "C) DIAGRAM: Extract labeled values, angles, vectors, dimensions.",
+    "",
+    "FOR EXERCISES (Type A) - READ EVERY WORD carefully:",
+    "- Extract ALL given constants (velocity, angle, height, mass, gravity, time, distance, etc.)",
+    "- Extract the QUESTION - what needs to be solved?",
+    "- Extract any equations shown",
+    "- Extract units for each value",
+    "- If there are multiple parts (a, b, c...), list each sub-question",
+    "",
+    "FOR REAL PHOTOS (Type B):",
+    "- Identify the projectile object specifically (ball, rocket, stone, etc.)",
+    "- Use reference objects for scale (person ~1.7m, door ~2m, car ~1.5m tall)",
+    "- Estimate launch angle from trajectory arc or body posture",
+    "- Estimate initial velocity from context",
+    "",
+    "RESPOND WITH ONLY valid JSON (no markdown fences):",
+    "{",
+    '  "imageType": "exercise or photo or diagram",',
+    '  "extractedData": {',
+    '    "givenValues": {',
+    '      "velocity": {"value": null, "unit": "m/s"},',
+    '      "angle": {"value": null, "unit": "degrees"},',
+    '      "height": {"value": null, "unit": "m"},',
+    '      "mass": {"value": null, "unit": "kg"},',
+    '      "gravity": {"value": null, "unit": "m/s^2"},',
+    '      "time": {"value": null, "unit": "s"},',
+    '      "distance": {"value": null, "unit": "m"}',
+    "    },",
+    '    "additionalValues": {},',
+    '    "questionsToSolve": [],',
+    '    "equationsShown": [],',
+    '    "objectType": "specific object name",',
+    '    "rawText": "all text extracted from the image",',
+    '    "confidence": 0,',
+    '    "calibrationRef": null,',
+    '    "language": "' + (isAr ? "ar" : "en") + '"',
+    "  }",
+    "}",
+  ].join("\n");
+
+  const body = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: extractionPrompt },
+          { inline_data: { mime_type: mimeType, data: imageBase64 } },
+        ],
+      },
+    ],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 3000 },
+    systemInstruction: {
+      parts: [
+        {
+          text: "You are a precise data extractor. Extract ONLY what you see. Do NOT solve, compute, or infer. Output ONLY valid JSON.",
+        },
+      ],
+    },
+  };
+
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error("Gemini API error (" + res.status + "): " + err);
+  }
+
+  const data = await res.json();
+  const candidate = data.candidates?.[0];
+  if (!candidate?.content?.parts?.length) throw new Error("Gemini returned no content");
+  return candidate.content.parts.map((p: { text?: string }) => p.text || "").join("");
+}
+
+// Stage 2: Mistral solves the physics problem
+async function callMistralSolve(
+  extractedJson: string,
+  lang: string,
+): Promise<string> {
+  const apiKey = Deno.env.get("MISTRAL_API_KEY");
+  if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
+
+  const isAr = lang === "ar";
+
+  const solvePrompt = [
+    "You are APAS Physics Solver. Solve the physics problem step by step.",
+    "",
+    "EXTRACTED DATA:",
+    extractedJson,
+    "",
+    "INSTRUCTIONS:",
+    "1. Use Newton's laws and kinematic equations",
+    "2. Show EVERY step of your solution",
+    "3. Use these equations:",
+    "   x(t) = v0 * cos(theta) * t",
+    "   y(t) = h0 + v0 * sin(theta) * t - 0.5 * g * t^2",
+    "   v0x = v0 * cos(theta), v0y = v0 * sin(theta)",
+    "   Max height: H = h0 + v0y^2 / (2*g)",
+    "   Time of flight: solve y(t) = 0",
+    "   Range: R = v0x * T",
+    "   Impact velocity: v_impact = sqrt(v0x^2 + (v0y - g*T)^2)",
+    "4. If the image was an exercise with specific questions, answer EACH question",
+    "5. If it was a photo, compute all standard projectile motion values",
+    "6. Provide numerical answers with units",
+    "7. Use gravity = 9.81 m/s^2 unless specified otherwise",
+    "",
+    "RESPOND IN " + (isAr ? "ARABIC" : "ENGLISH") + ".",
+    "",
+    "FORMAT YOUR RESPONSE AS valid JSON (no markdown fences):",
+    "{",
+    '  "solved": true,',
+    '  "results": {',
+    '    "velocity": 0, "angle": 0, "height": 0, "mass": 0.5,',
+    '    "gravity": 9.81, "v0x": 0, "v0y": 0, "maxHeight": 0,',
+    '    "totalTime": 0, "maxRange": 0, "impactVelocity": 0,',
+    '    "objectType": "", "confidence": 0',
+    "  },",
+    '  "stepByStepSolution": "detailed solution text",',
+    '  "answeredQuestions": [{"question": "...", "answer": "..."}]',
+    "}",
+  ].join("\n");
+
+  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + apiKey,
+    },
+    body: JSON.stringify({
+      model: "mistral-large-latest",
+      messages: [
+        {
+          role: "system",
+          content: "You are a precise physics solver. Use Newton's laws and kinematic equations. Show every calculation step. Be exact. Respond with valid JSON only.",
+        },
+        { role: "user", content: solvePrompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error("Mistral API error (" + res.status + "): " + err);
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "";
+}
+
+// Stage 3: Energy conservation verification
+function verifyWithEnergy(r: {
+  velocity?: number;
+  angle?: number;
+  height?: number;
+  gravity?: number;
+  maxHeight?: number;
+  impactVelocity?: number;
+}): { verified: boolean; energyError: number; note: string } {
+  const v0 = r.velocity || 0;
+  const h0 = r.height || 0;
+  const g = r.gravity || 9.81;
+  const vImpact = r.impactVelocity || 0;
+
+  if (v0 === 0) return { verified: true, energyError: 0, note: "No velocity to verify" };
+
+  const energyLaunch = 0.5 * v0 * v0 + g * h0;
+  const energyImpact = 0.5 * vImpact * vImpact;
+
+  const angleRad = (r.angle || 0) * Math.PI / 180;
+  const v0x = v0 * Math.cos(angleRad);
+  const hMax = r.maxHeight || 0;
+  const energyAtPeak = 0.5 * v0x * v0x + g * hMax;
+
+  const errorImpact = energyLaunch > 0 ? Math.abs(energyLaunch - energyImpact) / energyLaunch : 0;
+  const errorPeak = energyLaunch > 0 ? Math.abs(energyLaunch - energyAtPeak) / energyLaunch : 0;
+  const maxError = Math.max(errorImpact, errorPeak);
+
+  if (maxError < 0.05) return { verified: true, energyError: maxError, note: "Energy conservation verified (<5% error)" };
+  if (maxError < 0.15) return { verified: true, energyError: maxError, note: "Energy conservation approximate (5-15% error)" };
+  return { verified: false, energyError: maxError, note: "Energy conservation failed (>15% error)" };
+}
+
+function parseJsonFromText(text: string): Record<string, unknown> {
+  // Try fenced code block first
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) {
+    try { return JSON.parse(fenced[1].trim()); } catch { /* fallback */ }
+  }
+  // Try raw JSON
+  const raw = text.match(/\{[\s\S]*\}/);
+  if (raw) {
+    try { return JSON.parse(raw[0]); } catch { /* fallback */ }
+  }
+  return {};
+}
+
 serve(async (req) => {
-  if (req.method === "OPTIONS")
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
   try {
     const { imageBase64, mimeType, lang } = await req.json();
+    if (!imageBase64) {
+      return new Response(JSON.stringify({ error: "No image provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const isAr = lang === "ar";
-    const analysisId = crypto.randomUUID();
-    const timestamp = new Date().toISOString();
 
-    // ── Stage 1: Gemini Vision — extract raw data + calibration ──
-    const systemPrompt = `You are APAS Vision — an expert physics image analyzer specialized in projectile motion.
-Your task is to analyze images with MAXIMUM PRECISION using a structured multi-step approach.
+    // Stage 1: Gemini extracts raw data
+    console.log("[vision-analyze] Stage 1: Gemini extraction...");
+    const geminiResponse = await callGeminiExtract(imageBase64, mimeType || "image/jpeg", lang);
+    console.log("[vision-analyze] Stage 1 complete, length:", geminiResponse.length);
 
-ANALYSIS ID: ${analysisId}
-TIMESTAMP: ${timestamp}
+    const extractedData = parseJsonFromText(geminiResponse);
 
-LANGUAGE: Respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}.
-${isAr ? "اكتب كل شيء بالعربية الفصحى الواضحة." : "Write everything in clear English."}
+    // Stage 2: Mistral solves the problem
+    console.log("[vision-analyze] Stage 2: Mistral solving...");
+    const mistralResponse = await callMistralSolve(JSON.stringify(extractedData, null, 2), lang);
+    console.log("[vision-analyze] Stage 2 complete, length:", mistralResponse.length);
 
-TWO TYPES OF IMAGES:
-TYPE A: REAL PHOTOS (projectile in action) — detect objects, measure from visual cues
-TYPE B: PHYSICS EXERCISES/PAPERS — read text and extract exact given values
+    const solvedData = parseJsonFromText(mistralResponse);
+    const results = (solvedData as { results?: Record<string, unknown> }).results || {};
+    const stepSolution = (solvedData as { stepByStepSolution?: string }).stepByStepSolution || mistralResponse.replace(/```(?:json)?[\s\S]*?```/g, "").trim();
+    const answeredQuestions = (solvedData as { answeredQuestions?: Array<{ question: string; answer: string }> }).answeredQuestions || [];
 
-STEP-BY-STEP ANALYSIS:
+    // Fill computed values if missing
+    const v0 = (results.velocity as number) || 0;
+    const angle = (results.angle as number) || 0;
+    const h0 = (results.height as number) || 0;
+    const g = (results.gravity as number) || 9.81;
+    const rad = angle * Math.PI / 180;
 
-STEP 1 — CALIBRATION:
-- Identify ANY reference objects for scale (door ~2m, person ~1.7m, basketball hoop 3.05m, etc.)
-- Estimate the "pixels per meter" ratio if possible
-- Report the calibration reference in the JSON
+    if (!results.v0x) results.v0x = Math.round(v0 * Math.cos(rad) * 100) / 100;
+    if (!results.v0y) results.v0y = Math.round(v0 * Math.sin(rad) * 100) / 100;
+    const v0y = results.v0y as number;
+    const v0x = results.v0x as number;
+    if (!results.maxHeight) results.maxHeight = Math.round((h0 + (v0y * v0y) / (2 * g)) * 100) / 100;
+    if (!results.totalTime) {
+      const tUp = v0y / g;
+      const tDown = Math.sqrt(Math.max(0, 2 * (results.maxHeight as number) / g));
+      results.totalTime = Math.round((tUp + tDown) * 100) / 100;
+    }
+    if (!results.maxRange) results.maxRange = Math.round(v0x * (results.totalTime as number) * 100) / 100;
+    if (!results.impactVelocity) {
+      const vyEnd = g * (results.totalTime as number) - v0y;
+      results.impactVelocity = Math.round(Math.sqrt(v0x * v0x + vyEnd * vyEnd) * 100) / 100;
+    }
 
-STEP 2 — DETECTION & MEASUREMENT:
-- Identify the projectile type precisely (never "unknown")
-- For real photos: measure angle from body posture, arm position, trajectory arc
-- For exercises: READ and EXTRACT exact values from the text
-- FORBIDDEN defaults: angle=45, confidence=50, objectType="unknown"
-- Angles MUST have decimal precision (e.g., 23.7, 67.2)
-
-STEP 3 — PHYSICS COMPUTATION:
-- After extracting primary values, compute ALL derived results:
-  v0x = v0 * cos(angle), v0y = v0 * sin(angle)
-  maxHeight = height + v0y^2 / (2*g)
-  totalTime = v0y/g + sqrt(2*maxHeight/g)
-  maxRange = v0x * totalTime
-  impactVelocity = sqrt(v0x^2 + (g*totalTime)^2)
-
-RESPONSE FORMAT:
-\`\`\`json
-{
-  "detected": true,
-  "confidence": <0-100>,
-  "angle": <degrees with decimal>,
-  "velocity": <m/s with decimal>,
-  "mass": <kg with decimal>,
-  "height": <m with decimal>,
-  "objectType": "<specific object name>",
-  "gravity": <g value, default 9.81>,
-  "calibrationRef": "<reference object used for scale, e.g. 'person height ~1.7m'>",
-  "calibrationPixelsPerMeter": <estimated pixels per meter or null>,
-  "imageType": "<photo|exercise|diagram>"
-}
-\`\`\`
-
-Then provide a DETAILED analysis in ${isAr ? "Arabic" : "English"}:
-1. ${isAr ? "المعايرة — ما الجسم المرجعي المستخدم للقياس" : "Calibration — what reference object was used for measurement"}
-2. ${isAr ? "وصف المشهد — ماذا ترى في الصورة" : "Scene description — what you see in the image"}
-3. ${isAr ? "تحديد المقذوف — نوعه وكتلته" : "Projectile identification — type, mass"}
-4. ${isAr ? "تبرير القيم — كيف قُيست كل قيمة" : "Value justification — how each was measured"}
-5. ${isAr ? "الحسابات والنتائج" : "Calculations and results"}
-
-EQUATION RULES: Use simple ASCII only (v0, theta, cos(), sin(), sqrt(), ^2). NO LaTeX.`;
-
-    const { text: visionText, provider } = await aiComplete({
-      modelType: "vision",
-      temperature: 0.3,
-      max_tokens: 4000,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: isAr
-                ? `[تحليل #${analysisId.slice(0, 8)}] حلل هذه الصورة بدقة. ابدأ بالمعايرة (ابحث عن جسم مرجعي للقياس). ثم استخرج القيم الفيزيائية بدقة عشرية.`
-                : `[Analysis #${analysisId.slice(0, 8)}] Analyze this image precisely. Start with CALIBRATION (find a reference object for scale). Then extract physics values with decimal precision.`,
-            },
-            {
-              type: "image_url",
-              image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-            },
-          ],
-        },
-      ],
+    // Stage 3: Energy verification
+    console.log("[vision-analyze] Stage 3: Energy verification...");
+    const verification = verifyWithEnergy({
+      velocity: v0, angle, height: h0, gravity: g,
+      maxHeight: results.maxHeight as number,
+      impactVelocity: results.impactVelocity as number,
     });
+    console.log("[vision-analyze] Verification:", verification);
 
-    console.log(`[vision-analyze] Stage 1 completed via ${provider}`);
+    const finalJson = {
+      detected: true,
+      confidence: (results.confidence as number) || 75,
+      angle, velocity: v0,
+      mass: (results.mass as number) || 0.5,
+      height: h0,
+      objectType: (results.objectType as string) || "projectile",
+      gravity: g,
+      v0x: results.v0x, v0y: results.v0y,
+      maxHeight: results.maxHeight, maxRange: results.maxRange,
+      totalTime: results.totalTime, impactVelocity: results.impactVelocity,
+      imageType: (extractedData as { imageType?: string }).imageType || "photo",
+      verified: verification.verified,
+      energyError: Math.round(verification.energyError * 10000) / 100,
+    };
 
-    // ── Stage 2: Parse and validate AI response ──
-    let finalText = visionText;
-    try {
-      const jsonMatch = visionText.match(/```json\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[1].trim());
-        let modified = false;
+    const report = [
+      "```json",
+      JSON.stringify(finalJson, null, 2),
+      "```",
+      "",
+      isAr ? "# APAS AI تقرير تحليل" : "# APAS AI Analysis Report",
+      "",
+      isAr ? "## المعطيات المستخرجة" : "## Extracted Data",
+      (isAr ? "السرعة الابتدائية: " : "Initial velocity: ") + "**" + v0 + "** m/s",
+      (isAr ? "زاوية الإطلاق: " : "Launch angle: ") + "**" + angle + " deg**",
+      (isAr ? "الارتفاع الابتدائي: " : "Initial height: ") + "**" + h0 + "** m",
+      (isAr ? "الجاذبية: " : "Gravity: ") + "**" + g + "** m/s2",
+      "",
+      isAr ? "## الحل خطوة بخطوة" : "## Step-by-Step Solution",
+      stepSolution,
+      "",
+      isAr ? "## النتائج" : "## Results",
+      "v0x = " + results.v0x + " m/s",
+      "v0y = " + results.v0y + " m/s",
+      (isAr ? "أقصى ارتفاع = " : "Max height = ") + results.maxHeight + " m",
+      (isAr ? "المدى = " : "Range = ") + results.maxRange + " m",
+      (isAr ? "زمن الطيران = " : "Time of flight = ") + results.totalTime + " s",
+      (isAr ? "سرعة الاصطدام = " : "Impact velocity = ") + results.impactVelocity + " m/s",
+      "",
+      isAr ? "## التحقق من حفظ الطاقة" : "## Energy Conservation Check",
+      (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
+    ];
 
-        // Reject exact 45.0 angle
-        if (parsed.detected && parsed.angle === 45) {
-          console.warn("[vision-analyze] AI returned default 45 angle, applying correction");
-          const hash = analysisId.split("").reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
-          const variation = (hash % 400) / 10 - 20;
-          parsed.angle = Math.round((45 + variation) * 10) / 10;
-          parsed.angle = Math.max(1, Math.min(89, parsed.angle));
-          modified = true;
-        }
-
-        // Reject exact 50% confidence
-        if (parsed.detected && parsed.confidence === 50) {
-          parsed.confidence = 65;
-          modified = true;
-        }
-
-        // Reject "unknown" object type
-        if (parsed.detected && (!parsed.objectType || parsed.objectType === "unknown object" || parsed.objectType === "unknown")) {
-          parsed.objectType = isAr ? "جسم مقذوف" : "projectile";
-          modified = true;
-        }
-
-        // ── Stage 3: Server-side physics computation ──
-        if (parsed.detected && parsed.velocity && parsed.angle != null) {
-          const g = (typeof parsed.gravity === "number" && parsed.gravity > 0) ? parsed.gravity : 9.81;
-          const angleRad = parsed.angle * Math.PI / 180;
-          const v0 = parsed.velocity;
-          const h = parsed.height ?? 0;
-
-          const v0x = Math.round(v0 * Math.cos(angleRad) * 100) / 100;
-          const v0y = Math.round(v0 * Math.sin(angleRad) * 100) / 100;
-          const maxHeight = Math.round((h + (v0y * v0y) / (2 * g)) * 100) / 100;
-          const timeToApex = v0y / g;
-          const fallHeight = maxHeight;
-          const timeFall = Math.sqrt(2 * fallHeight / g);
-          const totalTime = Math.round((timeToApex + timeFall) * 100) / 100;
-          const maxRange = Math.round(v0x * totalTime * 100) / 100;
-          const vyImpact = g * timeFall;
-          const impactVelocity = Math.round(Math.sqrt(v0x * v0x + vyImpact * vyImpact) * 100) / 100;
-
-          parsed.gravity = g;
-          parsed.v0x = v0x;
-          parsed.v0y = v0y;
-          parsed.maxHeight = maxHeight;
-          parsed.maxRange = maxRange;
-          parsed.totalTime = totalTime;
-          parsed.impactVelocity = impactVelocity;
-          modified = true;
-
-          // ── Stage 4: Mistral math verification (sanity check) ──
-          try {
-            const { text: mathText } = await mathVerify(
-              `Verify these projectile motion values:
-v0 = ${v0} m/s, angle = ${parsed.angle} degrees, h0 = ${h} m, g = ${g} m/s^2
-
-Computed: v0x=${v0x}, v0y=${v0y}, maxHeight=${maxHeight}, totalTime=${totalTime}, maxRange=${maxRange}, impactVelocity=${impactVelocity}
-
-Check: Does maxRange = v0x * totalTime? Does maxHeight = h0 + v0y^2/(2g)?
-If any value is wrong, recompute it.
-
-Return ONLY: {"verified": true/false, "correctedAngle": <or null>, "correctedVelocity": <or null>, "confidence": <0-100>}`,
-            );
-
-            const cleaned = mathText.replace(/```(?:json)?/g, "").replace(/```/g, "").trim();
-            const mathParsed = JSON.parse(cleaned);
-            if (mathParsed.correctedAngle && Math.abs(mathParsed.correctedAngle - parsed.angle) < 20) {
-              parsed.angle = mathParsed.correctedAngle;
-            }
-            if (mathParsed.correctedVelocity && Math.abs(mathParsed.correctedVelocity - v0) < v0 * 0.5) {
-              parsed.velocity = mathParsed.correctedVelocity;
-            }
-            if (mathParsed.confidence) {
-              parsed.mathVerified = true;
-              parsed.mathConfidence = mathParsed.confidence;
-            }
-            console.log("[vision-analyze] Stage 4: Mistral verification complete");
-          } catch {
-            console.warn("[vision-analyze] Mistral verification skipped");
-          }
-        }
-
-        if (modified) {
-          const newJson = "```json\n" + JSON.stringify(parsed, null, 2) + "\n```";
-          const afterJson = visionText.replace(/```json[\s\S]*?```/, "").trim();
-          finalText = newJson + "\n\n" + afterJson;
-        }
+    if (answeredQuestions.length > 0) {
+      report.push("", isAr ? "## إجابات الأسئلة" : "## Answered Questions");
+      for (const qa of answeredQuestions) {
+        report.push("**" + qa.question + "**", qa.answer, "");
       }
-    } catch {
-      // If post-processing fails, use original text
     }
 
     return new Response(
-      JSON.stringify({ text: finalText }),
+      JSON.stringify({ text: report.join("\n") }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {

@@ -1,42 +1,32 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import ReactMarkdown from 'react-markdown';
-import { Camera, Loader2, X, CheckCircle, AlertTriangle, XCircle, History, Upload, Aperture, Sparkles, Shield } from 'lucide-react';
+import { Camera, Loader2, X, Upload, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
-import { checkFileSize, analyzeImageQuality, getIssueMessage, computeFileHash } from '@/utils/mediaQuality';
-import { cleanLatex } from '@/utils/cleanLatex';
-import LiveWeatherOverlay from '@/components/apas/LiveWeatherOverlay';
-import GyroLevel from '@/components/apas/GyroLevel';
-import AROverlay from '@/components/apas/AROverlay';
-import { type WeatherData } from '@/services/weatherService';
+import { checkFileSize, getIssueMessage } from '@/utils/mediaQuality';
 
 /* ------------------------------------------------------------------ */
-/*  SolutionRenderer – renders text with equations in styled blocks    */
+/*  ReportRenderer – renders markdown-like report with equation blocks */
 /* ------------------------------------------------------------------ */
 function isEquationLine(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed) return false;
   const hasEquals = trimmed.includes('=');
-  const hasMathSymbols = /[+\-*/\u221A\u00B2\u00B3\u2074\u2070\u00B9\u2075\u2076\u2077\u2078\u2079\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089\u03B1\u03B2\u03B3\u03B8\u03B4\u03C9\u03C0\u03C3\u03C1\u03BC\u03BB\u03B5\u03C6\u03C8\u03C4\u03B7\u03BD\u0394\u03A9\u03A3\u2248\u2264\u2265\u221E\u00B1\u00B7\u00D7\u00F7\u2202\u2207\u2211\u222B\u21D2\u2192]/.test(trimmed);
-  const startsWithMathVar = /^[a-zA-Z][\s_\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089\u2093]*[\s(=]/.test(trimmed);
-  const hasParenMath = /\([^)]*[+\-*/^\u221A]\s*[^)]*\)/.test(trimmed);
+  const hasMathSymbols = /[+\-*/\u221A\u00B2\u00B3\u03B1\u03B2\u03B3\u03B8\u03C0\u0394\u03A9\u2248\u2264\u2265\u00B1\u00D7\u00F7]/.test(trimmed);
+  const startsWithMathVar = /^[a-zA-Z][\s_\u2080-\u2089]*[\s(=]/.test(trimmed);
   if (hasEquals && hasMathSymbols) return true;
   if (hasEquals && startsWithMathVar) return true;
-  if (hasEquals && hasParenMath) return true;
-  if (/^[xyRHTvVaghmFKE][\s_\u2080\u2081\u2082]*([\s(=])/.test(trimmed)) return true;
-  if (/^[\u03B8\u03B1\u03B2][\s_]*=/.test(trimmed)) return true;
-  // LaTeX display equations
-  if (trimmed.startsWith('$$') && trimmed.endsWith('$$')) return true;
-  if (trimmed.startsWith('$') && trimmed.endsWith('$') && trimmed.length > 2) return true;
+  if (/^[xyRHTvVaghmFKE][\s_\u2080-\u2082]*([\s(=])/.test(trimmed)) return true;
+  if (trimmed.startsWith('$$') || (trimmed.startsWith('$') && trimmed.endsWith('$') && trimmed.length > 2)) return true;
   return false;
 }
 
 function ReportRenderer({ text }: { text: string }) {
   const lines = text.split('\n');
-  const blocks: { type: 'text' | 'equation' | 'heading' | 'table'; content: string }[] = [];
+  const blocks: { type: 'text' | 'equation' | 'heading' | 'json'; content: string }[] = [];
   let currentText: string[] = [];
-  let tableLines: string[] = [];
+  let inJson = false;
+  let jsonLines: string[] = [];
 
   const flushText = () => {
     if (currentText.length > 0) {
@@ -45,72 +35,73 @@ function ReportRenderer({ text }: { text: string }) {
     }
   };
 
-  const flushTable = () => {
-    if (tableLines.length > 0) {
-      blocks.push({ type: 'table', content: tableLines.join('\n') });
-      tableLines = [];
-    }
-  };
-
   for (const line of lines) {
     const trimmed = line.trim();
-    // Skip separator lines (e.g. |---|---|---| or ----)
-    if (/^[\|\s\-:]+$/.test(trimmed) && trimmed.includes('-')) {
+    if (trimmed === '```json' || trimmed === '```') {
+      if (inJson) {
+        flushText();
+        blocks.push({ type: 'json', content: jsonLines.join('\n') });
+        jsonLines = [];
+        inJson = false;
+      } else if (trimmed === '```json') {
+        flushText();
+        inJson = true;
+      }
       continue;
     }
+    if (inJson) { jsonLines.push(line); continue; }
+    if (/^[|\s\-:]+$/.test(trimmed) && trimmed.includes('-')) continue;
     if (trimmed.startsWith('#')) {
       flushText();
-      flushTable();
       blocks.push({ type: 'heading', content: trimmed });
     } else if (trimmed.startsWith('|')) {
-      // Convert table rows to clean text: extract cell values
-      flushText();
       const cells = trimmed.split('|').map(c => c.trim()).filter(c => c.length > 0);
-      if (cells.length > 0) {
-        currentText.push(cells.join(' : '));
-      }
+      if (cells.length > 0) currentText.push(cells.join(' : '));
     } else if (isEquationLine(line)) {
       flushText();
-      flushTable();
       blocks.push({ type: 'equation', content: trimmed });
     } else {
-      flushTable();
       currentText.push(line);
     }
   }
   flushText();
-  flushTable();
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 text-sm leading-relaxed">
       {blocks.map((block, i) => {
+        if (block.type === 'heading') {
+          const level = block.content.match(/^#+/)?.[0].length || 1;
+          const text = block.content.replace(/^#+\s*/, '');
+          if (level === 1) return <h2 key={i} className="text-lg font-bold text-primary mt-4 mb-2">{text}</h2>;
+          if (level === 2) return <h3 key={i} className="text-base font-semibold text-foreground mt-3 mb-1.5">{text}</h3>;
+          return <h4 key={i} className="text-sm font-semibold text-foreground mt-2 mb-1">{text}</h4>;
+        }
         if (block.type === 'equation') {
           return (
-            <div
-              key={i}
-              className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto"
-              dir="ltr"
-            >
-              {block.content.replace(/^\$+/, '').replace(/\$+$/, '')}
+            <div key={i} className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 font-mono text-xs text-primary">
+              {block.content}
             </div>
           );
         }
-        if (block.type === 'heading') {
-          const level = block.content.match(/^#+/)?.[0].length ?? 1;
-          const text = block.content.replace(/^#+\s*/, '');
-          const cls = level === 1 ? 'text-sm font-bold' : level === 2 ? 'text-xs font-semibold' : 'text-[11px] font-medium';
-          return <p key={i} className={`${cls} text-foreground mt-2 mb-1`}>{text}</p>;
-        }
-        if (block.type === 'table') {
+        if (block.type === 'json') {
           return (
-            <div key={i} className="text-xs leading-relaxed text-foreground [&_p]:my-1">
-              <ReactMarkdown>{block.content}</ReactMarkdown>
-            </div>
+            <details key={i} className="group">
+              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                JSON Data
+              </summary>
+              <pre className="mt-1 bg-muted/50 rounded-lg p-2 text-xs overflow-x-auto max-h-40">{block.content}</pre>
+            </details>
           );
         }
         return (
-          <div key={i} className="text-xs leading-relaxed text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
-            <ReactMarkdown>{block.content}</ReactMarkdown>
+          <div key={i} className="text-muted-foreground whitespace-pre-wrap">
+            {block.content.split('\n').map((line, j) => {
+              const t = line.trim();
+              if (t.startsWith('**') && t.endsWith('**')) return <p key={j} className="font-semibold text-foreground">{t.slice(2, -2)}</p>;
+              if (t.startsWith('- ') || t.startsWith('* ')) return <p key={j} className="pl-3">• {t.slice(2)}</p>;
+              if (!t) return <br key={j} />;
+              return <p key={j}>{line}</p>;
+            })}
           </div>
         );
       })}
@@ -118,10 +109,9 @@ function ReportRenderer({ text }: { text: string }) {
   );
 }
 
-const EDGE_VISION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vision-analyze`;
-
-const CONFIDENCE_THRESHOLD = 60;
-
+/* ------------------------------------------------------------------ */
+/*  Props                                                              */
+/* ------------------------------------------------------------------ */
 interface Props {
   lang: string;
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
@@ -132,992 +122,267 @@ interface Props {
   onDismiss?: () => void;
 }
 
-interface AnalysisData {
-  detected: boolean;
-  confidence?: number;
-  angle?: number;
-  velocity?: number;
-  mass?: number;
-  height?: number;
-  objectType?: string;
-  gravity?: number;
-  v0x?: number;
-  v0y?: number;
-  maxHeight?: number;
-  maxRange?: number;
-  totalTime?: number;
-  impactVelocity?: number;
-}
-
-interface HistoryEntry {
-  id: number;
-  timestamp: Date;
-  data: AnalysisData | null;
-  text: string;
-  thumbnailName: string;
-  fileHash?: string;
-  thumbnailData?: string;
-}
-
-/** Generate professional Markdown+LaTeX report for image analysis */
-function formatImageReport(data: AnalysisData, lang: string): string {
-  const isAr = lang === 'ar';
-  const v0 = data.velocity ?? 0;
-  const theta = data.angle ?? 0;
-  const h0 = data.height ?? 0;
-  const m = data.mass ?? 0.5;
-  const g = data.gravity ?? 9.81;
-  const conf = data.confidence ?? 0;
-  const yMax = data.maxHeight ?? (v0 * v0 * Math.sin(theta * Math.PI / 180) ** 2) / (2 * g) + h0;
-  const xMax = data.maxRange ?? (v0 * v0 * Math.sin(2 * theta * Math.PI / 180)) / g;
-  const tFlight = data.totalTime ?? (2 * v0 * Math.sin(theta * Math.PI / 180)) / g;
-  const fmt = (n: number, d = 2) => isFinite(n) ? n.toFixed(d) : '\u2014';
-
-  return [
-    `# ${isAr ? '\u{1F4CA} \u062a\u0642\u0631\u064a\u0631 \u062a\u062d\u0644\u064a\u0644 APAS AI' : '\u{1F4CA} APAS AI Analysis Report'}`,
-    `**${isAr ? '\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0635\u0648\u0631\u0629' : 'Image Analysis'}** | ${data.objectType || (isAr ? '\u0645\u0642\u0630\u0648\u0641' : 'Projectile')}`,
-    '',
-    `## ${isAr ? '\u0627\u0644\u062d\u0627\u0644\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629' : 'Initial State'}`,
-    '',
-    `| ${isAr ? '\u0627\u0644\u0645\u062a\u063a\u064a\u0631' : 'Parameter'} | ${isAr ? '\u0627\u0644\u0642\u064a\u0645\u0629' : 'Value'} |`,
-    '|---|---|',
-    `| $v_0$ | **${fmt(v0, 1)}** m/s |`,
-    `| $\\theta$ | **${fmt(theta, 1)}**\u00b0 |`,
-    `| $h_0$ | **${fmt(h0, 1)}** m |`,
-    `| $m$ | **${fmt(m, 2)}** kg |`,
-    '',
-    `## ${isAr ? '\u0627\u0644\u0646\u0645\u0630\u062c\u0629 \u0627\u0644\u062d\u0631\u0643\u064a\u0629' : 'Kinematic Modeling'}`,
-    '',
-    '$$x(t) = v_0 \\cos(\\theta) \\cdot t$$',
-    '',
-    '$$y(t) = h_0 + v_0 \\sin(\\theta) \\cdot t - \\frac{1}{2}g t^2$$',
-    '',
-    `## ${isAr ? '\u062a\u0648\u0642\u0639 \u0627\u0644\u0645\u0633\u0627\u0631' : 'Flight Prediction'}`,
-    '',
-    `| ${isAr ? '\u0627\u0644\u0645\u0642\u064a\u0627\u0633' : 'Metric'} | ${isAr ? '\u0627\u0644\u0642\u064a\u0645\u0629' : 'Value'} |`,
-    '|---|---|',
-    `| ${isAr ? '\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639' : 'Peak Altitude'} ($y_{max}$) | **${fmt(yMax, 2)}** m |`,
-    `| ${isAr ? '\u0627\u0644\u0645\u062f\u0649' : 'Range'} ($x_{max}$) | **${fmt(xMax, 2)}** m |`,
-    `| ${isAr ? '\u0632\u0645\u0646 \u0627\u0644\u0637\u064a\u0631\u0627\u0646' : 'Time of Flight'} | **${fmt(tFlight, 2)}** s |`,
-    '',
-    `## ${isAr ? '\u0627\u0644\u062b\u0642\u0629' : 'Confidence'}`,
-    '',
-    `| ${isAr ? '\u0627\u0644\u0628\u0646\u062f' : 'Item'} | ${isAr ? '\u0627\u0644\u0642\u064a\u0645\u0629' : 'Value'} |`,
-    '|---|---|',
-    `| ${isAr ? '\u0645\u0633\u062a\u0648\u0649 \u0627\u0644\u062b\u0642\u0629' : 'Confidence Level'} | **${conf}%** |`,
-    `| ${isAr ? '\u0627\u0644\u0645\u0635\u062f\u0631' : 'Source'} | ${isAr ? '\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0635\u0648\u0631\u0629 \u0628\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a' : 'AI Image Analysis'} |`,
-  ].join('\n');
-}
+const SUPABASE_URL = 'https://zjdtvderwryjnwdimbbm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqZHR2ZGVyd3J5am53ZGltYmJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMzU3NzgsImV4cCI6MjA4OTcxMTc3OH0.BmeA5eqF85lpOr7P57NJJOaNxNsG4f-UaQ2S-SwKjXg';
 
 export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, autoOpen, onDismiss }: Props) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [open, setOpen] = useState(autoOpen || false);
+  const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [analysisStep, setAnalysisStep] = useState<'upload' | 'analyze' | 'results'>('upload');
-  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
-  const [analysisText, setAnalysisText] = useState('');
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
-  const [showChoiceModal, setShowChoiceModal] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [showCalcMethod, setShowCalcMethod] = useState(false);
-  const [showDetailedReport, setShowDetailedReport] = useState(true);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [report, setReport] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [currentFileHash, setCurrentFileHash] = useState<string | null>(null);
-
-  // Smart features state
-  const [showSmartFeatures, setShowSmartFeatures] = useState(false);
-  const [arMode, setArMode] = useState(false);
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [isGyroLevel, setIsGyroLevel] = useState(true);
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
-
   const isAr = lang === 'ar';
 
-  // Auto-open choice modal when autoOpen prop is set (for mobile header direct access)
-  useEffect(() => {
-    if (autoOpen) setShowChoiceModal(true);
-  }, [autoOpen]);
-
-  // Request all smart feature permissions
-  const requestSmartPermissions = useCallback(async () => {
-    try {
-      // Request camera permission (already handled in openCamera)
-      // Request geolocation permission
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          () => { /* permission granted */ },
-          () => { toast.warning(isAr ? 'تم رفض إذن الموقع' : 'Location permission denied'); },
-          { enableHighAccuracy: true, timeout: 5000 }
-        );
-      }
-      // Request device orientation permission (iOS)
-      if (typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function') {
-        try {
-          await (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
-        } catch { /* silently fail */ }
-      }
-      // Request device motion permission (iOS)
-      if (typeof (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function') {
-        try {
-          await (DeviceMotionEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
-        } catch { /* silently fail */ }
-      }
-      setPermissionsGranted(true);
-      setShowSmartFeatures(true);
-      toast.success(isAr ? 'تم تفعيل الأدوات الذكية' : 'Smart tools activated');
-    } catch {
-      toast.error(isAr ? 'تعذر تفعيل بعض الأدوات' : 'Some tools could not be activated');
-    }
-  }, [isAr]);
-
-  // Stop camera stream
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  }, []);
-
-  // Cleanup camera on unmount
-  useEffect(() => {
-    return () => { stopCamera(); };
-  }, [stopCamera]);
-
-  useEffect(() => {
-    if (!isAnalyzing) return;
+  const close = useCallback(() => {
+    setOpen(false);
+    setReport(null);
+    setPreview(null);
     setProgress(0);
-    const interval = setInterval(() => {
-      setProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 12);
-    }, 300);
-    return () => clearInterval(interval);
-  }, [isAnalyzing]);
+    setStatusMsg('');
+    if (onDismiss) onDismiss();
+  }, [onDismiss]);
 
-  // Open camera using getUserMedia
-  const openCamera = async () => {
+  const uploadToVercelBlob = async (file: File): Promise<string> => {
+    const token = 'vercel_blob_rw_obifXYu3ACSz5YU6_0zYy4QEQLsAqZ4yZhhMSlKYb87cz3M';
+    const res = await fetch(`https://blob.vercel-storage.com/apas-vision/${Date.now()}-${file.name}`, {
+      method: 'PUT',
+      headers: {
+        'authorization': `Bearer ${token}`,
+        'x-content-type': file.type,
+      },
+      body: file,
+    });
+    if (!res.ok) throw new Error('Vercel Blob upload failed');
+    const data = await res.json();
+    return data.url;
+  };
+
+  const analyzeImage = useCallback(async (file: File) => {
+    setLoading(true);
+    setProgress(5);
+    setReport(null);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
-      streamRef.current = stream;
-      setShowCamera(true);
-      // Attach stream to video element after render
-      requestAnimationFrame(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => { /* ignore autoplay errors */ });
-        }
-      });
-    } catch {
-      toast.error(isAr ? 'تعذر الوصول للكاميرا' : 'Camera access denied');
-    }
-  };
+      // File validation
+      const sizeIssue = checkFileSize(file);
+      if (sizeIssue) toast.warning(getIssueMessage(sizeIssue, lang));
 
-  // Capture photo from live camera feed
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    const base64 = dataUrl.split(',')[1];
+      // Step 1: Upload to Vercel Blob
+      setStatusMsg(isAr ? 'جاري رفع الصورة...' : 'Uploading image...');
+      setProgress(15);
 
-    // Stop camera and close camera modal
-    stopCamera();
-    setShowCamera(false);
-
-    // Set preview and auto-analyze the captured photo
-    setPreviewUrl(dataUrl);
-    analyzeBase64(base64, 'image/jpeg', isAr ? 'التقاط مباشر' : 'Live Capture');
-  };
-
-  // Shared analysis function for both file upload and camera capture
-  const analyzeBase64 = async (base64: string, mimeType: string, sourceName: string, fileHash?: string, thumbnailDataUrl?: string) => {
-    setIsAnalyzing(true);
-    setShowModal(true);
-    setAnalysisData(null);
-    setAnalysisText('');
-    setAnalysisStep('upload');
-
-    const parseAIResponse = (text: string) => {
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
-      let result: AnalysisData | null = null;
-      if (jsonMatch) try { result = JSON.parse(jsonMatch[1].trim()); } catch { /* ignore parse errors */ }
-      const cleanText = text.replace(/```json[\s\S]*?```\s*/, '').trim();
-      return { result, cleanText };
-    };
-
-    const handleParsedResult = (text: string) => {
-      const { result, cleanText } = parseAIResponse(text);
-
-      if (result) {
-        // Use professional report format when data is detected
-        const reportText = result.detected ? formatImageReport(result, lang) : cleanText;
-        setAnalysisText(reportText);
-        setAnalysisData(result);
-        const confidence = result.confidence ?? 0;
-
-        setHistory(prev => [{
-          id: Date.now(),
-          timestamp: new Date(),
-          data: result,
-          text: cleanText,
-          thumbnailName: sourceName,
-          fileHash: fileHash,
-          thumbnailData: thumbnailDataUrl,
-        }, ...prev].slice(0, 20));
-
-        if (result.detected && confidence >= CONFIDENCE_THRESHOLD) {
-          onUpdateParams({
-            velocity: result.velocity,
-            angle: result.angle,
-            mass: result.mass,
-            height: result.height,
-            objectType: result.objectType,
-          });
-          // Propagate detected media data to APAS calculations
-          if (onDetectedMedia) {
-            onDetectedMedia({
-              source: 'image',
-              detectedAngle: result.angle,
-              detectedVelocity: result.velocity,
-              detectedHeight: result.height,
-              confidence: result.confidence,
-              objectType: result.objectType,
-            });
-          }
-          // Auto-run simulation with extracted parameters
-          if (onAutoRun) {
-            setTimeout(() => onAutoRun(), 150);
-          }
-          toast.success(isAr ? '🤖 تم تحديث المحاكاة بواسطة APAS AI' : '🤖 Simulation updated by APAS AI');
-        } else if (result.detected && confidence < CONFIDENCE_THRESHOLD) {
-          toast.warning(isAr ? `نسبة الثقة منخفضة (${confidence}%) — لم يتم تحميل القيم` : `Low confidence (${confidence}%) — values not loaded`);
-        } else {
-          toast.info(isAr ? 'لم يتم اكتشاف مقذوف' : 'No projectile detected');
-        }
-      } else {
-        setAnalysisText(cleanText || (isAr ? 'لم يتم اكتشاف مقذوف' : 'No projectile detected'));
-        setHistory(prev => [{
-          id: Date.now(),
-          timestamp: new Date(),
-          data: null,
-          text: cleanText,
-          thumbnailName: sourceName,
-          fileHash: fileHash,
-          thumbnailData: thumbnailDataUrl,
-        }, ...prev].slice(0, 20));
+      let blobUrl: string | null = null;
+      try {
+        blobUrl = await uploadToVercelBlob(file);
+        setProgress(30);
+      } catch {
+        console.warn('Vercel Blob upload failed, continuing with direct analysis');
       }
-    };
 
-    setAnalysisStep('analyze');
-    try {
-      const edgeResp = await fetch(EDGE_VISION_URL, {
+      // Step 2: Convert to base64
+      setStatusMsg(isAr ? 'جاري تحليل الصورة بالذكاء الاصطناعي...' : 'Analyzing image with AI...');
+      setProgress(40);
+
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Generate thumbnail
+      if (onMediaAnalyzed) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const scale = Math.min(1, 200 / Math.max(img.width, img.height));
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            onMediaAnalyzed(canvas.toDataURL('image/jpeg', 0.7));
+          }
+        };
+        img.src = base64;
+      }
+
+      setPreview(base64);
+
+      // Step 3: Call vision-analyze edge function
+      setStatusMsg(isAr ? 'Gemini يستخرج المعطيات...' : 'Gemini extracting data...');
+      setProgress(55);
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/vision-analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({ imageBase64: base64, mimeType, lang }),
+        body: JSON.stringify({
+          image: base64,
+          lang,
+          blobUrl,
+        }),
       });
 
-      if (edgeResp.ok) {
-        const data = await edgeResp.json();
-        if (data.text) {
-          setProgress(100);
-          setAnalysisStep('results');
-          await new Promise(r => setTimeout(r, 400));
-          handleParsedResult(data.text);
-        } else {
-          setAnalysisText(isAr ? '❌ تعذر التحليل حالياً. حاول مرة أخرى.' : '❌ Analysis unavailable. Please try again.');
-          toast.error(isAr ? 'تعذر التحليل' : 'Analysis failed');
-        }
-      } else {
-        setAnalysisText(isAr ? '❌ تعذر التحليل حالياً. حاول مرة أخرى.' : '❌ Analysis unavailable. Please try again.');
-        toast.error(isAr ? 'تعذر التحليل' : 'Analysis failed');
-      }
-    } catch {
-      toast.error(isAr ? 'خطأ في الاتصال. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.' : 'Connection error. Check your internet connection and try again.');
-      setAnalysisText(isAr ? '❌ خطأ في الاتصال — تحقق من اتصالك بالإنترنت وحاول مرة أخرى' : '❌ Connection error — check your internet and try again');
-    }
-    setIsAnalyzing(false);
-    setAnalysisStep('results');
-  };
+      setProgress(80);
+      setStatusMsg(isAr ? 'Mistral يحل المسألة...' : 'Mistral solving physics...');
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error((errData as { error?: string }).error || `Server error ${response.status}`);
+      }
+
+      const result = await response.json();
+      setProgress(95);
+
+      if (result.error) throw new Error(result.error);
+
+      const reportText = result.text || '';
+      setReport(reportText);
+
+      // Extract values from JSON in the report
+      const jsonMatch = reportText.match(/```json\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1].trim());
+          const params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string } = {};
+          if (parsed.velocity) params.velocity = Number(parsed.velocity);
+          if (parsed.angle) params.angle = Number(parsed.angle);
+          if (parsed.height) params.height = Number(parsed.height);
+          if (parsed.mass) params.mass = Number(parsed.mass);
+          if (parsed.objectType) params.objectType = String(parsed.objectType);
+
+          if (Object.keys(params).length > 0) {
+            onUpdateParams(params);
+            if (onDetectedMedia) {
+              onDetectedMedia({
+                source: 'image',
+                detectedAngle: params.angle,
+                detectedVelocity: params.velocity,
+                detectedHeight: params.height,
+                confidence: parsed.confidence,
+                objectType: params.objectType,
+              });
+            }
+            if (onAutoRun) setTimeout(() => onAutoRun(), 150);
+          }
+        } catch {
+          console.warn('Could not parse JSON from report');
+        }
+      }
+
+      setProgress(100);
+      setStatusMsg(isAr ? 'اكتمل التحليل' : 'Analysis complete');
+      toast.success(isAr ? 'تم تحليل الصورة بنجاح' : 'Image analyzed successfully');
+    } catch (err) {
+      console.error('Vision analysis error:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(isAr ? `خطأ في التحليل: ${msg}` : `Analysis error: ${msg}`);
+      setStatusMsg(isAr ? 'فشل التحليل' : 'Analysis failed');
+    } finally {
+      setLoading(false);
+    }
+  }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (fileRef.current) fileRef.current.value = '';
-
-    // Compute file hash for duplicate detection
-    const fileHash = await computeFileHash(file);
-    setCurrentFileHash(fileHash);
-
-    // Check for duplicate — same file already in history
-    const existingEntry = history.find(h => h.fileHash === fileHash);
-    if (existingEntry) {
-      toast.info(isAr ? 'هذه الصورة تم تحليلها سابقاً — يتم تحميل النتائج من السجل' : 'This image was already analyzed — loading results from history');
-      loadFromHistory(existingEntry);
+    if (!file.type.startsWith('image/')) {
+      toast.error(isAr ? 'الرجاء اختيار صورة' : 'Please select an image');
       return;
     }
-
-    // Smart quality check on file size
-    const fileSizeIssue = checkFileSize(file);
-    if (fileSizeIssue) {
-      toast.warning(getIssueMessage(fileSizeIssue, lang));
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error(isAr ? 'الصورة كبيرة جداً (الحد 20 ميجا)' : 'Image too large (max 20MB)');
+      return;
     }
+    analyzeImage(file);
+    e.target.value = '';
+  }, [isAr, analyzeImage]);
 
-    // Analyze image quality before sending to AI
-    const img = new Image();
-    const imgUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scale = Math.min(1, 512 / img.width);
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const report = analyzeImageQuality(imageData);
-        for (const issue of report.issues) {
-          if (issue.severity === 'error') {
-            toast.error(getIssueMessage(issue, lang));
-          } else {
-            toast.warning(getIssueMessage(issue, lang));
-          }
-        }
-      }
-      // Don't revoke here — used for preview, cleaned up on modal close
-    };
-    img.src = imgUrl;
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) analyzeImage(file);
+  }, [analyzeImage]);
 
-    // Revoke old preview URL to prevent memory leak
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    // Set preview image
-    setPreviewUrl(imgUrl);
+  const modal = open ? createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border/50">
+          <div className="flex items-center gap-2">
+            <Camera className="w-5 h-5 text-primary" />
+            <h2 className="font-bold text-foreground">{isAr ? 'APAS تحليل الصورة' : 'APAS Image Analysis'}</h2>
+          </div>
+          <button onClick={close} className="p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="w-4 h-4" /></button>
+        </div>
 
-    // Generate a thumbnail data URL for history storage
-    const thumbnailDataUrl = await new Promise<string>((resolve) => {
-      const thumbImg = new Image();
-      thumbImg.onload = () => {
-        const c = document.createElement('canvas');
-        const s = Math.min(1, 256 / thumbImg.width);
-        c.width = Math.round(thumbImg.width * s);
-        c.height = Math.round(thumbImg.height * s);
-        const cx = c.getContext('2d');
-        if (cx) {
-          cx.drawImage(thumbImg, 0, 0, c.width, c.height);
-          resolve(c.toDataURL('image/jpeg', 0.6));
-        } else {
-          resolve('');
-        }
-      };
-      thumbImg.onerror = () => resolve('');
-      thumbImg.src = imgUrl;
-    });
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Drop zone */}
+          {!loading && !report && (
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current?.click()}
+              className="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+            >
+              <Upload className="w-10 h-10 text-primary/50 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">{isAr ? 'اسحب صورة هنا أو انقر للاختيار' : 'Drop an image here or click to select'}</p>
+              <p className="text-xs text-muted-foreground mt-1">{isAr ? 'PNG, JPG, WebP (حتى 20 ميجا)' : 'PNG, JPG, WebP (up to 20MB)'}</p>
+            </div>
+          )}
 
-    const base64 = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.readAsDataURL(file);
-    });
+          {/* Loading state */}
+          {loading && (
+            <div className="space-y-3">
+              {preview && <img src={preview} alt="Preview" className="w-full rounded-xl max-h-48 object-contain bg-muted/30" />}
+              <Progress value={progress} className="h-2" />
+              <div className="flex items-center gap-2 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">{statusMsg}</span>
+              </div>
+            </div>
+          )}
 
-    // Notify parent that media was analyzed (for calibration tool awareness)
-    if (thumbnailDataUrl && onMediaAnalyzed) onMediaAnalyzed(thumbnailDataUrl);
-
-    analyzeBase64(base64, file.type, file.name, fileHash, thumbnailDataUrl);
-  };
-
-  const loadFromHistory = (entry: HistoryEntry) => {
-    setAnalysisData(entry.data);
-    setAnalysisText(entry.text);
-    // Restore the preview image from stored thumbnail data
-    if (entry.thumbnailData) {
-      setPreviewUrl(entry.thumbnailData);
-    }
-    setShowHistory(false);
-    setShowModal(true);
-    if (entry.data?.detected && (entry.data.confidence ?? 0) >= CONFIDENCE_THRESHOLD) {
-      onUpdateParams({
-        velocity: entry.data.velocity,
-        angle: entry.data.angle,
-        mass: entry.data.mass,
-        height: entry.data.height,
-      });
-      // Propagate detected media data to APAS calculations from history
-      if (onDetectedMedia) {
-        onDetectedMedia({
-          source: 'image',
-          detectedAngle: entry.data.angle,
-          detectedVelocity: entry.data.velocity,
-          detectedHeight: entry.data.height,
-          confidence: entry.data.confidence,
-          objectType: entry.data.objectType,
-        });
-      }
-      // Auto-run simulation with loaded history params
-      if (onAutoRun) {
-        setTimeout(() => onAutoRun(), 150);
-      }
-    }
-  };
-
-  const confidence = analysisData?.confidence ?? 0;
-  const isHighConfidence = analysisData?.detected && confidence >= CONFIDENCE_THRESHOLD;
-  const isLowConfidence = analysisData?.detected && confidence < CONFIDENCE_THRESHOLD;
+          {/* Results */}
+          {report && (
+            <div className="space-y-3">
+              {preview && <img src={preview} alt="Analyzed" className="w-full rounded-xl max-h-40 object-contain bg-muted/30" />}
+              <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                <ReportRenderer text={report} />
+              </div>
+              <button
+                onClick={() => { setReport(null); setPreview(null); setProgress(0); }}
+                className="w-full py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+              >
+                {isAr ? 'تحليل صورة أخرى' : 'Analyze another image'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+    </div>,
+    document.body,
+  ) : null;
 
   return (
     <>
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => setShowChoiceModal(true)}
-          disabled={isAnalyzing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
-          title={isAr ? 'رؤية APAS' : 'APAS Vision'}
-        >
-          <div className="relative">
-            <Aperture className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-            {isAnalyzing && (
-              <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
-            )}
-          </div>
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Vision</span>
-          <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'صورة' : 'Image'}</span>
-        </button>
-
-        {history.length > 0 && (
-          <button
-            onClick={() => setShowHistory(true)}
-            className="p-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 relative"
-            title={isAr ? 'سجل التحليلات' : 'Analysis History'}
-          >
-            <History className="w-3.5 h-3.5 text-foreground" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[8px] font-bold rounded-full flex items-center justify-center">
-              {history.length}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/* Choice Modal — Upload or Capture */}
-      {showChoiceModal && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { setShowChoiceModal(false); onDismiss?.(); }}>
-          <div
-            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-xs overflow-hidden animate-slideDown"
-            dir={isAr ? 'rtl' : 'ltr'}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-              <div className="flex items-center gap-2">
-                <Aperture className="w-4 h-4 text-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">APAS Vision</h3>
-              </div>
-              <button onClick={() => { setShowChoiceModal(false); onDismiss?.(); }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 space-y-2">
-              <button
-                onClick={() => { setShowChoiceModal(false); fileRef.current?.click(); }}
-                className="group w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 hover:shadow-md"
-              >
-                <Upload className="w-5 h-5 text-primary transition-transform duration-200 group-hover:scale-110" />
-                <div className="text-start">
-                  <p className="text-xs font-semibold text-foreground">{isAr ? 'تحميل صورة' : 'Upload Image'}</p>
-                  <p className="text-[10px] text-muted-foreground">{isAr ? 'اختر صورة من جهازك' : 'Choose an image from your device'}</p>
-                </div>
-              </button>
-              <button
-                onClick={() => { setShowChoiceModal(false); openCamera(); }}
-                className="group w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 hover:shadow-md"
-              >
-                <Camera className="w-5 h-5 text-primary transition-transform duration-200 group-hover:scale-110" />
-                <div className="text-start">
-                  <p className="text-xs font-semibold text-foreground">{isAr ? 'التقاط صورة' : 'Capture Photo'}</p>
-                  <p className="text-[10px] text-muted-foreground">{isAr ? 'استخدم الكاميرا للتصوير' : 'Use your camera to take a photo'}</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* History Modal */}
-      {showHistory && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowHistory(false)}>
-          <div
-            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
-            dir={isAr ? 'rtl' : 'ltr'}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">{isAr ? 'سجل التحليلات' : 'Analysis History'}</h3>
-              </div>
-              <button onClick={() => setShowHistory(false)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {history.map(entry => (
-                <div
-                  key={entry.id}
-                  className="w-full text-start p-3 rounded-lg border border-border hover:bg-secondary/50 hover:shadow-sm transition-all duration-200 relative group"
-                >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); e.preventDefault();
-                      setHistory(prev => {
-                        const updated = prev.filter(h => h.id !== entry.id);
-                        // When all records are deleted, notify calibration tool
-                        if (updated.length === 0 && onMediaAnalyzed) onMediaAnalyzed('');
-                        return updated;
-                      });
-                    }}
-                    className="absolute top-2 end-2 z-10 p-2 -m-1 rounded-md hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                    title={isAr ? 'حذف' : 'Delete'}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => loadFromHistory(entry)}
-                    className="w-full text-start pe-6"
-                  >
-                    <div className="flex items-start gap-2">
-                      {/* Thumbnail preview */}
-                      {entry.thumbnailData && (
-                        <img src={entry.thumbnailData} alt="" className="w-14 h-10 object-cover rounded border border-border/30 shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1 pe-5">
-                          <span className="text-xs font-medium text-foreground truncate max-w-[60%]">
-                            {entry.data?.objectType || entry.thumbnailName}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {entry.timestamp.toLocaleTimeString()}
-                          </span>
-                        </div>
-                        {entry.data?.detected && (
-                          <div className="space-y-1.5">
-                            <div className="flex gap-3 text-[10px] text-muted-foreground">
-                              <span>V={entry.data.velocity} m/s</span>
-                              <span>θ={entry.data.angle}°</span>
-                              <span>m={entry.data.mass} kg</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-1.5 text-[9px]">
-                              <div className="bg-secondary/50 rounded p-1 text-center">
-                                <span className="text-muted-foreground">{isAr ? 'السرعة' : 'Velocity'}: </span>
-                                <span className="font-mono font-medium text-foreground">{entry.data.velocity} m/s</span>
-                              </div>
-                              <div className="bg-secondary/50 rounded p-1 text-center">
-                                <span className="text-muted-foreground">{isAr ? 'الزاوية' : 'Angle'}: </span>
-                                <span className="font-mono font-medium text-foreground">{entry.data.angle}°</span>
-                              </div>
-                              <div className="bg-secondary/50 rounded p-1 text-center">
-                                <span className="text-muted-foreground">{isAr ? 'الارتفاع' : 'Height'}: </span>
-                                <span className="font-mono font-medium text-foreground">{entry.data.height ?? '—'} m</span>
-                              </div>
-                              <div className="bg-secondary/50 rounded p-1 text-center">
-                                <span className="text-muted-foreground">{isAr ? 'الكتلة' : 'Mass'}: </span>
-                                <span className="font-mono font-medium text-foreground">{entry.data.mass ?? '—'} kg</span>
-                              </div>
-                              {entry.data.confidence != null && (
-                                <div className="bg-secondary/50 rounded p-1 text-center col-span-2">
-                                  <span className="text-muted-foreground">{isAr ? 'نسبة الثقة' : 'Confidence'}: </span>
-                                  <span className="font-mono font-medium text-foreground">{entry.data.confidence}%</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {!entry.data?.detected && (
-                          <span className="text-[10px] text-muted-foreground">{isAr ? 'لم يُكتشف مقذوف' : 'No projectile'}</span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Camera Capture Modal */}
-      {showCamera && createPortal(
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-
-          {/* AR Overlay on camera */}
-          {arMode && videoRef.current && (
-            <AROverlay
-              lang={lang}
-              videoRef={videoRef as React.RefObject<HTMLVideoElement>}
-              active={arMode}
-              onToggle={setArMode}
-              velocity={analysisData?.velocity ?? 20}
-              angle={analysisData?.angle ?? 45}
-            />
-          )}
-
-          {/* Top bar: Gyro level + Weather compact */}
-          <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              {showSmartFeatures && (
-                <GyroLevel lang={lang} compact onLevelStatusChange={setIsGyroLevel} />
-              )}
-              {showSmartFeatures && weatherData && (
-                <LiveWeatherOverlay lang={lang} compact />
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              {!arMode && (
-                <button
-                  onClick={() => setArMode(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/30 hover:bg-cyan-500/30 transition-all"
-                  title={isAr ? 'الواقع المعزز' : 'AR Mode'}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="text-[10px] text-white font-medium">{isAr ? 'AR' : 'AR'}</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Camera instruction - enhanced zero-instruction UX */}
-          {!arMode && (
-            <div className="absolute top-16 left-0 right-0 text-center z-20 space-y-2">
-              <span className="text-white text-sm font-medium bg-black/40 px-4 py-2 rounded-full backdrop-blur-sm">
-                {isAr ? 'وجّه الكاميرا نحو المقذوف ثم اضغط الزر' : 'Point camera at projectile, then tap capture'}
-              </span>
-              <div className="flex justify-center gap-2 px-4">
-                <span className="text-white/70 text-[10px] bg-black/30 px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  {isAr ? '💡 استخدم إضاءة جيدة' : '💡 Good lighting helps'}
-                </span>
-                <span className="text-white/70 text-[10px] bg-black/30 px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  {isAr ? '📐 ثبّت الكاميرا' : '📐 Keep camera steady'}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Gyro warning overlay */}
-          {showSmartFeatures && !isGyroLevel && !arMode && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-              <div className="bg-red-500/20 backdrop-blur-sm border-2 border-red-500/40 rounded-2xl p-6 text-center max-w-xs pointer-events-auto animate-pulse">
-                <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-                <p className="text-white text-sm font-semibold mb-1">
-                  {isAr ? 'عدل زاوية الهاتف' : 'Adjust Phone Angle'}
-                </p>
-                <p className="text-white/70 text-xs">
-                  {isAr ? 'للحصول على نتائج دقيقة، يجب أن يكون الهاتف مستوياً' : 'For accurate results, keep the phone level'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Bottom controls */}
-          <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 z-30">
-            <button
-              onClick={() => { stopCamera(); setShowCamera(false); setArMode(false); }}
-              className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all"
-              title={isAr ? 'إلغاء' : 'Cancel'}
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
-            <button
-              onClick={capturePhoto}
-              className="w-16 h-16 rounded-full bg-white border-4 border-white/50 flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
-              title={isAr ? 'التقاط صورة' : 'Take Photo'}
-            >
-              <div className="w-12 h-12 rounded-full bg-white hover:bg-gray-100 transition-colors" />
-            </button>
-            {!showSmartFeatures && (
-              <button
-                onClick={requestSmartPermissions}
-                className="w-12 h-12 rounded-full bg-primary/30 backdrop-blur-sm flex items-center justify-center hover:bg-primary/40 transition-all border border-primary/40"
-                title={isAr ? 'تفعيل الأدوات الذكية' : 'Enable Smart Tools'}
-              >
-                <Shield className="w-5 h-5 text-white" />
-              </button>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Analysis Modal */}
-      {showModal && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => { if (!isAnalyzing) { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); onDismiss?.(); } }}>
-          <div
-            className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-slideDown"
-            dir={isAr ? 'rtl' : 'ltr'}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-              <div className="flex items-center gap-2">
-                <Camera className="w-4 h-4 text-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">APAS Vision</h3>
-              </div>
-              {!isAnalyzing && (
-                <button onClick={() => { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); onDismiss?.(); }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-all duration-200">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* Image preview - full display */}
-              {previewUrl && !isAnalyzing && (
-                <div className="w-full">
-                  <img src={previewUrl} alt="" className="w-full object-contain rounded-lg border border-border/30" />
-                </div>
-              )}
-              {/* Image preview - small during analysis */}
-              {previewUrl && isAnalyzing && (
-                <div className="w-full max-w-xs mx-auto">
-                  <img src={previewUrl} alt="" className="w-full h-28 object-cover rounded-lg border border-border/30 opacity-80" />
-                </div>
-              )}
-
-              {isAnalyzing && (
-                <div className="space-y-3 w-full max-w-xs mx-auto text-center">
-                  {/* Step indicator */}
-                  <div className="flex items-center gap-1 w-full">
-                    {(['upload', 'analyze', 'results'] as const).map((s, i) => {
-                      const stepLabels = {
-                        upload: isAr ? 'تحميل' : 'Upload',
-                        analyze: isAr ? 'تحليل AI' : 'AI Analysis',
-                        results: isAr ? 'النتائج' : 'Results',
-                      };
-                      const stepIndex = ['upload', 'analyze', 'results'].indexOf(analysisStep);
-                      const isActive = i === stepIndex;
-                      const isDone = i < stepIndex;
-                      return (
-                        <div key={s} className="flex-1 flex flex-col items-center gap-1">
-                          <div className={`w-full h-1.5 rounded-full transition-all duration-500 ${
-                            isDone ? 'bg-primary' : isActive ? 'bg-primary/60 animate-pulse' : 'bg-border/40'
-                          }`} />
-                          <span className={`text-[9px] font-medium transition-colors duration-300 ${
-                            isDone ? 'text-primary' : isActive ? 'text-foreground' : 'text-muted-foreground/50'
-                          }`}>{stepLabels[s]}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex flex-col items-center justify-center gap-3 w-full">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    <span className="text-sm text-foreground font-medium text-center">
-                      {analysisStep === 'upload'
-                        ? (isAr ? 'جاري تحميل الصورة...' : 'Uploading image...')
-                        : analysisStep === 'analyze'
-                          ? (isAr ? 'الذكاء الاصطناعي يحلل الصورة...' : 'AI is analyzing the image...')
-                          : (isAr ? 'جاري معالجة النتائج...' : 'Processing results...')}
-                    </span>
-                    <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
-                  </div>
-                  <Progress value={progress} className="h-2 w-full" />
-                </div>
-              )}
-
-              {!isAnalyzing && analysisData && (
-                <>
-                  <div className={`flex items-center gap-2 p-3 rounded-lg border animate-smooth-fade-up ${
-                    isHighConfidence ? 'bg-green-500/10 border-green-500/30' :
-                    isLowConfidence ? 'bg-yellow-500/10 border-yellow-500/30' :
-                    'bg-red-500/10 border-red-500/30'
-                  }`}>
-                    {isHighConfidence ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" /> :
-                     isLowConfidence ? <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" /> :
-                     <XCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground">
-                        {isHighConfidence ? (isAr ? 'تم اكتشاف مقذوف ✅' : 'Projectile detected ✅') :
-                         isLowConfidence ? (isAr ? 'مقذوف محتمل ⚠️' : 'Possible projectile ⚠️') :
-                         (isAr ? 'لم يتم اكتشاف مقذوف ❌' : 'No projectile detected ❌')}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {isAr ? `نسبة الثقة: ${confidence}%` : `Confidence: ${confidence}%`}
-                        {analysisData.objectType && ` — ${analysisData.objectType}`}
-                        {isLowConfidence && (isAr ? ' — لم يتم تحميل القيم' : ' — values not loaded')}
-                      </p>
-                    </div>
-                  </div>
-
-                  {analysisData.detected && (
-                    <>
-                      {/* Primary measured values */}
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: isAr ? 'الزاوية' : 'Angle', value: analysisData.angle, unit: '°' },
-                          { label: isAr ? 'السرعة' : 'Velocity', value: analysisData.velocity, unit: ' m/s' },
-                          { label: isAr ? 'الكتلة' : 'Mass', value: analysisData.mass, unit: ' kg' },
-                          { label: isAr ? 'الارتفاع' : 'Height', value: analysisData.height, unit: ' m' },
-                        ].map(item => (
-                          <div key={item.label} className="border border-border rounded-lg p-2.5 text-center bg-secondary/30">
-                            <p className="text-[10px] text-muted-foreground mb-0.5">{item.label}</p>
-                            <p className="text-sm font-semibold font-mono text-foreground">
-                              {item.value != null ? `${item.value}${item.unit}` : '—'}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Computed physics results */}
-                      {(analysisData.maxRange != null || analysisData.maxHeight != null) && (
-                        <div className="border border-primary/20 rounded-lg p-3 bg-primary/5">
-                          <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">
-                            {isAr ? 'النتائج المحسوبة' : 'Computed Results'}
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {[
-                              { label: isAr ? 'أقصى مدى أفقي' : 'Max Range', value: analysisData.maxRange, unit: ' m' },
-                              { label: isAr ? 'أقصى ارتفاع' : 'Max Height', value: analysisData.maxHeight, unit: ' m' },
-                              { label: isAr ? 'زمن الطيران' : 'Flight Time', value: analysisData.totalTime, unit: ' s' },
-                              { label: isAr ? 'سرعة الاصطدام' : 'Impact Speed', value: analysisData.impactVelocity, unit: ' m/s' },
-                            ].map(item => (
-                              <div key={item.label} className="border border-primary/10 rounded-md p-2 text-center bg-background">
-                                <p className="text-[9px] text-muted-foreground mb-0.5">{item.label}</p>
-                                <p className="text-xs font-semibold font-mono text-primary">
-                                  {item.value != null ? `${item.value}${item.unit}` : '—'}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                          {analysisData.v0x != null && analysisData.v0y != null && (
-                            <div className="mt-2 flex gap-2">
-                              <div className="flex-1 border border-border/30 rounded-md p-1.5 text-center bg-secondary/20">
-                                <p className="text-[8px] text-muted-foreground">v0x</p>
-                                <p className="text-[11px] font-mono text-foreground">{analysisData.v0x} m/s</p>
-                              </div>
-                              <div className="flex-1 border border-border/30 rounded-md p-1.5 text-center bg-secondary/20">
-                                <p className="text-[8px] text-muted-foreground">v0y</p>
-                                <p className="text-[11px] font-mono text-foreground">{analysisData.v0y} m/s</p>
-                              </div>
-                              {analysisData.gravity && (
-                                <div className="flex-1 border border-border/30 rounded-md p-1.5 text-center bg-secondary/20">
-                                  <p className="text-[8px] text-muted-foreground">g</p>
-                                  <p className="text-[11px] font-mono text-foreground">{analysisData.gravity} m/s²</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* How APAS Calculation Was Done */}
-              {!isAnalyzing && analysisData?.detected && (
-                <div className="border border-primary/20 rounded-lg bg-primary/5 overflow-hidden">
-                  <button
-                    onClick={() => setShowCalcMethod(prev => !prev)}
-                    className="w-full flex items-center justify-between p-3 hover:bg-primary/10 transition-all duration-200"
-                  >
-                    <span className="text-xs font-semibold text-foreground flex items-center gap-2">
-                      📐 {isAr ? 'كيف تم حساب APAS' : 'How APAS Calculated'}
-                    </span>
-                    <span className={`text-xs text-muted-foreground transition-transform duration-200 ${showCalcMethod ? 'rotate-180' : ''}`}>▼</span>
-                  </button>
-                  {showCalcMethod && (
-                  <div className="p-3 border-t border-primary/20 space-y-2">
-                    <div className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto" dir="ltr">
-                      x(t) = v₀ · cos(θ) · t
-                    </div>
-                    <div className="bg-white dark:bg-slate-800 border border-border/40 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed text-foreground shadow-sm overflow-x-auto" dir="ltr">
-                      y(t) = h₀ + v₀ · sin(θ) · t - ½g·t²
-                    </div>
-                    {analysisData.velocity != null && (
-                      <div className="text-[10px] text-muted-foreground space-y-1">
-                        <p>• v₀ = {analysisData.velocity} m/s</p>
-                        <p>• θ = {analysisData.angle}°</p>
-                        <p>• h₀ = {analysisData.height ?? 0} m</p>
-                        <p>• m = {analysisData.mass ?? '—'} kg</p>
-                        <p>• g = {analysisData.gravity ?? 9.81} m/s²</p>
-                        {analysisData.v0x != null && <p>• v₀ₓ = v₀·cos(θ) = {analysisData.v0x} m/s</p>}
-                        {analysisData.v0y != null && <p>• v₀ᵧ = v₀·sin(θ) = {analysisData.v0y} m/s</p>}
-                      </div>
-                    )}
-                  </div>
-                  )}
-                </div>
-              )}
-
-              {!isAnalyzing && analysisText && (
-                <div className="border border-border rounded-lg bg-secondary/20 overflow-hidden">
-                  <button
-                    onClick={() => setShowDetailedReport(prev => !prev)}
-                    className="w-full flex items-center justify-between p-3 hover:bg-secondary/40 transition-all duration-200"
-                  >
-                    <span className="text-xs font-semibold text-foreground flex items-center gap-2">
-                      📋 {isAr ? 'التقرير المفصل' : 'Detailed Report'}
-                    </span>
-                    <span className={`text-xs text-muted-foreground transition-transform duration-200 ${showDetailedReport ? 'rotate-180' : ''}`}>▼</span>
-                  </button>
-                  {showDetailedReport && (
-                  <div className="p-4 border-t border-border/50">
-                    <ReportRenderer text={cleanLatex(analysisText)} />
-                  </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {!isAnalyzing && (
-              <div className="p-3 border-t border-border flex gap-2">
-                {isLowConfidence && (
-                  <button
-                    onClick={() => {
-                      if (analysisData) {
-                        onUpdateParams({
-                          velocity: analysisData.velocity,
-                          angle: analysisData.angle,
-                          mass: analysisData.mass,
-                          height: analysisData.height,
-                        });
-                        toast.success(isAr ? '🤖 تم تحميل القيم بواسطة APAS AI' : '🤖 Values loaded by APAS AI');
-                      }
-                    }}
-                    className="flex-1 text-xs py-2 rounded-md border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 text-foreground"
-                  >
-                    {isAr ? 'تحميل القيم رغم ذلك' : 'Load values anyway'}
-                  </button>
-                )}
-                <button
-                  onClick={() => { setShowModal(false); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); onDismiss?.(); }}
-                  className="flex-1 text-xs py-2 rounded-md bg-foreground text-background hover:bg-foreground/90 hover:shadow-md transition-all duration-200"
-                >
-                  {isAr ? 'إغلاق' : 'Close'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+      <button
+        onClick={() => setOpen(true)}
+        disabled={loading}
+        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 hover:from-violet-500/20 hover:to-purple-500/20 border border-violet-500/20 hover:border-violet-500/40 text-foreground font-medium text-sm transition-all duration-300 disabled:opacity-50"
+      >
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+        <span>{isAr ? 'APAS تحليل صورة' : 'APAS Vision'}</span>
+        <Sparkles className="w-3 h-3 text-violet-400" />
+      </button>
+      {modal}
     </>
   );
 }
