@@ -51,12 +51,20 @@ function VideoReportRenderer({ text }: { text: string }) {
 
   for (const line of lines) {
     const trimmed = line.trim();
+    // Skip separator lines (e.g. |---|---|---| or ----)
+    if (/^[\|\s\-:]+$/.test(trimmed) && trimmed.includes('-')) {
+      continue;
+    }
     if (trimmed.startsWith('#')) {
       flushText(); flushTable();
       blocks.push({ type: 'heading', content: trimmed });
     } else if (trimmed.startsWith('|')) {
+      // Convert table rows to clean text: extract cell values
       flushText();
-      tableLines.push(line);
+      const cells = trimmed.split('|').map(c => c.trim()).filter(c => c.length > 0);
+      if (cells.length > 0) {
+        currentText.push(cells.join(' : '));
+      }
     } else if (isEquationLine(line)) {
       flushText(); flushTable();
       blocks.push({ type: 'equation', content: trimmed });
@@ -85,10 +93,8 @@ function VideoReportRenderer({ text }: { text: string }) {
         }
         if (block.type === 'table') {
           return (
-            <div key={i} className="overflow-x-auto rounded-lg border border-border/40 bg-white dark:bg-slate-800 shadow-sm">
-              <div className="prose prose-sm max-w-none text-xs [&_table]:w-full [&_table]:text-[10px] [&_th]:p-1.5 [&_th]:bg-secondary/50 [&_th]:text-start [&_td]:p-1.5 [&_td]:border-t [&_td]:border-border/30">
-                <ReactMarkdown>{block.content}</ReactMarkdown>
-              </div>
+            <div key={i} className="text-xs leading-relaxed text-foreground [&_p]:my-1">
+              <ReactMarkdown>{block.content}</ReactMarkdown>
             </div>
           );
         }
