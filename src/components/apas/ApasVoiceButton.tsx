@@ -249,13 +249,17 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = lang === 'ar' ? 'ar-SA' : lang === 'fr' ? 'fr-FR' : 'en-US';
     recognition.interimResults = true;
-    recognition.continuous = false; // Single utterance mode — stops on silence automatically
+    recognition.continuous = true; // Continuous mode — let the user talk as long as they want
     recognition.maxAlternatives = 1;
 
     let finalTranscript = '';
     let lastInterim = '';
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let silenceTimer: ReturnType<typeof setTimeout> | null = null;
+    let hasReceivedSpeech = false; // Track if user has spoken at all
+    let initialNoSpeechTimer: ReturnType<typeof setTimeout> | null = null;
+    const SILENCE_AFTER_SPEECH_MS = 5000; // 5 seconds of silence after speaking → stop
+    const INITIAL_NO_SPEECH_MS = 5000;    // 5 seconds with no speech at all → stop
 
     // Aggressive transcript cleaning for Arabic and all languages
     const cleanTranscript = (text: string): string => {
@@ -301,24 +305,41 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
       return t.trim();
     };
 
-    // Reset silence timer whenever speech activity is detected
+    // Reset silence timer — called whenever speech activity is detected
+    // After the user speaks and then goes silent for 5s, auto-stop and process
     const resetSilenceTimer = () => {
       if (silenceTimer) clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
-        // Auto-stop after 1.5s of no new results
+        // 5s of silence after speech → stop and process
         if (recognitionRef.current) {
           try { recognitionRef.current.stop(); } catch { /* ignore */ }
         }
-      }, 1500);
+      }, SILENCE_AFTER_SPEECH_MS);
     };
 
     recognition.onstart = () => {
       setIsListening(true);
-      resetSilenceTimer();
+      hasReceivedSpeech = false;
+      // Start initial "no speech at all" timer — if no speech within 5s, stop
+      initialNoSpeechTimer = setTimeout(() => {
+        if (!hasReceivedSpeech && recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch { /* ignore */ }
+        }
+      }, INITIAL_NO_SPEECH_MS);
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
-      resetSilenceTimer(); // Reset silence timer on every result
+      // User is speaking — cancel the initial no-speech timer
+      if (!hasReceivedSpeech) {
+        hasReceivedSpeech = true;
+        if (initialNoSpeechTimer) {
+          clearTimeout(initialNoSpeechTimer);
+          initialNoSpeechTimer = null;
+        }
+      }
+      // Reset the 5s silence timer every time we get new results
+      resetSilenceTimer();
+
       let interim = '';
       finalTranscript = '';
       for (let i = 0; i < event.results.length; i++) {
@@ -351,6 +372,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     };
     recognition.onerror = (e: Event & { error?: string }) => {
       if (silenceTimer) clearTimeout(silenceTimer);
+      if (initialNoSpeechTimer) clearTimeout(initialNoSpeechTimer);
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       setIsListening(false);
       recognitionRef.current = null;
@@ -361,6 +383,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
       recognitionRef.current = null;
       if (debounceTimer) clearTimeout(debounceTimer);
       if (silenceTimer) clearTimeout(silenceTimer);
+      if (initialNoSpeechTimer) clearTimeout(initialNoSpeechTimer);
       const cleaned = cleanTranscript(finalTranscript).trim();
       if (cleaned) {
         processVoiceInput(cleaned);
@@ -562,7 +585,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
               {/* Status text */}
               <p className="text-sm font-semibold text-foreground text-center">
                 {isListening
-                  ? (isAr ? 'جاري الاستماع... تحدث الآن' : 'Listening... speak now')
+                  ? (isAr ? 'جاري الاستماع... تحدث بحرية' : 'Listening... speak freely')
                   : isProcessing
                   ? (isAr ? 'جاري معالجة الأمر...' : 'Processing command...')
                   : applied
@@ -570,8 +593,17 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
                   : (isAr ? 'اضغط للتحدث' : 'Tap to speak')}
               </p>
 
+              {/* Listening hint — tell user they can take their time */}
+              {isListening && (
+                <p className="text-[10px] text-muted-foreground text-center max-w-[250px] animate-pulse">
+                  {isAr
+                    ? 'تحدث بحرية وخذ وقتك... سأنتظر 5 ثوانٍ بعد توقفك للمعالجة'
+                    : 'Take your time... I\'ll wait 5 seconds after you stop to process'}
+                </p>
+              )}
+
               {/* Hint text */}
-              {!transcript && !isProcessing && !applied && (
+              {!transcript && !isProcessing && !applied && !isListening && (
                 <p className="text-[10px] text-muted-foreground text-center max-w-[250px]">
                   {isAr
                     ? 'قل مثلاً: "السرعة 50 متر في الثانية والزاوية 30 درجة والارتفاع 2 متر"'
@@ -601,8 +633,8 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
                 </div>
               )}
 
-              {/* Live transcript — only shown after processing is complete (not during listening) */}
-              {transcript && !isListening && !isProcessing && (
+              {/* Live transcript — shown during listening and after processing */}
+              {transcript && !isProcessing && (
                 <div className="w-full bg-secondary/50 border border-border/50 rounded-lg p-3">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                     {isAr ? 'ما سمعته' : 'What I heard'}
