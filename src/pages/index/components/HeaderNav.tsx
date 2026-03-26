@@ -115,8 +115,8 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
           <span className="text-sm text-muted-foreground/80 hidden md:inline font-medium">{T.appTitleFull}</span>
           <span className="text-base sm:text-xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent drop-shadow-sm">APAS</span>
           <ApasLogo size={24} />
-          {/* Online status indicator */}
-          {user && !isGuest && (
+          {/* Online/Offline status indicator */}
+          {(isAdmin || (user && isApproved && !isRestricted)) ? (
             <span className="flex items-center gap-1 ml-1 sm:ml-2" title={lang === 'ar' ? 'متصل' : 'Online'}>
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
@@ -124,6 +124,15 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
               </span>
               <span className="hidden sm:inline text-[10px] font-medium text-green-600 dark:text-green-400">
                 {lang === 'ar' ? 'متصل' : 'Online'}
+              </span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 ml-1 sm:ml-2" title={lang === 'ar' ? 'غير متصل' : 'Offline'}>
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-400" />
+              </span>
+              <span className="hidden sm:inline text-[10px] font-medium text-muted-foreground">
+                {lang === 'ar' ? 'غير متصل' : 'Offline'}
               </span>
             </span>
           )}
