@@ -182,7 +182,16 @@ async function callGroqVision(
   const prompt = buildGroqVisionPrompt(lang);
   const dataUrl = "data:" + mimeType + ";base64," + imageBase64;
 
-  const systemMessage = "You are Professor APAS, the Elite Analyzer from ENS (Ecole Normale Superieure). You are the world's foremost expert in projectile motion and Newtonian mechanics. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. CONTEXT AWARENESS: Identify the object (e.g., ball, cannonball), the scale (e.g., human height ~1.7m), and the environment. CALCULATION: Use the projectile motion equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) to ensure your estimates for angle (theta) and velocity (v0) are consistent with the visual trajectory. You MUST respond with ONLY valid JSON - no markdown, no extra text. CRITICAL: You MUST provide realistic NON-ZERO values for initial_velocity, launch_angle, and all computed physics. A professor NEVER returns zeros - they provide expert estimates based on visual analysis and physics knowledge.";
+  const systemMessage = "You are a World-Class Physics Professor from ENS (Ecole Normale Superieure, Paris). Analyze the provided image with EXTREME PRECISION. " +
+    "CRITICAL IMAGE UNDERSTANDING: You MUST carefully examine every pixel of this specific image. Describe EXACTLY what you see - the colors, shapes, objects, environment, background, lighting, and context. " +
+    "Each image is UNIQUE - you must provide DIFFERENT analysis for DIFFERENT images. NEVER give generic or template responses. " +
+    "OBJECT IDENTIFICATION: Identify the SPECIFIC object in the image (Basketball, Rocket, Soccer ball, Tennis ball, Cannonball, Stone, Arrow, Javelin, Bullet, Grenade, etc.) based on its visual appearance - shape, color, texture, size relative to surroundings. " +
+    "CONTEXT & SCALE: Use visible reference objects (humans ~1.7m, doors ~2m, cars ~1.5m tall, trees ~5-10m) to estimate real-world scale. Note the environment (indoor/outdoor, field, sky, laboratory, etc.). " +
+    "PHYSICS ESTIMATION: Based on YOUR visual analysis of THIS SPECIFIC image, estimate launch angle from trajectory arc or body posture, initial velocity from sport type and visible motion blur or arc, launch height from ground references. " +
+    "CALCULATION: Use y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) to verify consistency. " +
+    "You MUST respond with ONLY valid JSON - no markdown, no extra text. " +
+    "CRITICAL: Provide realistic NON-ZERO values unique to THIS image. A professor NEVER returns zeros or generic values - they provide expert estimates based on careful visual analysis of the SPECIFIC image provided. " +
+    "Include 'analysis_summary_ar' with a detailed expert explanation in ARABIC describing exactly what you see and how the physics applies to this specific object.";
 
   let lastError: Error | null = null;
 
@@ -426,7 +435,7 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { imageBase64, mimeType, lang, userId } = await req.json();
+    const { imageBase64, mimeType, lang, userId, cloudinaryUrl } = await req.json();
     if (!imageBase64) {
       return new Response(JSON.stringify({ error: "No image provided" }), {
         status: 400,
@@ -441,11 +450,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Upload image to storage
+    // Use Cloudinary URL if provided, otherwise upload to Supabase storage
     const fileId = crypto.randomUUID();
-    console.log("[vision-analyze] Uploading image to storage...");
-    const imageUrl = await uploadImageToStorage(supabase, imageBase64, mimeType || "image/jpeg", fileId);
-    console.log("[vision-analyze] Image URL:", imageUrl ? "uploaded" : "skipped");
+    let imageUrl: string | null = cloudinaryUrl || null;
+    if (!imageUrl) {
+      console.log("[vision-analyze] No Cloudinary URL, uploading to Supabase storage...");
+      imageUrl = await uploadImageToStorage(supabase, imageBase64, mimeType || "image/jpeg", fileId);
+    } else {
+      console.log("[vision-analyze] Using Cloudinary URL:", imageUrl);
+    }
 
     // Call Groq Vision (EXCLUSIVE - no fallback)
     console.log("[vision-analyze] Calling Groq Vision (exclusive provider)...");
@@ -560,7 +573,8 @@ serve(async (req) => {
     console.log("[vision-analyze] Upserting analysis to database...");
     const dbRecord: Record<string, unknown> = {
       source_type: "image",
-      source_url: imageUrl,
+      source_url: imageUrl || cloudinaryUrl,
+      cloudinary_url: cloudinaryUrl || null,
       source_filename: fileId + "." + (mimeType || "image/jpeg").split("/")[1],
       initial_velocity: v0,
       launch_angle: angle,

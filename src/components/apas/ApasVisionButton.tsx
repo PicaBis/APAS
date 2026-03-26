@@ -23,6 +23,8 @@ interface Props {
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dicpl6wjs';
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'apas_unsigned';
 
 export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, autoOpen, onDismiss }: Props) {
   const { user } = useAuth();
@@ -63,8 +65,8 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       }
 
       // Step 1: Convert to base64
-      setStatusMsg(isAr ? 'جاري تحليل الصورة بالذكاء الاصطناعي...' : 'Analyzing image with AI...');
-      setProgress(30);
+      setStatusMsg(isAr ? 'جاري تحويل الصورة...' : 'Encoding image...');
+      setProgress(15);
 
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -101,8 +103,34 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
         imageBase64 = dataUrlMatch[2];
       }
 
-      // Step 3: Call vision-analyze edge function
-      setStatusMsg(isAr ? 'APAS يستخرج المعطيات...' : 'APAS extracting data...');
+      // Step 3: Upload to Cloudinary for permanent URL (non-blocking)
+      setStatusMsg(isAr ? 'جاري رفع الصورة إلى السحابة...' : 'Uploading to cloud...');
+      setProgress(30);
+
+      let cloudinaryUrl: string | null = null;
+      try {
+        const cloudFormData = new FormData();
+        cloudFormData.append('file', base64);
+        cloudFormData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+        cloudFormData.append('folder', 'apas-vision');
+
+        const cloudRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          { method: 'POST', body: cloudFormData }
+        );
+        if (cloudRes.ok) {
+          const cloudData = await cloudRes.json();
+          cloudinaryUrl = cloudData.secure_url || cloudData.url || null;
+          console.log('[APAS Vision] Cloudinary URL:', cloudinaryUrl);
+        } else {
+          console.warn('[APAS Vision] Cloudinary upload failed:', cloudRes.status);
+        }
+      } catch (cloudErr) {
+        console.warn('[APAS Vision] Cloudinary upload error:', cloudErr);
+      }
+
+      // Step 4: Call vision-analyze edge function with base64 + cloudinary URL
+      setStatusMsg(isAr ? 'APAS يحلل الصورة بالذكاء الاصطناعي...' : 'APAS analyzing image with AI...');
       setProgress(55);
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/vision-analyze`, {
@@ -117,6 +145,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
           mimeType,
           lang,
           userId: user?.id || null,
+          cloudinaryUrl,
         }),
       });
 
