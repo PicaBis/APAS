@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, Loader2, X, Upload, Sparkles } from 'lucide-react';
+import { Camera, Loader2, X, Upload, Sparkles, Aperture, SwitchCamera, FlipHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, getIssueMessage } from '@/utils/mediaQuality';
@@ -37,14 +37,106 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
   const fileRef = useRef<HTMLInputElement>(null);
   const isAr = lang === 'ar';
 
+  // Camera state
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [mirrorPreview, setMirrorPreview] = useState(false);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const cameraCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const close = useCallback(() => {
     setOpen(false);
     setReport(null);
     setPreview(null);
     setProgress(0);
     setStatusMsg('');
+    setCameraOpen(false);
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+    }
+    setCameraReady(false);
     if (onDismiss) onDismiss();
   }, [onDismiss]);
+
+  // Start/stop camera
+  const startCamera = useCallback(async () => {
+    try {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
+      });
+      cameraStreamRef.current = stream;
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
+        cameraVideoRef.current.play();
+        setCameraReady(true);
+      }
+    } catch {
+      toast.error(isAr ? 'تعذر الوصول إلى الكاميرا' : 'Camera access denied');
+      setCameraOpen(false);
+    }
+  }, [facingMode, isAr]);
+
+  const stopCamera = useCallback(() => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+    }
+    setCameraReady(false);
+  }, []);
+
+  useEffect(() => {
+    if (cameraOpen) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    return () => stopCamera();
+  }, [cameraOpen, startCamera, stopCamera]);
+
+  // Switch camera facing
+  const switchCamera = useCallback(() => {
+    setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+  }, []);
+
+  // Restart camera when facing mode changes
+  useEffect(() => {
+    if (cameraOpen && cameraReady) {
+      startCamera();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facingMode]);
+
+  // Capture photo from camera
+  const capturePhoto = useCallback(() => {
+    const video = cameraVideoRef.current;
+    const canvas = cameraCanvasRef.current;
+    if (!video || !canvas || !video.videoWidth) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    if (mirrorPreview) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setCameraOpen(false);
+      stopCamera();
+      analyzeImage(file);
+    }, 'image/jpeg', 0.92);
+  }, [mirrorPreview, stopCamera]);
 
 
   const analyzeImage = useCallback(async (file: File) => {
@@ -230,7 +322,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
     } finally {
       setLoading(false);
     }
-  }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete]);
+  }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, user?.id]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -267,17 +359,100 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Drop zone */}
-          {!loading && !report && (
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              onClick={() => fileRef.current?.click()}
-              className="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
-            >
-              <Upload className="w-10 h-10 text-primary/50 mx-auto mb-3" />
-              <p className="text-sm font-medium text-foreground">{isAr ? 'اسحب صورة هنا أو انقر للاختيار' : 'Drop an image here or click to select'}</p>
-              <p className="text-xs text-muted-foreground mt-1">{isAr ? 'PNG, JPG, WebP (حتى 20 ميجا)' : 'PNG, JPG, WebP (up to 20MB)'}</p>
+          {/* Upload zone + Camera - shown when not loading and no report */}
+          {!loading && !report && !cameraOpen && (
+            <>
+              {/* Drop zone */}
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                onClick={() => fileRef.current?.click()}
+                className="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+              >
+                <Upload className="w-10 h-10 text-primary/50 mx-auto mb-3" />
+                <p className="text-sm font-medium text-foreground">{isAr ? 'اسحب صورة هنا أو انقر للاختيار' : 'Drop an image here or click to select'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isAr ? 'PNG, JPG, WebP (حتى 20 ميجا)' : 'PNG, JPG, WebP (up to 20MB)'}</p>
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border/50" />
+                <span className="text-xs text-muted-foreground font-medium">{isAr ? 'أو' : 'OR'}</span>
+                <div className="flex-1 h-px bg-border/50" />
+              </div>
+
+              {/* Camera capture button */}
+              <button
+                onClick={() => setCameraOpen(true)}
+                className="w-full flex items-center justify-center gap-3 py-4 px-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-foreground font-medium text-sm transition-all duration-300 group"
+              >
+                <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center group-hover:bg-emerald-500/25 transition-colors">
+                  <Aperture className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div className="text-start">
+                  <p className="font-semibold">{isAr ? 'تصوير مباشر بالكاميرا' : 'Direct Camera Capture'}</p>
+                  <p className="text-xs text-muted-foreground">{isAr ? 'التقط صورة مباشرة للتحليل' : 'Take a photo directly for analysis'}</p>
+                </div>
+              </button>
+            </>
+          )}
+
+          {/* Camera view */}
+          {cameraOpen && !loading && !report && (
+            <div className="space-y-3">
+              <div className="relative rounded-xl overflow-hidden border border-border bg-black">
+                <video
+                  ref={cameraVideoRef}
+                  className="w-full max-h-[350px] object-contain"
+                  playsInline
+                  autoPlay
+                  muted
+                  style={{ transform: mirrorPreview ? 'scaleX(-1)' : 'none' }}
+                />
+                <canvas ref={cameraCanvasRef} className="hidden" />
+                {!cameraReady && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <div className="text-center text-white">
+                      <Camera className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                      <p className="text-sm">{isAr ? 'جاري تشغيل الكاميرا...' : 'Starting camera...'}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Camera controls */}
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={switchCamera}
+                  className="p-2.5 rounded-xl border border-border hover:bg-muted transition-colors"
+                  title={isAr ? 'تبديل الكاميرا' : 'Switch camera'}
+                >
+                  <SwitchCamera className="w-4 h-4 text-foreground" />
+                </button>
+
+                <button
+                  onClick={capturePhoto}
+                  disabled={!cameraReady}
+                  className="w-16 h-16 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Aperture className="w-7 h-7" />
+                </button>
+
+                <button
+                  onClick={() => setMirrorPreview(!mirrorPreview)}
+                  className={`p-2.5 rounded-xl border transition-colors ${mirrorPreview ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border hover:bg-muted text-foreground'}`}
+                  title={isAr ? 'عكس المعاينة' : 'Mirror preview'}
+                >
+                  <FlipHorizontal className="w-4 h-4" />
+                </button>
+              </div>
+
+              <button
+                onClick={() => { setCameraOpen(false); stopCamera(); }}
+                className="w-full py-2 rounded-lg bg-muted/50 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
             </div>
           )}
 
