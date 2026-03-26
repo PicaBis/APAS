@@ -48,22 +48,28 @@ export default async function handler(req: Request): Promise<Response> {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-  if (supabaseUrl && supabaseAnonKey) {
-    try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      const { data, error } = await supabase.auth.getUser(token);
-      if (error || !data.user) {
-        return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        });
-      }
-    } catch {
-      return new Response(JSON.stringify({ error: 'Authentication failed' }), {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Reject upload if Supabase is not configured — never allow unauthenticated uploads
+    return new Response(JSON.stringify({ error: 'Server authentication is not configured' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
+  } catch {
+    return new Response(JSON.stringify({ error: 'Authentication failed' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
 
   try {
