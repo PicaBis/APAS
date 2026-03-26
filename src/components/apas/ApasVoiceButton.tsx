@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Mic, MicOff, Loader2, X, Volume2, CheckCircle, History } from 'lucide-react';
+import { Mic, MicOff, Loader2, X, Volume2, CheckCircle, History, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EDGE_VOICE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-process`;
@@ -400,18 +400,18 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
         <button
           onClick={startListening}
           disabled={isProcessing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border border-purple-500/20 hover:border-purple-500/40 text-foreground font-medium text-sm transition-all duration-300 disabled:opacity-50"
           title={isAr ? 'الأوامر الصوتية' : 'Voice Commands'}
         >
-          <Mic className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Voice</span>
-          <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'الأوامر الصوتية' : 'Voice Commands'}</span>
+          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+          <span>{isAr ? 'APAS الأوامر الصوتية' : 'APAS Voice'}</span>
+          <Sparkles className="w-3 h-3 text-purple-400" />
         </button>
 
         {history.length > 0 && (
           <button
             onClick={() => setShowHistory(true)}
-            className="p-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 relative"
+            className="p-2 rounded-xl border border-purple-500/20 hover:border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 transition-all duration-300 relative"
             title={isAr ? 'سجل الأوامر الصوتية' : 'Voice History'}
           >
             <History className="w-3.5 h-3.5 text-foreground" />

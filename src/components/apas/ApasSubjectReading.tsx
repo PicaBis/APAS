@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
-import { BookOpen, Loader2, X, Upload, Eye, CheckCircle, AlertTriangle, XCircle, History } from 'lucide-react';
+import { BookOpen, Loader2, X, Upload, Eye, CheckCircle, AlertTriangle, XCircle, History, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, analyzeImageQuality, getIssueMessage } from '@/utils/mediaQuality';
@@ -403,23 +403,18 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
         <button
           onClick={() => fileRef.current?.click()}
           disabled={isAnalyzing}
-          className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 hover:shadow-md disabled:opacity-60 w-full"
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/20 hover:border-amber-500/40 text-foreground font-medium text-sm transition-all duration-300 disabled:opacity-50"
           title={isAr ? 'قراءة تمرين' : 'Read Exercise'}
         >
-          <div className="relative">
-            <BookOpen className="w-4 h-4 text-foreground transition-transform duration-200 group-hover:scale-110" />
-            {isAnalyzing && (
-              <div className="absolute -inset-1 rounded-full border-2 border-foreground/30 border-t-foreground animate-spin" />
-            )}
-          </div>
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground">APAS Subject</span>
-          <span className="text-[9px] text-muted-foreground ms-auto">{isAr ? 'قراءة تمرين' : 'Read Exercise'}</span>
+          {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+          <span>{isAr ? 'APAS قراءة تمرين' : 'APAS Subject'}</span>
+          <Sparkles className="w-3 h-3 text-amber-400" />
         </button>
 
         {history.length > 0 && (
           <button
             onClick={() => setShowHistoryModal(true)}
-            className="p-2 rounded-lg border border-border hover:border-foreground/30 bg-secondary/50 hover:bg-secondary transition-all duration-200 relative"
+            className="p-2 rounded-xl border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 transition-all duration-300 relative"
             title={isAr ? 'سجل التمارين' : 'Exercise History'}
           >
             <History className="w-3.5 h-3.5 text-foreground" />
