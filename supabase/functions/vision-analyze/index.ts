@@ -8,7 +8,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// \u2500\u2500 Retry Utilities \u2500\u2500
+// -- Retry Utilities --
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -17,8 +17,8 @@ function sleep(ms: number): Promise<void> {
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   label: string,
-  maxRetries = 3,
-  initialDelay = 2000,
+  maxRetries = 2,
+  initialDelay = 1500,
 ): Promise<T> {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -38,7 +38,7 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
-// \u2500\u2500 Smart Defaults Based on Object Type \u2500\u2500
+// -- Smart Defaults Based on Object Type --
 
 interface PhysicsDefaults {
   velocity: number;
@@ -64,9 +64,9 @@ function getSmartDefaults(objectType: string): PhysicsDefaults {
   return { velocity: 20, angle: 45, height: 1.5, mass: 0.5 };
 }
 
-// \u2500\u2500 ENS Professor Prompt Builder \u2500\u2500
+// -- Vision Prompt Builder --
 
-function buildMistralVisionPrompt(lang: string): string {
+function buildVisionPrompt(lang: string): string {
   const isAr = lang === "ar";
   const noProjectileAr = "\u0644\u0645 \u0623\u062a\u0639\u0631\u0641 \u0639\u0644\u0649 \u062c\u0633\u0645 \u0645\u0642\u0630\u0648\u0641 \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u0635\u0648\u0631\u0629. \u064a\u062c\u0628 \u0623\u0646 \u062a\u062d\u062a\u0648\u064a \u0627\u0644\u0635\u0648\u0631\u0629 \u0639\u0644\u0649 \u062c\u0633\u0645 \u064a\u064f\u0642\u0630\u0641 \u0628\u0648\u0636\u0648\u062d (\u0643\u0631\u0629\u060c \u0635\u0627\u0631\u0648\u062e\u060c \u062d\u062c\u0631\u060c \u0631\u0635\u0627\u0635\u0629\u060c \u0642\u0646\u0628\u0644\u0629\u060c \u0625\u0644\u062e).";
   const noProjectileEn = "No projectile detected in this image. The image must contain a clearly visible launched object (ball, rocket, stone, bullet, grenade, etc.).";
@@ -80,75 +80,45 @@ function buildMistralVisionPrompt(lang: string): string {
   return [
     "You are Professor APAS - a world-renowned expert in Mechanical Physics from ENS (Ecole Normale Superieure, Paris).",
     "You specialize in projectile motion, ballistics, and Newtonian mechanics.",
-    "Your tone is authoritative, analytical, and professional - like a senior professor delivering a masterclass.",
     "",
     "TASK: Analyze the uploaded image for projectile motion.",
     "",
     "STEP 1 - CAREFULLY EXAMINE THE IMAGE:",
-    "You MUST look at every detail of this specific image. Describe the colors, shapes, objects, people, environment, and any motion visible.",
-    "NEVER assume it is a cannonball or any specific object without visual evidence. Look at the ACTUAL content of the image.",
-    "If you see a person throwing a ball, identify the specific type of ball (basketball, tennis ball, etc.) from its color, size, and texture.",
-    "If you see a diagram or illustration, describe what it shows specifically.",
+    "You MUST look at every detail of this specific image.",
+    "NEVER assume it is a cannonball or any specific object without visual evidence.",
     "",
     "STEP 2 - DETECT PROJECTILE:",
     "Look for ANY object being launched, thrown, shot, or in mid-flight trajectory.",
-    "Valid projectiles: ball (basketball, football, tennis, etc.), rocket, stone, bullet, grenade, arrow, javelin, cannonball, missile, any thrown/launched object.",
-    "Also detect diagrams, illustrations, animations, or educational images showing projectile motion - these are VALID.",
-    "Even if it is a cartoon, diagram, or educational illustration of projectile motion, you MUST analyze it as a real projectile scenario.",
-    "If NO clear projectile or projectile motion is visible, respond with ONLY this JSON:",
+    "Also detect diagrams, illustrations, animations showing projectile motion - these are VALID.",
+    "If NO clear projectile is visible, respond with ONLY this JSON:",
     '{"detected": false, "error": "' + noProjectileMsg + '"}',
     "",
     "STEP 3 - EXPERT ANALYSIS (only if projectile detected):",
-    "Analyze the visual context carefully like a real physics professor:",
-    "- Identify the projectile object SPECIFICALLY from its visual appearance (color, shape, size, texture) - DO NOT default to cannonball",
-    "- Use reference objects for scale: person ~1.7m, door ~2m, car ~1.5m tall, basketball hoop 3.05m, football goal 2.44m, cannon ~1.2m tall",
-    "- Estimate launch angle from trajectory arc, body posture, arm position, or trajectory curve visible",
-    "- Estimate initial velocity from context (sport type, throw strength, visible arc, weapon type)",
-    "- Estimate launch height from ground reference",
-    "- Estimate mass from object type (basketball ~0.62kg, football ~0.43kg, cannonball ~4.5kg, stone ~0.3kg, etc.)",
-    "- Consider air resistance qualitatively",
+    "- Identify the projectile from its visual appearance",
+    "- Use reference objects for scale",
+    "- Estimate launch angle, velocity, height, mass",
     "",
-    "CRITICAL RULES FOR ESTIMATION:",
-    "- You MUST provide NON-ZERO values for initial_velocity, launch_angle, and launch_height.",
-    "- NEVER return 0 for initial_velocity. A projectile MUST have a non-zero initial velocity to be in motion.",
-    "- NEVER return 0 for launch_angle. Even a horizontal throw has a small angle (~5 degrees). Estimate from the visual trajectory.",
-    "- Use your extensive physics knowledge to provide REALISTIC estimates based on the type of projectile and scenario.",
-    "- For a cannonball: velocity is typically 80-200 m/s, angle 30-50 degrees",
-    "- For a ball throw: velocity is typically 8-30 m/s, angle 30-60 degrees",
-    "- For a rocket/missile: velocity is typically 100-500 m/s, angle 30-70 degrees",
-    "- For a stone throw: velocity is typically 10-20 m/s, angle 35-55 degrees",
-    "- If unsure, provide your BEST ESTIMATE based on physics principles - professors estimate, they NEVER return zeros!",
+    "CRITICAL: You MUST provide NON-ZERO values. NEVER return 0.",
     "",
-    "STEP 4 - COMPUTE ALL PHYSICS using the projectile motion equation:",
-    "The fundamental equation is: y = x*tan(\\u03B8) - (g*x\\u00B2)/(2*v0\\u00B2*cos\\u00B2(\\u03B8))",
-    "Ensure your angle (\\u03B8) and velocity (v0) estimates are CONSISTENT with the visual trajectory.",
-    "Using your estimates, compute precisely:",
+    "STEP 4 - COMPUTE ALL PHYSICS:",
     "- v0x = v0 * cos(angle), v0y = v0 * sin(angle)",
     "- Max height: H = h0 + v0y^2 / (2*g)",
-    "- Time of flight: solve y(t) = 0 quadratic",
-    "- Range: R = v0x * T",
-    "- Impact velocity: v_impact = sqrt(v0x^2 + (v0y - g*T)^2)",
-    "- Kinetic energy at launch: KE = 0.5 * m * v0^2",
-    "- Potential energy at max height: PE = m * g * H",
+    "- Time of flight, Range, Impact velocity",
+    "- Kinetic energy at launch, Potential energy at max height",
     "",
-    "STEP 5 - DESCRIBE WHAT YOU SEE:",
-    "Write a detailed description " + langInstruction + " of WHAT you see in the image.",
-    "Describe the scene, the projectile, the launch mechanism, the trajectory, reference objects, colors, background.",
-    "Then explain HOW you arrived at these physics values based on visual cues.",
-    "Reference visual cues: 'Based on the cannon barrel length...', 'The trajectory arc suggests...', 'The ball elevation relative to...'",
+    "STEP 5 - DESCRIBE WHAT YOU SEE " + langInstruction + ".",
     "This section is called '" + sciLabel + "'.",
     "",
-    "RESPOND WITH ONLY valid JSON (no markdown fences, no extra text):",
+    "RESPOND WITH ONLY valid JSON (no markdown fences):",
     "{",
     '  "detected": true,',
-    '  "object_type": "specific object name in English based on WHAT YOU ACTUALLY SEE",',
+    '  "object_type": "specific object name in English",',
     '  "estimated_mass": 4.5,',
     '  "initial_velocity": 120,',
     '  "launch_angle": 42,',
     '  "launch_height": 1.5,',
     '  "gravity": 9.81,',
-    '  "v0x": 89.17,',
-    '  "v0y": 80.26,',
+    '  "v0x": 89.17, "v0y": 80.26,',
     '  "max_altitude": 329.96,',
     '  "horizontal_range": 1461.74,',
     '  "time_of_flight": 16.39,',
@@ -158,25 +128,20 @@ function buildMistralVisionPrompt(lang: string): string {
     '  "drag_effect": "slight",',
     '  "motion_type": "projectile",',
     '  "confidence_score": 75,',
-    '  "calibration_reference": "cannon barrel ~1.2m used as scale reference",',
-    '  "image_description": "detailed description of what you see in the image ' + langInstruction + '",',
+    '  "calibration_reference": "reference used",',
+    '  "image_description": "detailed description ' + langInstruction + '",',
     '  "analysis_summary_ar": "' + summaryPlaceholder + '",',
     '  "scientific_explanation": "' + sciPlaceholder + '"',
     "}",
-    "",
-    "REMEMBER: ALL numeric values MUST be non-zero and physically realistic.",
-    "CRITICAL: The object_type MUST match what you ACTUALLY see in the image. Do NOT default to 'cannonball' unless you see an actual cannon and cannonball.",
-    "You are a professor - provide expert estimates based on CAREFUL visual analysis of THIS SPECIFIC image!",
   ].join("\n");
 }
 
-// \u2500\u2500 Mistral Vision API Call (EXCLUSIVE - no Groq/LLaMA fallback) \u2500\u2500
+// -- Mistral Vision API Call --
 
-// Mistral vision models ordered by priority for fallback
 const MISTRAL_VISION_MODELS = [
-  "pixtral-large-latest",    // Primary: most powerful Mistral vision model (124B)
-  "pixtral-12b-2409",        // Fallback 1: lighter Mistral vision model (12B)
-  "mistral-small-latest",    // Fallback 2: Mistral Small with vision capabilities
+  "pixtral-large-latest",
+  "pixtral-12b-2409",
+  "mistral-small-latest",
 ];
 
 async function callMistralVision(
@@ -184,26 +149,19 @@ async function callMistralVision(
   mimeType: string,
   lang: string,
   cloudinaryUrl?: string | null,
-): Promise<string> {
+): Promise<{ result: string; provider: string }> {
   const apiKey = Deno.env.get("MISTRAL_API_KEY");
   if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
 
-  const prompt = buildMistralVisionPrompt(lang);
+  const prompt = buildVisionPrompt(lang);
   const dataUrl = "data:" + mimeType + ";base64," + imageBase64;
 
-  const systemMessage = "You are a World-Class Physics Professor from ENS (Ecole Normale Superieure, Paris). Analyze the provided image with EXTREME PRECISION. " +
-    "CRITICAL IMAGE UNDERSTANDING: You MUST carefully examine every pixel of this specific image. Describe EXACTLY what you see - the colors, shapes, objects, environment, background, lighting, and context. " +
-    "Each image is UNIQUE - you must provide DIFFERENT analysis for DIFFERENT images. NEVER give generic or template responses. " +
-    "OBJECT IDENTIFICATION: Identify the SPECIFIC object in the image based on its visual appearance - shape, color, texture, size relative to surroundings. " +
-    "DO NOT default to 'cannonball'. Look at what is actually in the image: Basketball (orange, textured), Soccer ball (black/white panels), Tennis ball (yellow/green, fuzzy), Baseball (white, red stitches), Golf ball (small, white, dimpled), Stone/Rock (irregular, gray/brown), Arrow (thin, pointed), Javelin (long, thin), Rocket (cylindrical with fins), etc. " +
-    "CONTEXT & SCALE: Use visible reference objects (humans ~1.7m, doors ~2m, cars ~1.5m tall, trees ~5-10m) to estimate real-world scale. Note the environment (indoor/outdoor, field, sky, laboratory, etc.). " +
-    "PHYSICS ESTIMATION: Based on YOUR visual analysis of THIS SPECIFIC image, estimate launch angle from trajectory arc or body posture, initial velocity from sport type and visible motion blur or arc, launch height from ground references. " +
-    "CALCULATION: Use y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) to verify consistency. " +
-    "You MUST respond with ONLY valid JSON - no markdown, no extra text. " +
-    "CRITICAL: Provide realistic NON-ZERO values unique to THIS image. A professor NEVER returns zeros or generic values - they provide expert estimates based on careful visual analysis of the SPECIFIC image provided. " +
-    "Include 'analysis_summary_ar' with a detailed expert explanation in ARABIC describing exactly what you see and how the physics applies to this specific object.";
+  const systemMessage = "You are a World-Class Physics Professor from ENS. Analyze the provided image with EXTREME PRECISION. " +
+    "You MUST carefully examine every pixel. Each image is UNIQUE. " +
+    "Identify the SPECIFIC object based on visual appearance. DO NOT default to cannonball. " +
+    "Respond with ONLY valid JSON. Provide realistic NON-ZERO values. " +
+    "Include analysis_summary_ar with expert explanation in ARABIC.";
 
-  // Use Cloudinary URL if available (better for Mistral which handles URLs well), otherwise use base64
   const imageContent = cloudinaryUrl
     ? { type: "image_url" as const, image_url: { url: cloudinaryUrl } }
     : { type: "image_url" as const, image_url: { url: dataUrl } };
@@ -213,7 +171,6 @@ async function callMistralVision(
   for (const model of MISTRAL_VISION_MODELS) {
     try {
       console.log("[vision-analyze] Trying Mistral model: " + model);
-
       const result = await retryWithBackoff(async () => {
         const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
           method: "POST",
@@ -225,81 +182,177 @@ async function callMistralVision(
             model,
             messages: [
               { role: "system", content: systemMessage },
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  imageContent,
-                ],
-              },
+              { role: "user", content: [{ type: "text", text: prompt }, imageContent] },
             ],
             temperature: 0.2,
             max_tokens: 4000,
           }),
         });
-
         if (!res.ok) {
           const err = await res.text();
           throw new Error("Mistral API error (" + res.status + "): " + err);
         }
-
         const data = await res.json();
         return data.choices?.[0]?.message?.content || "";
       }, "Mistral-Vision-" + model);
 
       console.log("[vision-analyze] Mistral model " + model + " succeeded");
-      return result;
+      return { result, provider: "Mistral (" + model + ")" };
     } catch (err) {
       lastError = err as Error;
       const errMsg = lastError.message || "";
-      // If model is decommissioned (400) or not found (404), try next model
-      const isModelError = errMsg.includes("400") || errMsg.includes("404") || errMsg.includes("decommissioned") || errMsg.includes("not found") || errMsg.includes("does not exist");
-      if (isModelError) {
-        console.warn("[vision-analyze] Mistral model " + model + " unavailable: " + errMsg + ", trying next...");
+      if (errMsg.includes("400") || errMsg.includes("404") || errMsg.includes("decommissioned")) {
+        console.warn("[vision-analyze] Mistral model " + model + " unavailable, trying next...");
         continue;
       }
-      // For other errors (rate limit exhausted after retries, server error), throw
+      if (errMsg.includes("429")) {
+        console.warn("[vision-analyze] Mistral rate limited after retries, trying fallback...");
+        break;
+      }
       throw lastError;
     }
   }
-
   throw lastError || new Error("All Mistral vision models failed");
 }
 
-// \u2500\u2500 JSON Parser \u2500\u2500
+// -- Gemini Vision API Call (Fallback) --
+
+async function callGeminiVision(
+  imageBase64: string,
+  mimeType: string,
+  lang: string,
+): Promise<{ result: string; provider: string }> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+
+  const prompt = buildVisionPrompt(lang);
+  console.log("[vision-analyze] Using Gemini Vision fallback...");
+
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType || "image/jpeg", data: imageBase64 } },
+          ],
+        }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 4000 },
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error("Gemini API error (" + res.status + "): " + errText);
+  }
+
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  console.log("[vision-analyze] Gemini succeeded, length: " + text.length);
+  return { result: text, provider: "Gemini" };
+}
+
+// -- Groq Vision API Call (Fallback 2) --
+
+async function callGroqVision(
+  imageBase64: string,
+  mimeType: string,
+  lang: string,
+): Promise<{ result: string; provider: string }> {
+  const apiKey = Deno.env.get("GROQ_API_KEY");
+  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
+
+  const prompt = buildVisionPrompt(lang);
+  const dataUrl = "data:" + mimeType + ";base64," + imageBase64;
+  console.log("[vision-analyze] Using Groq Vision fallback...");
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + apiKey,
+    },
+    body: JSON.stringify({
+      model: "llama-3.2-90b-vision-preview",
+      messages: [{ role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: dataUrl } }] }],
+      temperature: 0.2,
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error("Groq API error (" + res.status + "): " + errText);
+  }
+
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content || "";
+  console.log("[vision-analyze] Groq succeeded, length: " + text.length);
+  return { result: text, provider: "Groq" };
+}
+
+// -- Unified Vision Call with Fallback Chain --
+
+async function callVisionWithFallback(
+  imageBase64: string, mimeType: string, lang: string, cloudinaryUrl?: string | null,
+): Promise<{ result: string; provider: string }> {
+  const errors: string[] = [];
+
+  try {
+    return await callMistralVision(imageBase64, mimeType, lang, cloudinaryUrl);
+  } catch (e) {
+    const msg = (e as Error).message;
+    console.warn("[vision-analyze] Mistral failed: " + msg);
+    errors.push("Mistral: " + msg);
+  }
+
+  try {
+    return await callGeminiVision(imageBase64, mimeType, lang);
+  } catch (e) {
+    const msg = (e as Error).message;
+    console.warn("[vision-analyze] Gemini failed: " + msg);
+    errors.push("Gemini: " + msg);
+  }
+
+  try {
+    return await callGroqVision(imageBase64, mimeType, lang);
+  } catch (e) {
+    const msg = (e as Error).message;
+    console.warn("[vision-analyze] Groq failed: " + msg);
+    errors.push("Groq: " + msg);
+  }
+
+  throw new Error("All vision AI providers failed. Errors: " + errors.join(" | "));
+}
+
+// -- JSON Parser --
 
 function parseJsonFromText(text: string): Record<string, unknown> {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenced) {
-    try { return JSON.parse(fenced[1].trim()); } catch { /* fallback */ }
-  }
+  if (fenced) { try { return JSON.parse(fenced[1].trim()); } catch { /* fallback */ } }
   const raw = text.match(/\{[\s\S]*\}/);
-  if (raw) {
-    try { return JSON.parse(raw[0]); } catch { /* fallback */ }
-  }
+  if (raw) { try { return JSON.parse(raw[0]); } catch { /* fallback */ } }
   return {};
 }
 
-// \u2500\u2500 Energy Conservation Verification \u2500\u2500
+// -- Energy Conservation Verification --
 
 function verifyWithEnergy(r: {
-  velocity?: number;
-  angle?: number;
-  height?: number;
-  gravity?: number;
-  maxHeight?: number;
-  impactVelocity?: number;
+  velocity?: number; angle?: number; height?: number;
+  gravity?: number; maxHeight?: number; impactVelocity?: number;
 }): { verified: boolean; energyError: number; note: string } {
   const v0 = r.velocity || 0;
   const h0 = r.height || 0;
   const g = r.gravity || 9.81;
   const vImpact = r.impactVelocity || 0;
-
   if (v0 === 0) return { verified: true, energyError: 0, note: "No velocity to verify" };
 
   const energyLaunch = 0.5 * v0 * v0 + g * h0;
   const energyImpact = 0.5 * vImpact * vImpact;
-
   const angleRad = (r.angle || 0) * Math.PI / 180;
   const v0x = v0 * Math.cos(angleRad);
   const hMax = r.maxHeight || 0;
@@ -314,40 +367,25 @@ function verifyWithEnergy(r: {
   return { verified: false, energyError: maxError, note: "Energy conservation failed (>15% error)" };
 }
 
-// \u2500\u2500 Upload Image to Storage \u2500\u2500
+// -- Upload Image to Storage --
 
 async function uploadImageToStorage(
   supabase: ReturnType<typeof createClient>,
-  imageBase64: string,
-  mimeType: string,
-  filename: string,
+  imageBase64: string, mimeType: string, filename: string,
 ): Promise<string | null> {
   try {
     const ext = mimeType.split("/")[1] || "jpg";
     const storagePath = "uploads/" + filename + "." + ext;
-
     const binaryStr = atob(imageBase64);
     const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
-    }
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
     const { error } = await supabase.storage
       .from("vision-analyze")
-      .upload(storagePath, bytes, {
-        contentType: mimeType,
-        upsert: true,
-      });
+      .upload(storagePath, bytes, { contentType: mimeType, upsert: true });
+    if (error) { console.warn("[vision-analyze] Storage upload failed:", error.message); return null; }
 
-    if (error) {
-      console.warn("[vision-analyze] Storage upload failed:", error.message);
-      return null;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("vision-analyze")
-      .getPublicUrl(storagePath);
-
+    const { data: urlData } = supabase.storage.from("vision-analyze").getPublicUrl(storagePath);
     return urlData?.publicUrl || null;
   } catch (err) {
     console.warn("[vision-analyze] Storage upload error:", (err as Error).message);
@@ -355,24 +393,15 @@ async function uploadImageToStorage(
   }
 }
 
-// \u2500\u2500 Upsert Analysis to Database \u2500\u2500
+// -- Upsert Analysis to Database --
 
 async function upsertAnalysis(
   supabase: ReturnType<typeof createClient>,
   analysisData: Record<string, unknown>,
 ): Promise<string | null> {
   try {
-    const { data, error } = await supabase
-      .from("analyses")
-      .insert(analysisData)
-      .select("id")
-      .single();
-
-    if (error) {
-      console.warn("[vision-analyze] DB upsert failed:", error.message);
-      return null;
-    }
-
+    const { data, error } = await supabase.from("analyses").insert(analysisData).select("id").single();
+    if (error) { console.warn("[vision-analyze] DB upsert failed:", error.message); return null; }
     return data?.id || null;
   } catch (err) {
     console.warn("[vision-analyze] DB upsert error:", (err as Error).message);
@@ -380,26 +409,21 @@ async function upsertAnalysis(
   }
 }
 
-// \u2500\u2500 Report Builder \u2500\u2500
+// -- Report Builder --
 
 function buildReport(
-  isAr: boolean,
-  finalJson: Record<string, unknown>,
+  isAr: boolean, finalJson: Record<string, unknown>,
   objectType: string, mass: number, confidence: number,
   v0: number, angle: number, h0: number, g: number,
   v0x: number, v0y: number, maxHeight: number, maxRange: number,
   totalTime: number, impactVelocity: number,
   kineticEnergy: number, potentialEnergy: number,
   scientificExplanation: string,
-  imageDescription: string,
   verification: { verified: boolean; note: string },
-  processingTime: number,
+  processingTime: number, aiProvider: string,
 ): string {
   const lines = [
-    "```json",
-    JSON.stringify(finalJson, null, 2),
-    "```",
-    "",
+    "```json", JSON.stringify(finalJson, null, 2), "```", "",
     isAr ? "# APAS AI \u062a\u0642\u0631\u064a\u0631 \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0645\u0642\u0630\u0648\u0641" : "# APAS AI Projectile Analysis Report",
     "",
     isAr ? "## \u0627\u0644\u0643\u0627\u0626\u0646 \u0627\u0644\u0645\u0643\u062a\u0634\u0641" : "## Detected Object",
@@ -411,33 +435,30 @@ function buildReport(
     (isAr ? "\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629: " : "Initial velocity: ") + "**" + v0 + "** m/s",
     (isAr ? "\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642: " : "Launch angle: ") + "**" + angle + " deg**",
     (isAr ? "\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a: " : "Initial height: ") + "**" + h0 + "** m",
-    (isAr ? "\u0627\u0644\u062c\u0627\u0630\u0628\u064a\u0629: " : "Gravity: ") + "**" + g + "** m/s\u00B2",
     "",
     isAr ? "## \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0627\u0644\u0645\u062d\u0633\u0648\u0628\u0629" : "## Computed Results",
-    "v0x = " + v0x + " m/s",
-    "v0y = " + v0y + " m/s",
+    "v0x = " + v0x + " m/s, v0y = " + v0y + " m/s",
     (isAr ? "\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639 = " : "Max height = ") + maxHeight + " m",
     (isAr ? "\u0627\u0644\u0645\u062f\u0649 = " : "Range = ") + maxRange + " m",
     (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0637\u064a\u0631\u0627\u0646 = " : "Time of flight = ") + totalTime + " s",
     (isAr ? "\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0635\u0637\u062f\u0627\u0645 = " : "Impact velocity = ") + impactVelocity + " m/s",
     "",
     isAr ? "## \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy",
-    (isAr ? "\u0627\u0644\u0637\u0627\u0642\u0629 \u0627\u0644\u062d\u0631\u0643\u064a\u0629 \u0639\u0646\u062f \u0627\u0644\u0625\u0637\u0644\u0627\u0642 = " : "Kinetic energy at launch = ") + kineticEnergy + " J",
-    (isAr ? "\u0627\u0644\u0637\u0627\u0642\u0629 \u0627\u0644\u0643\u0627\u0645\u0646\u0629 \u0639\u0646\u062f \u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639 = " : "Potential energy at max height = ") + potentialEnergy + " J",
+    (isAr ? "\u0627\u0644\u0637\u0627\u0642\u0629 \u0627\u0644\u062d\u0631\u0643\u064a\u0629 = " : "KE = ") + kineticEnergy + " J",
+    (isAr ? "\u0627\u0644\u0637\u0627\u0642\u0629 \u0627\u0644\u0643\u0627\u0645\u0646\u0629 = " : "PE = ") + potentialEnergy + " J",
     "",
     isAr ? "## \u0627\u0644\u062a\u0641\u0633\u064a\u0631 \u0627\u0644\u0639\u0644\u0645\u064a" : "## Scientific Explanation",
     scientificExplanation,
     "",
-    isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check",
     (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
     "",
-    (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Mistral AI (Pixtral Vision)",
-    (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",
+    (isAr ? "\u0645\u0632\u0648\u062f AI: " : "AI Provider: ") + aiProvider,
+    (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing: ") + processingTime + " ms",
   ];
   return lines.join("\n");
 }
 
-// \u2500\u2500 Main Handler \u2500\u2500
+// -- Main Handler --
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -456,52 +477,36 @@ serve(async (req) => {
     }
 
     const isAr = lang === "ar";
-
-    // Initialize Supabase client with service role for DB/storage operations
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Use Cloudinary URL if provided, otherwise upload to Supabase storage
     const fileId = crypto.randomUUID();
     let imageUrl: string | null = cloudinaryUrl || null;
     if (!imageUrl) {
-      console.log("[vision-analyze] No Cloudinary URL, uploading to Supabase storage...");
       imageUrl = await uploadImageToStorage(supabase, imageBase64, mimeType || "image/jpeg", fileId);
-    } else {
-      console.log("[vision-analyze] Using Cloudinary URL:", imageUrl);
     }
 
-    // Call Mistral Vision (EXCLUSIVE - no Groq/LLaMA fallback)
-    console.log("[vision-analyze] Calling Mistral Vision (exclusive provider)...");
-    const rawResponse = await callMistralVision(imageBase64, mimeType || "image/jpeg", lang, cloudinaryUrl);
-    console.log("[vision-analyze] Mistral response length:", rawResponse.length);
+    // Call Vision AI with fallback chain: Mistral -> Gemini -> Groq
+    console.log("[vision-analyze] Calling Vision AI with fallback chain...");
+    const { result: rawResponse, provider: aiProvider } = await callVisionWithFallback(
+      imageBase64, mimeType || "image/jpeg", lang, cloudinaryUrl,
+    );
 
     const parsed = parseJsonFromText(rawResponse);
 
-    // Check if projectile was detected
     if (!parsed.detected) {
       const errorMsg = (parsed.error as string) ||
-        (isAr
-          ? "\u0644\u0645 \u0623\u062a\u0639\u0631\u0641 \u0639\u0644\u0649 \u062c\u0633\u0645 \u0645\u0642\u0630\u0648\u0641 \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u0635\u0648\u0631\u0629. \u064a\u062c\u0628 \u0623\u0646 \u062a\u062d\u062a\u0648\u064a \u0627\u0644\u0635\u0648\u0631\u0629 \u0639\u0644\u0649 \u062c\u0633\u0645 \u064a\u064f\u0642\u0630\u0641 \u0628\u0648\u0636\u0648\u062d (\u0643\u0631\u0629\u060c \u0635\u0627\u0631\u0648\u062e\u060c \u062d\u062c\u0631\u060c \u0631\u0635\u0627\u0635\u0629\u060c \u0642\u0646\u0628\u0644\u0629\u060c \u0625\u0644\u062e)."
-          : "No projectile detected in this image. The image must contain a clearly visible launched object (ball, rocket, stone, bullet, grenade, etc.).");
-
+        (isAr ? "\u0644\u0645 \u0623\u062a\u0639\u0631\u0641 \u0639\u0644\u0649 \u062c\u0633\u0645 \u0645\u0642\u0630\u0648\u0641." : "No projectile detected.");
       return new Response(
-        JSON.stringify({
-          text: isAr
-            ? "# \u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0645\u0642\u0630\u0648\u0641\n\n" + errorMsg
-            : "# No Projectile Detected\n\n" + errorMsg,
-          detected: false,
-        }),
+        JSON.stringify({ text: (isAr ? "# \u0644\u0645 \u064a\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0645\u0642\u0630\u0648\u0641\n\n" : "# No Projectile Detected\n\n") + errorMsg, detected: false }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Extract object type first to get smart defaults
     const objectType = String(parsed.object_type || "projectile");
     const defaults = getSmartDefaults(objectType);
 
-    // Extract and validate physics values - USE SMART DEFAULTS if AI returns 0
     const rawV0 = Number(parsed.initial_velocity) || 0;
     const rawAngle = Number(parsed.launch_angle) || 0;
     const rawH0 = Number(parsed.launch_height) || 0;
@@ -513,26 +518,16 @@ serve(async (req) => {
     const mass = Number(parsed.estimated_mass) || defaults.mass;
     const confidence = Number(parsed.confidence_score) || 70;
 
-    if (rawV0 === 0 || rawAngle === 0) {
-      console.log("[vision-analyze] AI returned zeros, using smart defaults for: " + objectType);
-      console.log("[vision-analyze] Defaults applied: v0=" + v0 + ", angle=" + angle + ", h0=" + h0 + ", mass=" + mass);
-    }
-
-    // Always recompute physics from v0 and angle for consistency
     const rad = angle * Math.PI / 180;
     const v0x = Math.round(v0 * Math.cos(rad) * 100) / 100;
     const v0y = Math.round(v0 * Math.sin(rad) * 100) / 100;
     const maxHeight = Math.round((h0 + (v0y * v0y) / (2 * g)) * 100) / 100;
-
     const tUp = v0y / g;
     const tDown = Math.sqrt(Math.max(0, 2 * maxHeight / g));
     const totalTime = Math.round((tUp + tDown) * 100) / 100;
-
     const maxRange = Math.round(v0x * totalTime * 100) / 100;
-
     const vyEnd = g * totalTime - v0y;
     const impactVelocity = Math.round(Math.sqrt(v0x * v0x + vyEnd * vyEnd) * 100) / 100;
-
     const kineticEnergy = Math.round(0.5 * mass * v0 * v0 * 100) / 100;
     const potentialEnergy = Math.round(mass * g * maxHeight * 100) / 100;
     const dragEffect = String(parsed.drag_effect || "slight");
@@ -542,87 +537,44 @@ serve(async (req) => {
     const scientificExplanation = String(parsed.scientific_explanation || "");
     const imageDescription = String(parsed.image_description || "");
 
-    // Energy verification
-    const verification = verifyWithEnergy({
-      velocity: v0, angle, height: h0, gravity: g,
-      maxHeight, impactVelocity,
-    });
-    console.log("[vision-analyze] Energy verification:", verification);
-
+    const verification = verifyWithEnergy({ velocity: v0, angle, height: h0, gravity: g, maxHeight, impactVelocity });
     const processingTime = Date.now() - startTime;
 
-    // Build final JSON result
     const finalJson: Record<string, unknown> = {
-      detected: true,
-      confidence: confidence,
-      angle: angle,
-      velocity: v0,
-      mass: mass,
-      height: h0,
-      objectType: objectType,
-      gravity: g,
-      v0x: v0x,
-      v0y: v0y,
-      maxHeight: maxHeight,
-      maxRange: maxRange,
-      totalTime: totalTime,
-      impactVelocity: impactVelocity,
-      kineticEnergy: kineticEnergy,
-      potentialEnergy: potentialEnergy,
-      dragEffect: dragEffect,
-      motionType: motionType,
-      calibrationRef: calibrationRef,
-      analysisSummaryAr: analysisSummaryAr,
-      scientificExplanation: scientificExplanation,
-      imageDescription: imageDescription,
+      detected: true, confidence, angle, velocity: v0, mass, height: h0,
+      objectType, gravity: g, v0x, v0y, maxHeight, maxRange, totalTime,
+      impactVelocity, kineticEnergy, potentialEnergy, dragEffect, motionType,
+      calibrationRef, analysisSummaryAr, scientificExplanation, imageDescription,
       verified: verification.verified,
       energyError: Math.round(verification.energyError * 10000) / 100,
-      providers: { extraction: "Mistral", solving: "Mistral" },
+      providers: { extraction: aiProvider, solving: aiProvider },
       processingTimeMs: processingTime,
     };
 
-    // Upsert to Supabase analyses table
-    console.log("[vision-analyze] Upserting analysis to database...");
+    // Upsert to database
     const dbRecord: Record<string, unknown> = {
-      source_type: "image",
-      source_url: imageUrl || cloudinaryUrl,
+      source_type: "image", source_url: imageUrl || cloudinaryUrl,
       cloudinary_url: cloudinaryUrl || null,
       source_filename: fileId + "." + (mimeType || "image/jpeg").split("/")[1],
-      initial_velocity: v0,
-      launch_angle: angle,
-      launch_height: h0,
-      max_altitude: maxHeight,
-      horizontal_range: maxRange,
-      time_of_flight: totalTime,
-      impact_velocity: impactVelocity,
-      v0x: v0x,
-      v0y: v0y,
-      object_type: objectType,
-      estimated_mass: mass,
-      drag_effect: dragEffect,
-      motion_type: motionType,
-      confidence_score: confidence,
-      analysis_method: "estimated",
-      analysis_engine: "mistral_pixtral_vision",
-      calibration_source: "auto",
-      calibration_reference: calibrationRef,
-      gravity: g,
-      report_text: scientificExplanation,
+      initial_velocity: v0, launch_angle: angle, launch_height: h0,
+      max_altitude: maxHeight, horizontal_range: maxRange,
+      time_of_flight: totalTime, impact_velocity: impactVelocity,
+      v0x, v0y, object_type: objectType, estimated_mass: mass,
+      drag_effect: dragEffect, motion_type: motionType,
+      confidence_score: confidence, analysis_method: "estimated",
+      analysis_engine: aiProvider.includes("Gemini") ? "gemini_vision" : aiProvider.includes("Groq") ? "groq_vision" : "mistral_pixtral_vision",
+      calibration_source: "auto", calibration_reference: calibrationRef,
+      gravity: g, report_text: scientificExplanation,
       report_lang: isAr ? "ar" : "en",
       analysis_summary_ar: analysisSummaryAr,
-      ai_provider: "Mistral",
-      processing_time_ms: processingTime,
+      ai_provider: aiProvider, processing_time_ms: processingTime,
       user_id: userId || null,
     };
 
     const analysisId = await upsertAnalysis(supabase, dbRecord);
-    if (analysisId) {
-      console.log("[vision-analyze] Analysis saved with ID:", analysisId);
-      finalJson.analysisId = analysisId;
-    }
+    if (analysisId) finalJson.analysisId = analysisId;
 
-    // Build rich report
-    const report = buildReport(isAr, finalJson, objectType, mass, confidence, v0, angle, h0, g, v0x, v0y, maxHeight, maxRange, totalTime, impactVelocity, kineticEnergy, potentialEnergy, scientificExplanation, imageDescription, verification, processingTime);
+    const report = buildReport(isAr, finalJson, objectType, mass, confidence, v0, angle, h0, g, v0x, v0y, maxHeight, maxRange, totalTime, impactVelocity, kineticEnergy, potentialEnergy, scientificExplanation, verification, processingTime, aiProvider);
 
     return new Response(
       JSON.stringify({ text: report, analysis: finalJson }),
