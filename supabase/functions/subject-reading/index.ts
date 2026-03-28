@@ -98,13 +98,13 @@ Then provide in ${isAr ? "Arabic" : "English"}:
 
 (Complete step-by-step solution:
 1. Write the relevant equations:
-   - x(t) = v0 * cos(theta) * t
-   - y(t) = h0 + v0 * sin(theta) * t - 0.5 * g * t^2
-   - vx = v0 * cos(theta)
-   - vy = v0 * sin(theta) - g * t
-   - Range R = v0^2 * sin(2*theta) / g
-   - Max height H = v0^2 * sin(theta)^2 / (2*g)
-   - Flight time T = 2 * v0 * sin(theta) / g
+   - x(t) = V₀·cos(θ)·t
+   - y(t) = h₀ + V₀·sin(θ)·t − ½g·t²
+   - V₀x = V₀·cos(θ)
+   - V₀y = V₀·sin(θ) − g·t
+   - Range R = V₀²·sin(2θ) / g
+   - Max height H = h₀ + V₀y² / (2g)
+   - Flight time T = (V₀y + sqrt(V₀y² + 2gh₀)) / g
 2. Substitute the given values
 3. Calculate intermediate results
 4. Provide final answers with proper units
@@ -112,23 +112,19 @@ Then provide in ${isAr ? "Arabic" : "English"}:
 
 IMPORTANT RULES:
 - Be thorough in the solution. Show ALL work and intermediate steps.
-- Use simple ASCII math notation (not LaTeX): v0, theta, sin(), cos(), sqrt(), ^2
-- NEVER use LaTeX notation. Specifically NEVER use any of these:
-  * Dollar signs: $...$ or $$...$$
-  * Backslash commands: \\frac, \\cdot, \\theta, \\sqrt, \\text, \\left, \\right, \\implies, \\circ, \\times
-  * Curly brace groups: {numerator}{denominator}
-  * Unicode subscripts/superscripts: v₀, θ, ², ·
+- Use the following symbols exactly: V₀, θ, h₀, g, sin(θ), cos(θ), sqrt(), ², ½
 - CORRECT equation format examples:
-  * vx = v0 * cos(theta)
-  * vy = v0 * sin(theta) - g * t
-  * R = v0^2 * sin(2 * theta) / g
-  * H = v0^2 * sin(theta)^2 / (2 * g)
-  * v0x = 20 * cos(30°) = 20 * (sqrt(3) / 2) = 10 * sqrt(3) m/s
+  * V₀x = V₀·cos(θ)
+  * V₀y = V₀·sin(θ) − g·t
+  * R = V₀²·sin(2θ) / g
+  * H = h₀ + V₀y² / (2g)
+  * V₀x = 20 · cos(30°) = 20 · (sqrt(3) / 2) = 10·sqrt(3) m/s
 - WRONG equation format (NEVER do this):
   * $v_{0x} = v_0 \\cdot \\cos(\\theta)$
   * \\frac{v_0^2}{2g}
-  * v₀·cos(θ)·t
-  * \\text{م/ث}
+  * v0x = v0 * cos(theta)
+  * x = f(t)
+  * z = h(t)
 - Write units in plain text: m/s, m/s^2, kg, m, J, N
 - ${isAr ? "اكتب الوحدات بالعربية البسيطة: م/ث، م/ث^2، كغ، م، جول، نيوتن" : "Write units in plain text"}
 - If gravity is not specified, use g = 9.81 m/s^2 (or 10 m/s^2 if the exercise says so)

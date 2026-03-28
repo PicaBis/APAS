@@ -347,7 +347,16 @@ Your goal is to provide a comprehensive, expert-level scientific report exactly 
 - Impact: Predict the range and impact velocity.
 Use academic phrases like "ستنطلق الكرة بطاقة حركية...", "ستصل الذروة عند ارتفاع...", "تأثير الجاذبية سيعيدها..."]
 
-3. لماذا هذا التحليل منطقي وعلمي؟
+3. المعادلات الرياضية المعتمدة:
+⚡ معادلات الحركة الأساسية:
+x(t) = V₀·cos(θ)·t
+y(t) = h₀ + V₀·sin(θ)·t − ½g·t²
+Vx(t) = V₀·cos(θ)
+Vy(t) = V₀·sin(θ) − g·t
+V(t) = √(Vx² + Vy²)
+θ_impact = arctan(−Vy/Vx)
+
+4. لماذا هذا التحليل منطقي وعلمي؟
 - [Reason 1: Tracking object coordinates across multiple frames]
 - [Reason 2: Calibration based on environmental objects or scale]
 - [Reason 3: Consistency with physical laws of motion]

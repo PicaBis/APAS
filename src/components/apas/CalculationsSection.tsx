@@ -577,16 +577,16 @@ export default function CalculationsSection({
           )}</p>
           <Latex display math={'F = ma \\quad \\Rightarrow \\quad a_x = 0, \\quad a_y = -g = -' + fmt(gravity, 2) + ' \\text{ m/s}^2'} />
           <p>{t('\u0628\u0627\u0644\u062a\u0643\u0627\u0645\u0644 \u0646\u062d\u0635\u0644 \u0639\u0644\u0649 \u0645\u0639\u0627\u062f\u0644\u0627\u062a \u0627\u0644\u0645\u0648\u0636\u0639:', 'Integrating, we get the position equations:', 'En int\u00e9grant, nous obtenons les \u00e9quations de position:')}</p>
-          <Latex display math={'x(t) = x_0 + ' + fmt(v0x) + ' \\cdot t'} />
-          <Latex display math={'y(t) = ' + fmt(height, 1) + ' + ' + fmt(v0y) + ' \\cdot t - \\frac{1}{2} \\times ' + fmt(gravity, 2) + ' \\cdot t^2'} />
+          <Latex display math={'x(t) = V_0 \\cdot \\cos(\\theta) \\cdot t = ' + fmt(v0x) + ' \\cdot t'} />
+          <Latex display math={'y(t) = h_0 + V_0 \\cdot \\sin(\\theta) \\cdot t - \\frac{1}{2}g \\cdot t^2 = ' + fmt(height, 1) + ' + ' + fmt(v0y) + ' \\cdot t - \\frac{1}{2} \\times ' + fmt(gravity, 2) + ' \\cdot t^2'} />
           <p>{t(
-            '\u062d\u064a\u062b h = ' + fmt(height, 1) + ' \u0645 \u0647\u0648 \u0627\u0631\u062a\u0641\u0627\u0639 \u0646\u0642\u0637\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 \u0648 g = ' + fmt(gravity, 2) + ' \u0645/\u062b\u00b2 \u0647\u0648 \u062a\u0633\u0627\u0631\u0639 \u0627\u0644\u062c\u0627\u0630\u0628\u064a\u0629.',
-            'Where h = ' + fmt(height, 1) + ' m is the launch height and g = ' + fmt(gravity, 2) + ' m/s\u00b2 is gravitational acceleration.',
-            'O\u00f9 h = ' + fmt(height, 1) + ' m est la hauteur de lancement et g = ' + fmt(gravity, 2) + ' m/s\u00b2 est l\'acc\u00e9l\u00e9ration gravitationnelle.'
+            '\u062d\u064a\u062b h_0 = ' + fmt(height, 1) + ' \u0645 \u0647\u0648 \u0627\u0631\u062a\u0641\u0627\u0639 \u0646\u0642\u0637\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642 \u0648 g = ' + fmt(gravity, 2) + ' \u0645/\u062b\u00b2 \u0647\u0648 \u062a\u0633\u0627\u0631\u0639 \u0627\u0644\u062c\u0627\u0630\u0628\u064a\u0629.',
+            'Where h_0 = ' + fmt(height, 1) + ' m is the launch height and g = ' + fmt(gravity, 2) + ' m/s\u00b2 is gravitational acceleration.',
+            'O\u00f9 h_0 = ' + fmt(height, 1) + ' m est la hauteur de lancement et g = ' + fmt(gravity, 2) + ' m/s\u00b2 est l\'acc\u00e9l\u00e9ration gravitationnelle.'
           )}</p>
           <p>{t('\u0648\u0645\u0639\u0627\u062f\u0644\u0627\u062a \u0627\u0644\u0633\u0631\u0639\u0629:', 'And the velocity equations:', 'Et les \u00e9quations de vitesse:')}</p>
-          <Latex display math={'v_x(t) = ' + fmt(v0x) + ' \\text{ m/s}'} />
-          <Latex display math={'v_y(t) = ' + fmt(v0y) + ' - ' + fmt(gravity, 2) + ' \\cdot t'} />
+          <Latex display math={'V_x(t) = V_0 \\cdot \\cos(\\theta) = ' + fmt(v0x) + ' \\text{ m/s}'} />
+          <Latex display math={'V_y(t) = V_0 \\cdot \\sin(\\theta) - g \\cdot t = ' + fmt(v0y) + ' - ' + fmt(gravity, 2) + ' \\cdot t'} />
         </StepCard>
 
         <StepCard

@@ -231,30 +231,45 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
     }
 
       const systemPrompt = `You are a Senior Physics Professor and Ballistics Expert. 
-Analyze the image of a physics problem or exercise.
-Your goal is to provide a comprehensive, expert-level report exactly in the following format:
+Analyze the image of a physics problem or exercise with extreme precision.
+Your goal is to solve the problem step-by-step and provide a comprehensive report.
 
-بناءً على تحليلي لهذا التمرين كأستاذ فيزياء، إليك المعطيات المتوقعة وكيف سيتصرف المقذوف في هذا السيناريو:
+CRITICAL INSTRUCTIONS:
+1. EXTRACT ALL DATA: Read every word and number in the image. Identify given values: initial velocity (v0), launch angle (θ), initial height (h0), mass (m), gravity (g), horizontal range (R), time of flight (T), or final velocity (v_impact).
+2. SOLVE THE PROBLEM: Do NOT just list the given data. You MUST solve for any required unknowns (like v0 or θ) using kinematic equations BEFORE providing the final parameters. 
+3. NO DEFAULTS: NEVER use default values like v0=0 or θ=45° if they are not explicitly given or can be calculated from the problem. If you cannot find a value, you MUST attempt to solve for it based on the other given information (e.g., if range and angle are given, solve for v0).
+4. VERIFY CONSISTENCY: Ensure all extracted and calculated values are physically consistent (e.g., v0 = √(v0x² + v0y²)).
+
+Format your report exactly as follows:
+
+بناءً على تحليلي لهذا التمرين كأستاذ فيزياء، إليك التقرير العلمي المفصل للمعطيات المستخرجة والحل الرياضي:
 
 1. تحليل البيئة والمعطيات المستخرجة:
-- الجسم (Projectile): [Identify the object and estimated mass, e.g., كرة تنس 58 جرام]
-- المرجع (Origin): [Identify the starting point, e.g., من يد الرامي أو فوهة المدفع]
-- الارتفاع الابتدائي (h): [Extract or estimate initial height with unit]
-- الزاوية المتوقعة (θ): [Extract or estimate launch angle with decimal precision]
-- السرعة الابتدائية (v0): [Extract or estimate initial velocity with unit]
+- الجسم (Projectile): [Identify object and mass]
+- المرجع (Origin): [Identify starting point precisely]
+- الارتفاع الابتدائي (h₀): [Extract or solve for initial height]
+- الزاوية المتوقعة (θ): [Extract or solve for launch angle with decimal precision]
+- السرعة الابتدائية (V₀): [Extract or solve for initial velocity]
 
-2. توقع مسار الحركة:
-[Provide a step-by-step description: Launch, Peak (where vy=0), Descent, and Impact/Range. Use academic physics terminology.]
+2. الحل الرياضي المفصل:
+[Solve the exercise questions step-by-step here. Show the formulas used, the substitution of values, and the final results. Be extremely thorough.]
 
-3. لماذا هذا التحليل منطقي؟
-- [Reason 1: e.g., Direct extraction from text]
-- [Reason 2: e.g., Physics laws application]
+3. المعادلات الرياضية المعتمدة:
+⚡ معادلات الحركة الأساسية:
+x(t) = V₀·cos(θ)·t
+y(t) = h₀ + V₀·sin(θ)·t − ½g·t²
+Vx(t) = V₀·cos(θ)
+Vy(t) = V₀·sin(θ) − g·t
+V(t) = √(Vx² + Vy²)
+θ_impact = arctan(−Vy/Vx)
 
-رأيي الفني: [Provide a brief expert summary].
+4. لماذا هذا التحليل منطقي؟
+- [Reason 1: Direct extraction/calculation from the problem text]
+- [Reason 2: Physical consistency and application of kinematic laws]
 
-ماذا لو كانت مائلة؟ [Briefly describe the change if the angle was different].
+رأيي الفني: [Provide expert summary].
 
-You MUST also provide a JSON block at the end:
+You MUST also provide a JSON block at the end with the FINAL calculated values to be applied to the simulation:
 {
   "recognized": true,
   "isProjectileMotion": true,
@@ -267,7 +282,7 @@ You MUST also provide a JSON block at the end:
     "gravity": 9.81
   },
   "explanation": "The full text report above",
-  "solution": "Step-by-step mathematical solution if applicable"
+  "solution": "Step-by-step mathematical solution"
 }`;
 
     try {

@@ -36,17 +36,17 @@ export default function DerivationPanel({ lang, velocity, angle, height, gravity
 
     return [
       {
-        title: t('1. تحليل السرعة الابتدائية', '1. Decomposition de la vitesse initiale', '1. Initial Velocity Decomposition'),
-        equation: `v0x = v0 * cos(theta) = ${velocity} * cos(${angle}) = ${v0x.toFixed(3)} m/s\nv0y = v0 * sin(theta) = ${velocity} * sin(${angle}) = ${v0y.toFixed(3)} m/s`,
+        title: t('1. تحليل السرعة الابتدائية', '1. Decomposition de la vitesse', '1. Velocity Decomposition'),
+        equation: `V₀x = V₀·cos(θ) = ${velocity} * cos(${angle}) = ${v0x.toFixed(3)} m/s\nV₀y = V₀·sin(θ) = ${velocity} * sin(${angle}) = ${v0y.toFixed(3)} m/s`,
         explanation: t(
-          'نحلل سرعة الإطلاق إلى مركبتين: أفقية (v0x) ورأسية (v0y) باستخدام حساب المثلثات.',
-          'On decompose la vitesse de lancement en deux composantes: horizontale (v0x) et verticale (v0y).',
-          'Decompose launch velocity into horizontal (v0x) and vertical (v0y) components using trigonometry.'
+          'نحلل سرعة الإطلاق إلى مركبتين: أفقية (V₀x) ورأسية (V₀y) باستخدام حساب المثلثات.',
+          'On decompose la vitesse de lancement en deux composantes: horizontale (V₀x) et verticale (V₀y).',
+          'Decompose launch velocity into horizontal (V₀x) and vertical (V₀y) components using trigonometry.'
         ),
       },
       {
         title: t('2. معادلات الحركة', '2. Equations du mouvement', '2. Equations of Motion'),
-        equation: `x(t) = x0 + v0x * t\ny(t) = h + v0y * t - (1/2) * g * t^2`,
+        equation: `x(t) = V₀·cos(θ)·t = ${v0x.toFixed(3)} * t\ny(t) = h₀ + V₀·sin(θ)·t - ½g·t² = ${height} + ${v0y.toFixed(3)}*t - 0.5*${gravity}*t²`,
         explanation: t(
           'الحركة الأفقية منتظمة (بدون تسارع). الحركة الرأسية متسارعة بفعل الجاذبية.',
           'Le mouvement horizontal est uniforme. Le mouvement vertical est accelere par la gravite.',
@@ -55,7 +55,7 @@ export default function DerivationPanel({ lang, velocity, angle, height, gravity
       },
       {
         title: t('3. زمن الطيران', '3. Temps de vol', '3. Time of Flight'),
-        equation: `y(t) = 0 => h + v0y*t - (1/2)*g*t^2 = 0\nt = (v0y + sqrt(v0y^2 + 2*g*h)) / g\nt = (${v0y.toFixed(3)} + sqrt(${(v0y * v0y).toFixed(3)} + ${(2 * gravity * height).toFixed(3)})) / ${gravity}\nt = ${tFlight.toFixed(4)} s`,
+        equation: `y(t) = 0 => h₀ + V₀y·t - ½g·t² = 0\nt = (V₀y + sqrt(V₀y² + 2·g·h₀)) / g\nt = (${v0y.toFixed(3)} + sqrt(${(v0y * v0y).toFixed(3)} + ${(2 * gravity * height).toFixed(3)})) / ${gravity}\nt = ${tFlight.toFixed(4)} s`,
         explanation: t(
           'نحل المعادلة التربيعية لإيجاد الزمن الذي يصل فيه المقذوف إلى الأرض (y=0).',
           'On resout l\'equation quadratique pour trouver le temps ou le projectile atteint le sol (y=0).',
@@ -65,7 +65,7 @@ export default function DerivationPanel({ lang, velocity, angle, height, gravity
       },
       {
         title: t('4. أقصى ارتفاع', '4. Hauteur maximale', '4. Maximum Height'),
-        equation: `vy = 0 => v0y - g*t_peak = 0 => t_peak = v0y/g = ${(v0y / gravity).toFixed(4)} s\ny_max = h + v0y^2 / (2*g) = ${height} + ${(v0y * v0y).toFixed(3)} / ${(2 * gravity).toFixed(3)}\ny_max = ${maxH.toFixed(4)} m`,
+        equation: `Vy = 0 => V₀y - g·t_peak = 0 => t_peak = V₀y/g = ${(v0y / gravity).toFixed(4)} s\ny_max = h₀ + V₀y² / (2·g) = ${height} + ${(v0y * v0y).toFixed(3)} / ${(2 * gravity).toFixed(3)}\ny_max = ${maxH.toFixed(4)} m`,
         explanation: t(
           'عند أقصى ارتفاع، تكون السرعة الرأسية صفراً. نحل لإيجاد الزمن ثم الارتفاع.',
           'A la hauteur maximale, la vitesse verticale est nulle. On resout pour le temps puis la hauteur.',
@@ -75,7 +75,7 @@ export default function DerivationPanel({ lang, velocity, angle, height, gravity
       },
       {
         title: t('5. المدى الأفقي', '5. Portee horizontale', '5. Horizontal Range'),
-        equation: `R = v0x * t_flight = ${v0x.toFixed(3)} * ${tFlight.toFixed(4)}\nR = ${range.toFixed(4)} m`,
+        equation: `R = V₀x * t_flight = ${v0x.toFixed(3)} * ${tFlight.toFixed(4)}\nR = ${range.toFixed(4)} m`,
         explanation: t(
           'المدى هو المسافة الأفقية المقطوعة خلال زمن الطيران الكامل.',
           'La portee est la distance horizontale parcourue pendant le temps de vol total.',
@@ -85,7 +85,7 @@ export default function DerivationPanel({ lang, velocity, angle, height, gravity
       },
       {
         title: t('6. سرعة الاصطدام', '6. Vitesse d\'impact', '6. Impact Velocity'),
-        equation: `vx_f = v0x = ${v0x.toFixed(3)} m/s\nvy_f = v0y - g*t = ${v0y.toFixed(3)} - ${gravity}*${tFlight.toFixed(4)} = ${(v0y - gravity * tFlight).toFixed(3)} m/s\nv_impact = sqrt(vx_f^2 + vy_f^2) = ${Math.sqrt(v0x * v0x + (v0y - gravity * tFlight) ** 2).toFixed(3)} m/s`,
+        equation: `Vx_f = V₀x = ${v0x.toFixed(3)} m/s\nVy_f = V₀y - g·t = ${v0y.toFixed(3)} - ${gravity}*${tFlight.toFixed(4)} = ${(v0y - gravity * tFlight).toFixed(3)} m/s\nV_impact = sqrt(Vx_f² + Vy_f²) = ${Math.sqrt(v0x * v0x + (v0y - gravity * tFlight) ** 2).toFixed(3)} m/s`,
         explanation: t(
           'السرعة عند الاصطدام تُحسب من مركبتي السرعة الأفقية والرأسية عند لحظة الوصول.',
           'La vitesse d\'impact est calculee a partir des composantes horizontale et verticale a l\'arrivee.',

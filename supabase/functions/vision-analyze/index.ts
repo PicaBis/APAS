@@ -362,6 +362,35 @@ async function upsertAnalysis(
   analysisData: Record<string, unknown>,
 ): Promise<string | null> {
   try {
+    // Check if analysis already exists for this source_url or cloudinary_url
+    const sourceUrl = analysisData.source_url;
+    const cloudinaryUrl = analysisData.cloudinary_url;
+
+    if (sourceUrl || cloudinaryUrl) {
+      const { data: existing } = await supabase
+        .from("analyses")
+        .select("id")
+        .or(`source_url.eq."${sourceUrl}",cloudinary_url.eq."${cloudinaryUrl}"`)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        console.log("[vision-analyze] Found existing analysis, updating instead of inserting...");
+        const { data, error } = await supabase
+          .from("analyses")
+          .update(analysisData)
+          .eq("id", existing.id)
+          .select("id")
+          .single();
+
+        if (error) {
+          console.warn("[vision-analyze] DB update failed:", error.message);
+          return null;
+        }
+        return data?.id || null;
+      }
+    }
+
     const { data, error } = await supabase
       .from("analyses")
       .insert(analysisData)
@@ -369,7 +398,7 @@ async function upsertAnalysis(
       .single();
 
     if (error) {
-      console.warn("[vision-analyze] DB upsert failed:", error.message);
+      console.warn("[vision-analyze] DB insert failed:", error.message);
       return null;
     }
 
@@ -408,14 +437,14 @@ function buildReport(
     (isAr ? "\u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629: " : "Confidence: ") + "**" + confidence + "%**",
     "",
     isAr ? "## \u0627\u0644\u0645\u0639\u0637\u064a\u0627\u062a \u0627\u0644\u0645\u0633\u062a\u062e\u0631\u062c\u0629" : "## Extracted Data",
-    (isAr ? "\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629: " : "Initial velocity: ") + "**" + v0 + "** m/s",
-    (isAr ? "\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642: " : "Launch angle: ") + "**" + angle + " deg**",
-    (isAr ? "\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a: " : "Initial height: ") + "**" + h0 + "** m",
-    (isAr ? "\u0627\u0644\u062c\u0627\u0630\u0628\u064a\u0629: " : "Gravity: ") + "**" + g + "** m/s\u00B2",
+    (isAr ? "\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629: " : "Initial velocity: ") + "**V₀ = " + v0 + "** m/s",
+    (isAr ? "\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642: " : "Launch angle: ") + "**\u03b8 = " + angle + " deg**",
+    (isAr ? "\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a: " : "Initial height: ") + "**h₀ = " + h0 + "** m",
+    (isAr ? "\u0627\u0644\u062c\u0627\u0630\u0628\u064a\u0629: " : "Gravity: ") + "**g = " + g + "** m/s\u00B2",
     "",
     isAr ? "## \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0627\u0644\u0645\u062d\u0633\u0648\u0628\u0629" : "## Computed Results",
-    "v0x = " + v0x + " m/s",
-    "v0y = " + v0y + " m/s",
+    "V₀x = " + v0x + " m/s",
+    "V₀y = " + v0y + " m/s",
     (isAr ? "\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639 = " : "Max height = ") + maxHeight + " m",
     (isAr ? "\u0627\u0644\u0645\u062f\u0649 = " : "Range = ") + maxRange + " m",
     (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0637\u064a\u0631\u0627\u0646 = " : "Time of flight = ") + totalTime + " s",

@@ -202,13 +202,18 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       let cloudinaryUrl: string | null = null;
       try {
         const cloudFormData = new FormData();
-        // Add a timestamp to the file name to bypass potential Cloudinary/Supabase caching
-        const timestamp = Date.now();
-        const cacheBusterFile = new File([file], `vision-${timestamp}-${file.name}`, { type: file.type });
+        
+        // Use SHA-256 hash of the image content as public_id to prevent duplication
+        const arrayBuffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const publicId = `vision_${hashHex}`;
+
         cloudFormData.append('file', base64);
         cloudFormData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
         cloudFormData.append('folder', 'apas-vision');
-        cloudFormData.append('public_id', `vision_${timestamp}_${Math.random().toString(36).substring(7)}`);
+        cloudFormData.append('public_id', publicId);
 
         const cloudRes = await fetch(
           `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
@@ -231,16 +236,21 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
 
       const systemPrompt = `You are a Senior Physics Professor and Ballistics Expert. 
 Analyze the image to extract projectile motion parameters with extreme scientific precision.
-Your goal is to provide a comprehensive, expert-level scientific report exactly in the following format:
+
+CRITICAL:
+1. Identify the ACTUAL object (ball, stone, etc.) and its mass.
+2. Estimate launch parameters (v0, θ, h0) based on pixels, scale objects, and trajectory.
+3. NEVER return 0 for velocity or angle. Professors estimate, they never return zeros!
+4. Be thorough in your scientific explanation.
 
 بناءً على تحليلي لهذه الصورة كأستاذ فيزياء، إليك التقرير العلمي المفصل للمعطيات المستخرجة وكيف سيتصرف المقذوف في هذا السيناريو:
 
 1. تحليل البيئة والمعطيات المستخرجة:
 - الجسم (Projectile): [Identify the object precisely, estimated mass, and aerodynamic properties, e.g., كرة تنس بوزن 58 جرام وسطح خشن]
 - المرجع (Origin): [Identify the starting point precisely using coordinates (x0, y0), e.g., مركز الكرة لحظة مغادرة يد الشخص]
-- الارتفاع الابتدائي (h): [Extract or estimate initial height with decimal precision, e.g., 0.42 متر]
+- الارتفاع الابتدائي (h₀): [Extract or estimate initial height with decimal precision, e.g., 0.42 متر]
 - الزاوية المتوقعة (θ): [Extract or estimate launch angle with high decimal precision, e.g., 88.45°]
-- السرعة الابتدائية (v0): [Extract or estimate initial velocity with decimal precision, e.g., 3.62 م/ث]
+- السرعة الابتدائية (V₀): [Extract or estimate initial velocity with decimal precision, e.g., 3.62 م/ث]
 
 2. توقع مسار الحركة (التفسير العلمي العملي):
 [Provide a long, detailed, and professional step-by-step description: 
@@ -250,7 +260,16 @@ Your goal is to provide a comprehensive, expert-level scientific report exactly 
 - Impact: Predict the range and final velocity.
 Use academic phrases like "ستنطلق الكرة بطاقة حركية...", "ستصل الذروة عند ارتفاع...", "تأثير الجاذبية سيعيدها..."]
 
-3. لماذا هذا التحليل منطقي وعلمي؟
+3. المعادلات الرياضية المعتمدة:
+⚡ معادلات الحركة الأساسية:
+x(t) = V₀·cos(θ)·t
+y(t) = h₀ + V₀·sin(θ)·t − ½g·t²
+Vx(t) = V₀·cos(θ)
+Vy(t) = V₀·sin(θ) − g·t
+V(t) = √(Vx² + Vy²)
+θ_impact = arctan(−Vy/Vx)
+
+4. لماذا هذا التحليل منطقي وعلمي؟
 - [Reason 1: Calibration based on environmental objects like rulers, hands, or furniture]
 - [Reason 2: Physical constraints and environmental context (Indoor/Outdoor)]
 - [Reason 3: Trajectory logic and aerodynamics]

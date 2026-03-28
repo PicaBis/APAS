@@ -118,13 +118,13 @@ function buildVideoVisionPrompt(_lang?: string): string {
     "- Professors estimate, they NEVER return zeros!",
     "",
     "STEP 3 - COMPUTE PHYSICS using the projectile motion equation:",
-    "The fundamental equation is: y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta))",
+    "The fundamental equation is: y(t) = h₀ + V₀·sin(θ)·t − ½g·t²",
     "Ensure your angle and velocity estimates are CONSISTENT with the visual trajectory.",
-    "- v0x = v0 * cos(angle), v0y = v0 * sin(angle)",
-    "- Max height: H = h0 + v0y^2 / (2*g)",
+    "- V₀x = V₀·cos(θ), V₀y = V₀·sin(θ)",
+    "- Max height: H = h₀ + V₀y² / (2·g)",
     "- Time of flight: solve y(t) = 0",
-    "- Range: R = v0x * T",
-    "- Impact velocity: v_impact = sqrt(v0x^2 + (v0y - g*T)^2)",
+    "- Range: R = V₀x * T",
+    "- Impact velocity: V_impact = √(V₀x² + (V₀y - g·T)²)",
     "",
     "RESPOND WITH ONLY valid JSON (no markdown fences):",
     "{",
@@ -136,8 +136,8 @@ function buildVideoVisionPrompt(_lang?: string): string {
     '  "height": 1.5,',
     '  "mass": 4.5,',
     '  "gravity": 9.81,',
-    '  "v0x": 89.17,',
-    '  "v0y": 80.26,',
+    '  "V₀x": 89.17,',
+    '  "V₀y": 80.26,',
     '  "maxHeight": 329.96,',
     '  "maxRange": 1461.74,',
     '  "totalTime": 16.39,',
@@ -291,6 +291,33 @@ async function upsertAnalysis(
   analysisData: Record<string, unknown>,
 ): Promise<string | null> {
   try {
+    // Check if analysis already exists for this video file
+    const sourceFilename = analysisData.source_filename;
+    if (sourceFilename) {
+      const { data: existing } = await supabase
+        .from("analyses")
+        .select("id")
+        .eq("source_filename", sourceFilename)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        console.log("[video-analyze] Found existing analysis, updating instead of inserting...");
+        const { data, error } = await supabase
+          .from("analyses")
+          .update(analysisData)
+          .eq("id", existing.id)
+          .select("id")
+          .single();
+
+        if (error) {
+          console.warn("[video-analyze] DB update failed:", error.message);
+          return null;
+        }
+        return data?.id || null;
+      }
+    }
+
     const { data, error } = await supabase
       .from("analyses")
       .insert(analysisData)
@@ -298,7 +325,7 @@ async function upsertAnalysis(
       .single();
 
     if (error) {
-      console.warn("[video-analyze] DB upsert failed:", error.message);
+      console.warn("[video-analyze] DB insert failed:", error.message);
       return null;
     }
 
@@ -466,13 +493,13 @@ serve(async (req) => {
       (isAr ? "\u0646\u0633\u0628\u0629 \u0627\u0644\u062b\u0642\u0629: " : "Confidence: ") + "**" + confidence + "%**",
       "",
       isAr ? "## \u0627\u0644\u0645\u0639\u0637\u064a\u0627\u062a \u0627\u0644\u0645\u0633\u062a\u062e\u0631\u062c\u0629" : "## Extracted Data",
-      (isAr ? "\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629: " : "Initial velocity: ") + "**" + v0 + "** m/s",
-      (isAr ? "\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642: " : "Launch angle: ") + "**" + angle + " deg**",
-      (isAr ? "\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642: " : "Launch height: ") + "**" + h0 + "** m",
+      (isAr ? "\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629: " : "Initial velocity: ") + "**V₀ = " + v0 + "** m/s",
+      (isAr ? "\u0632\u0627\u0648\u064a\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642: " : "Launch angle: ") + "**\u03b8 = " + angle + " deg**",
+      (isAr ? "\u0627\u0631\u062a\u0641\u0627\u0639 \u0627\u0644\u0625\u0637\u0644\u0627\u0642: " : "Launch height: ") + "**h₀ = " + h0 + "** m",
       "",
       isAr ? "## \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0627\u0644\u0645\u062d\u0633\u0648\u0628\u0629" : "## Computed Results",
-      "v0x = " + v0x + " m/s",
-      "v0y = " + v0y + " m/s",
+      "V₀x = " + v0x + " m/s",
+      "V₀y = " + v0y + " m/s",
       (isAr ? "\u0623\u0642\u0635\u0649 \u0627\u0631\u062a\u0641\u0627\u0639 = " : "Max height = ") + maxHeight + " m",
       (isAr ? "\u0627\u0644\u0645\u062f\u0649 = " : "Range = ") + maxRange + " m",
       (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0637\u064a\u0631\u0627\u0646 = " : "Time of flight = ") + totalTime + " s",
