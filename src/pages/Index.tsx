@@ -1851,6 +1851,23 @@ const Index = () => {
                         units={UNIT_OPTIONS.height.units} lang={lang}
                         onUnitChange={(u) => setSelectedUnits(prev => ({ ...prev, height: u }))}
                       />
+                      {sim.height < 0 && (
+                        <div className="col-span-2 flex items-center justify-between mt-1 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-bold text-primary leading-tight">
+                              {lang === 'ar' ? 'فرض الجاذبية والأرض كمحور X' : 'Force Ground as X-axis'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground leading-tight">
+                              {lang === 'ar' ? 'اصطدام المقذوف بالأرض عند العودة لـ y=0' : 'Projectile hits ground at y=0'}
+                            </span>
+                          </div>
+                          <Switch
+                            checked={sim.forceGroundDetection}
+                            onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); playToggle(sim.isMuted, checked); }}
+                            className="scale-75"
+                          />
+                        </div>
+                      )}
                       <ParamInputWithUnit
                         label={lang === 'ar' ? '\u0627\u0644\u0645\u0648\u0636\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a (x\u2080)' : lang === 'fr' ? 'Position initiale (x\u2080)' : 'Initial Position (x\u2080)'}
                         value={getDisplayValue('height', sim.initialX)}

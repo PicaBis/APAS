@@ -194,6 +194,7 @@ export interface TrajectoryConfig {
   spinRate?: number;
   projectileRadius?: number;
   advancedParams?: AdvancedPhysicsParams | null;
+  forceGroundDetection?: boolean;
 }
 
 /** Convenience wrapper that accepts a single config object instead of 15 positional args. */
@@ -214,6 +215,7 @@ export const calculateTrajectoryFromConfig = (config: TrajectoryConfig) =>
     config.spinRate,
     config.projectileRadius,
     config.advancedParams,
+    config.forceGroundDetection,
   );
 
 // Check if any advanced physics effect is active
@@ -234,12 +236,13 @@ export const calculateTrajectory = (
   initialX = 0,
   spinRate = 0, // rad/s — Magnus force spin rate
   projectileRadius = 0.05, // m — radius for Magnus force calculation
-  advancedParams?: AdvancedPhysicsParams | null // Optional advanced physics params
+  advancedParams?: AdvancedPhysicsParams | null, // Optional advanced physics params
+  forceGroundDetection = false // If true, projectile hits y=0 ground even if starting from below
 ) => {
   // Input validation: clamp to physically reasonable ranges
   velocity = Math.max(0, isFinite(velocity) ? velocity : 0);
   angle = isFinite(angle) ? angle : 45;
-  height = isFinite(height) ? Math.max(0, height) : 0;
+  height = isFinite(height) ? height : 0;
   gravity = isFinite(gravity) ? Math.max(0, gravity) : 9.81;
   airResistance = isFinite(airResistance) ? Math.max(0, airResistance) : 0;
   mass = isFinite(mass) ? Math.max(0.001, mass) : 1;
@@ -488,9 +491,13 @@ export const calculateTrajectory = (
     
     addPoint();
 
-    // Ground hit detection: only trigger if the projectile crosses y=0 from above
-    // or started at y>=0 and comes back down
-    if (y <= 0 && wasAboveGround && height >= 0) {
+    // Ground hit detection:
+    // 1. Standard: started above or at y=0, hit ground when crossing 0 from above
+    // 2. Negative height: started below y=0, only hit ground if forceGroundDetection is ON and crossing 0 from above (after reaching peak)
+    const isStandardHit = height >= 0 && y <= 0 && wasAboveGround;
+    const isNegativeForcedHit = height < 0 && forceGroundDetection && y <= 0 && wasAboveGround && vy < 0;
+
+    if (isStandardHit || isNegativeForcedHit) {
       // Interpolate to find exact ground crossing point using raw (unrounded) previous
       // values to avoid systematic precision errors from r3() rounding in addPoint().
       const undergroundIdx = points.length - 1;
@@ -550,14 +557,23 @@ export const calculateTrajectory = (
     // Normal gravity: parabolic trajectory
     const theoMaxIter = 10000;
     let iter = 0;
+    let theoWasAboveGround = height >= 0;
     for (let tt = 0; iter < theoMaxIter; tt += dt) {
       const xt = initialX + vx0 * tt;
       const yt = height + vy0 * tt - 0.5 * gravity * tt * tt;
-      // For angles pointing downward (vy0 < 0), allow negative Y until a limit
-      if (vy0 >= 0 && yt < 0) break;
-      const theoLowerBound = -Math.max(100, height * 10);
-      if (vy0 < 0 && yt < theoLowerBound) break;
+      const vyt = vy0 - gravity * tt;
+      
+      // Ground detection for theoretical path
+      const isStandardTheoHit = height >= 0 && yt < 0 && theoWasAboveGround;
+      const isNegativeForcedTheoHit = height < 0 && forceGroundDetection && yt < 0 && theoWasAboveGround && vyt < 0;
+      
+      if (isStandardTheoHit || isNegativeForcedTheoHit) break;
+      
+      const theoLowerBound = -Math.max(100, Math.abs(height) * 10);
+      if (yt < theoLowerBound) break;
+      
       theoPoints.push({ x: r3(xt), y: r3(yt), time: r3(tt) });
+      if (yt >= 0) theoWasAboveGround = true;
       iter++;
     }
   }

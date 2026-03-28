@@ -37,6 +37,7 @@ export interface SimulationState {
   selectedIntegrationMethod: 'euler' | 'rk4' | 'ai-apas';
   spinRate: number;
   projectileRadius: number;
+  forceGroundDetection: boolean;
   // Two-body collision
   secondBodyEnabled: boolean;
   secondBodyX: number;
@@ -84,6 +85,7 @@ export function useSimulation() {
   const [selectedIntegrationMethod, setSelectedIntegrationMethod] = useState<'euler' | 'rk4' | 'ai-apas'>('ai-apas');
   const [spinRate, setSpinRate] = useState(0); // rad/s for Magnus force
   const [projectileRadius, setProjectileRadius] = useState(0.05); // m
+  const [forceGroundDetection, setForceGroundDetection] = useState(false);
   // Two-body collision state
   const [secondBodyEnabled, setSecondBodyEnabled] = useState(false);
   const [secondBodyX, setSecondBodyX] = useState(100);
@@ -105,7 +107,7 @@ export function useSimulation() {
 
   // Calculate trajectory whenever params change
   const recalculate = useCallback(() => {
-    const result = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod, initialX, spinRate, projectileRadius, advancedParamsRef.current);
+    const result = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod, initialX, spinRate, projectileRadius, advancedParamsRef.current, forceGroundDetection);
     setTheoreticalData(result.theoPoints);
     setPrediction(result.prediction);
     setBounceEvents(result.bounceEvents || []);
@@ -155,7 +157,7 @@ export function useSimulation() {
             const postResult = calculateTrajectory(
               postSpeed, postAngle, cp.y, gravity, airResistance, mass,
               enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod,
-              cp.x, spinRate, projectileRadius, advancedParamsRef.current
+              cp.x, spinRate, projectileRadius, advancedParamsRef.current, forceGroundDetection
             );
             // Offset post-collision times by collision time
             const postPoints = postResult.points.map(p => ({
@@ -179,7 +181,7 @@ export function useSimulation() {
     const models = buildAIModels(result.points, result.theoPoints, T);
     setAiModels(models);
     return result.points;
-  }, [velocity, angle, height, gravity, airResistance, mass, T, enableBounce, bounceCoefficient, windSpeed, selectedIntegrationMethod, initialX, spinRate, projectileRadius, secondBodyEnabled, secondBodyX, secondBodyY, secondBodyRadius, secondBodyMass, collisionCOR]);
+  }, [velocity, angle, height, gravity, airResistance, mass, T, enableBounce, bounceCoefficient, windSpeed, selectedIntegrationMethod, initialX, spinRate, projectileRadius, secondBodyEnabled, secondBodyX, secondBodyY, secondBodyRadius, secondBodyMass, collisionCOR, forceGroundDetection]);
 
   useEffect(() => { recalculate(); }, [recalculate]);
 
@@ -272,7 +274,7 @@ export function useSimulation() {
       const angles = [15, 30, 45, 60, 75];
       const colors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7'];
       const trajectories = angles.map((a, i) => {
-        const result = calculateTrajectory(velocity, a, height, gravity, airResistance, mass, false, 0.6, 5, windSpeed, 'ai-apas', initialX, spinRate, projectileRadius);
+        const result = calculateTrajectory(velocity, a, height, gravity, airResistance, mass, false, 0.6, 5, windSpeed, 'ai-apas', initialX, spinRate, projectileRadius, null, forceGroundDetection);
         return { angle: a, points: result.points, color: colors[i] };
       });
       setMultiTrajectories(trajectories);
@@ -281,7 +283,7 @@ export function useSimulation() {
       setMultiTrajectoryMode(false);
       setMultiTrajectories([]);
     }
-  }, [multiTrajectoryMode, velocity, height, gravity, airResistance, mass, windSpeed, initialX, spinRate, projectileRadius]);
+  }, [multiTrajectoryMode, velocity, height, gravity, airResistance, mass, windSpeed, initialX, spinRate, projectileRadius, forceGroundDetection]);
 
   const switchLang = useCallback(() => {
     setLang(l => {
@@ -318,6 +320,7 @@ export function useSimulation() {
     selectedIntegrationMethod, setSelectedIntegrationMethod,
     spinRate, setSpinRate,
     projectileRadius, setProjectileRadius,
+    forceGroundDetection, setForceGroundDetection,
     secondBodyEnabled, setSecondBodyEnabled,
     secondBodyX, setSecondBodyX,
     secondBodyY, setSecondBodyY,
