@@ -31,7 +31,7 @@ const ParamInputWithUnit: React.FC<ParamInputWithUnitProps> = ({
       <div className="flex items-center gap-1.5 mb-2">
         <input
           type="number"
-          value={Number(value.toFixed(4))}
+          value={Number((value ?? 0).toFixed(4))}
           onChange={(e) => onChange(Number(e.target.value))}
           min={min} max={max} step={step}
           className="flex-1 text-sm font-mono min-w-0 !py-1"
@@ -51,7 +51,7 @@ const ParamInputWithUnit: React.FC<ParamInputWithUnitProps> = ({
       </div>
       <div className="px-1">
         <Slider
-          value={[value]}
+          value={[value ?? 0]}
           min={min}
           max={max}
           step={step}

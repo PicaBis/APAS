@@ -39,5 +39,6 @@ export function useCountUp(target: number, duration = 600): string {
     };
   }, [target, duration]);
 
+  if (display == null || !isFinite(display)) return '0.00';
   return display.toFixed(2);
 }

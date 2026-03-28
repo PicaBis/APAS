@@ -247,11 +247,11 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
 
       if (resp.ok) {
         const data = await resp.json();
-        if (data.text) {
-          setProgress(100);
-          setAnalysisStep('results');
-          await new Promise(r => setTimeout(r, 400));
+        setProgress(100);
+        setAnalysisStep('results');
+        await new Promise(r => setTimeout(r, 400));
 
+        if (data.text) {
           const parsed = parseSubjectResponse(data.text);
           setSubjectData(parsed);
           setExplanationText(parsed.explanation || '');
@@ -292,11 +292,15 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
           setSubjectData({ recognized: false });
         }
       } else {
+        setProgress(100);
+        setAnalysisStep('results');
         setExplanationText(isAr ? 'تعذر تحليل الصورة. حاول مرة أخرى.' : 'Could not analyze the image. Please try again.');
         setSubjectData({ recognized: false });
         toast.error(isAr ? 'تعذر التحليل' : 'Analysis failed');
       }
     } catch {
+      setProgress(100);
+      setAnalysisStep('results');
       toast.error(isAr ? 'خطأ في الاتصال' : 'Connection error');
       setExplanationText(isAr ? 'خطأ في الاتصال — تحقق من اتصالك بالإنترنت' : 'Connection error — check your internet');
       setSubjectData({ recognized: false });

@@ -261,31 +261,38 @@ export default function CalculationsSection({
   const isFr = lang === 'fr';
   const t = (ar: string, en: string, fr: string) => isAr ? ar : isFr ? fr : en;
 
+  // Ensure values are numbers to avoid NaN
+  const v0 = velocity ?? 0;
+  const th = angle ?? 0;
+  const h0 = height ?? 0;
+  const g0 = gravity ?? 9.81;
+  const m0 = mass ?? 1;
+
   /* ── Computed values ── */
-  const rad = angle * Math.PI / 180;
-  const v0x = velocity * Math.cos(rad);
-  const v0y = velocity * Math.sin(rad);
-  const tFlight = prediction?.timeOfFlight ?? (gravity > 0 ? (v0y + Math.sqrt(v0y * v0y + 2 * gravity * height)) / gravity : 0);
-  const maxH = prediction?.maxHeight ?? (height + (v0y * v0y) / (2 * gravity));
+  const rad = th * Math.PI / 180;
+  const v0x = v0 * Math.cos(rad);
+  const v0y = v0 * Math.sin(rad);
+  const tFlight = prediction?.timeOfFlight ?? (g0 > 0 ? (v0y + Math.sqrt(v0y * v0y + 2 * g0 * h0)) / g0 : 0);
+  const maxH = prediction?.maxHeight ?? (h0 + (v0y * v0y) / (2 * g0));
   const range = prediction?.range ?? (v0x * tFlight);
-  const vyf = v0y - gravity * tFlight;
+  const vyf = v0y - g0 * tFlight;
   const vImpact = prediction?.finalVelocity ?? Math.sqrt(v0x * v0x + vyf * vyf);
   const impactAngle = Math.atan2(Math.abs(vyf), v0x) * 180 / Math.PI;
-  const tPeak = gravity > 0 ? v0y / gravity : 0;
-  const KE0 = 0.5 * mass * velocity * velocity;
-  const PE0 = mass * gravity * height;
+  const tPeak = g0 > 0 ? v0y / g0 : 0;
+  const KE0 = 0.5 * m0 * v0 * v0;
+  const PE0 = m0 * g0 * h0;
   const E0 = KE0 + PE0;
-  const KEf = 0.5 * mass * vImpact * vImpact;
+  const KEf = 0.5 * m0 * vImpact * vImpact;
 
-  const scenario = detectScenario(angle, velocity, height);
+  const scenario = detectScenario(th, v0, h0);
   const scenarioLabel = getScenarioLabel(scenario, lang);
 
   /* ── Build pipeline for AI ── */
   const pipeline = useMemo(() => buildPipeline(
-    { velocity, angle, height, gravity, airResistance, mass, windSpeed },
+    { velocity: v0, angle: th, height: h0, gravity: g0, airResistance, mass: m0, windSpeed },
     prediction ? { range: prediction.range, maxHeight: prediction.maxHeight, timeOfFlight: prediction.timeOfFlight, finalVelocity: prediction.finalVelocity } : null,
     detectedMedia,
-  ), [velocity, angle, height, gravity, airResistance, mass, windSpeed, prediction, detectedMedia]);
+  ), [v0, th, h0, g0, airResistance, m0, windSpeed, prediction, detectedMedia]);
 
   /* ── AI Explanation state ── */
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);

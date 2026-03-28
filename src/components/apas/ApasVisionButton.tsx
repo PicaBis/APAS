@@ -269,7 +269,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
           if (parsed.mass) params.mass = Number(parsed.mass);
           if (parsed.objectType) params.objectType = String(parsed.objectType);
 
-          if (Object.keys(params).length > 0) {
+            if (Object.keys(params).length > 0) {
             onUpdateParams(params);
             if (onDetectedMedia) {
               onDetectedMedia({
@@ -281,7 +281,8 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
                 objectType: params.objectType,
               });
             }
-            if (onAutoRun) setTimeout(() => onAutoRun(), 150);
+            // Auto-start disabled per user request
+            // if (onAutoRun) setTimeout(() => onAutoRun(), 150);
           }
         } catch {
           console.warn('Could not parse JSON from report');

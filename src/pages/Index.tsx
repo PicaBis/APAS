@@ -214,7 +214,8 @@ const Index = () => {
   const handleAutoRunSimulation = useCallback(() => {
     if (!sim.isAnimating) {
       sim.resetAnimation();
-      setTimeout(() => sim.startAnimation(), 100);
+      // Auto-start disabled per user request
+      // setTimeout(() => sim.startAnimation(), 100);
     }
   }, [sim]);
 

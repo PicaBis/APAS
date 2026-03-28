@@ -98,10 +98,10 @@ export default function SlideToVerify({ lang = 'en', onVerified }: Props) {
       >
         {/* Fill */}
         <div
-          className={`absolute inset-y-0 left-0 rounded-xl transition-colors duration-300 ${
-            verified ? 'bg-green-500/20' : 'bg-primary/10'
+          className={`absolute inset-y-0 left-0 rounded-xl transition-all duration-300 ${
+            verified ? 'bg-green-500/40' : 'bg-primary/15'
           }`}
-          style={{ width: position + THUMB_SIZE / 2 }}
+          style={{ width: verified ? '100.1%' : position + THUMB_SIZE }}
         />
 
         {/* Label */}

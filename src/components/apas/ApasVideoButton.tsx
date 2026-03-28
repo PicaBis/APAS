@@ -380,7 +380,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
                 objectType: params.objectType,
               });
             }
-            if (onAutoRun) setTimeout(() => onAutoRun(), 150);
+            // Auto-start disabled per user request
+            // if (onAutoRun) setTimeout(() => onAutoRun(), 150);
           }
         } catch {
           console.warn('Could not parse JSON from report');

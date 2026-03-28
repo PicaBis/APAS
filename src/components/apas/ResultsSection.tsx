@@ -63,10 +63,10 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 stagger-children">
             {[
-              { label: T.range, value: prediction.range, unit: T.u_m_s, icon: '📏', color: 'from-blue-500/15 to-blue-600/5 border-blue-500/30 hover:border-blue-500/50', iconBg: 'bg-blue-500/15', textColor: 'text-blue-600 dark:text-blue-400' },
-              { label: T.maxHeight, value: prediction.maxHeight, unit: T.u_m_s, icon: '📐', color: 'from-emerald-500/15 to-emerald-600/5 border-emerald-500/30 hover:border-emerald-500/50', iconBg: 'bg-emerald-500/15', textColor: 'text-emerald-600 dark:text-emerald-400' },
-              { label: T.flightTime, value: prediction.timeOfFlight, unit: T.u_s, icon: '⏱️', color: 'from-amber-500/15 to-amber-600/5 border-amber-500/30 hover:border-amber-500/50', iconBg: 'bg-amber-500/15', textColor: 'text-amber-600 dark:text-amber-400' },
-              { label: T.finalVel, value: prediction.finalVelocity, unit: T.u_ms, icon: '💨', color: 'from-purple-500/15 to-purple-600/5 border-purple-500/30 hover:border-purple-500/50', iconBg: 'bg-purple-500/15', textColor: 'text-purple-600 dark:text-purple-400' },
+              { label: T.range, value: prediction?.range ?? 0, unit: T.u_m_s, icon: '📏', color: 'from-blue-500/15 to-blue-600/5 border-blue-500/30 hover:border-blue-500/50', iconBg: 'bg-blue-500/15', textColor: 'text-blue-600 dark:text-blue-400' },
+              { label: T.maxHeight, value: prediction?.maxHeight ?? 0, unit: T.u_m_s, icon: '📐', color: 'from-emerald-500/15 to-emerald-600/5 border-emerald-500/30 hover:border-emerald-500/50', iconBg: 'bg-emerald-500/15', textColor: 'text-emerald-600 dark:text-emerald-400' },
+              { label: T.flightTime, value: prediction?.timeOfFlight ?? 0, unit: T.u_s, icon: '⏱️', color: 'from-amber-500/15 to-amber-600/5 border-amber-500/30 hover:border-amber-500/50', iconBg: 'bg-amber-500/15', textColor: 'text-amber-600 dark:text-amber-400' },
+              { label: T.finalVel, value: prediction?.finalVelocity ?? 0, unit: T.u_ms, icon: '💨', color: 'from-purple-500/15 to-purple-600/5 border-purple-500/30 hover:border-purple-500/50', iconBg: 'bg-purple-500/15', textColor: 'text-purple-600 dark:text-purple-400' },
             ].map(({ label, value, unit, icon, color, iconBg, textColor }) => (
               <div key={label} className={`text-center p-3.5 bg-gradient-to-br ${color} rounded-xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group`}>
                 <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center mx-auto mb-2 transition-transform duration-300 group-hover:scale-110`}>
@@ -88,23 +88,23 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
               toggle={onTogglePathInfo}
               miniPreview={
                 <>
-                  <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">v₀={velocity.toFixed(0)}</span>
-                  <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">θ={angle.toFixed(0)}°</span>
-                  <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">R={prediction.range.toFixed(1)}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">v₀={(velocity ?? 0).toFixed(0)}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">θ={(angle ?? 0).toFixed(0)}°</span>
+                  <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">R={(prediction?.range ?? 0).toFixed(1)}</span>
                 </>
               }
             >
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
-                  { label: lang === 'ar' ? 'السرعة الابتدائية' : lang === 'fr' ? 'Vitesse Initiale' : 'Initial Velocity', val: `${velocity.toFixed(2)} ${T.u_ms}`, icon: '🚀' },
-                  { label: lang === 'ar' ? 'زاوية الإطلاق' : lang === 'fr' ? 'Angle de Tir' : 'Launch Angle', val: `${angle.toFixed(1)}°`, icon: '📐' },
-                  { label: lang === 'ar' ? 'الارتفاع الابتدائي' : lang === 'fr' ? 'Hauteur Initiale' : 'Initial Height', val: `${height.toFixed(2)} ${T.u_m_s}`, icon: '📏' },
-                  { label: lang === 'ar' ? 'الجاذبية' : lang === 'fr' ? 'Gravité' : 'Gravity', val: `${gravity.toFixed(2)} ${T.u_ms2}`, icon: '🌍' },
-                  { label: lang === 'ar' ? 'نقطة السقوط' : lang === 'fr' ? 'Point d\'Impact' : 'Impact Point', val: `X=${prediction.range.toFixed(2)} ${T.u_m_s}`, icon: '🎯' },
-                  { label: lang === 'ar' ? 'زاوية السقوط' : lang === 'fr' ? 'Angle d\'Impact' : 'Impact Angle', val: `${prediction.impactAngle.toFixed(1)}°`, icon: '📉' },
-                  { label: lang === 'ar' ? 'الإزاحة الكلية' : lang === 'fr' ? 'Déplacement Total' : 'Total Displacement', val: `${prediction.totalDisplacement.toFixed(2)} ${T.u_m_s}`, icon: '↔️' },
-                  { label: lang === 'ar' ? 'متوسط السرعة' : lang === 'fr' ? 'Vitesse Moyenne' : 'Avg Speed', val: `${prediction.averageSpeed.toFixed(2)} ${T.u_ms}`, icon: '⚡' },
-                  { label: lang === 'ar' ? 'الشغل المبذول' : lang === 'fr' ? 'Travail Effectué' : 'Work Done', val: `${prediction.workDone.toFixed(2)} ${T.u_J}`, icon: '⚙️' },
+                  { label: lang === 'ar' ? 'السرعة الابتدائية' : lang === 'fr' ? 'Vitesse Initiale' : 'Initial Velocity', val: `${(velocity ?? 0).toFixed(2)} ${T.u_ms}`, icon: '🚀' },
+                  { label: lang === 'ar' ? 'زاوية الإطلاق' : lang === 'fr' ? 'Angle de Tir' : 'Launch Angle', val: `${(angle ?? 0).toFixed(1)}°`, icon: '📐' },
+                  { label: lang === 'ar' ? 'الارتفاع الابتدائي' : lang === 'fr' ? 'Hauteur Initiale' : 'Initial Height', val: `${(height ?? 0).toFixed(2)} ${T.u_m_s}`, icon: '📏' },
+                  { label: lang === 'ar' ? 'الجاذبية' : lang === 'fr' ? 'Gravité' : 'Gravity', val: `${(gravity ?? 9.81).toFixed(2)} ${T.u_ms2}`, icon: '🌍' },
+                  { label: lang === 'ar' ? 'نقطة السقوط' : lang === 'fr' ? 'Point d\'Impact' : 'Impact Point', val: `X={(prediction?.range ?? 0).toFixed(2)} ${T.u_m_s}`, icon: '🎯' },
+                  { label: lang === 'ar' ? 'زاوية السقوط' : lang === 'fr' ? 'Angle d\'Impact' : 'Impact Angle', val: `${(prediction?.impactAngle ?? 0).toFixed(1)}°`, icon: '📉' },
+                  { label: lang === 'ar' ? 'الإزاحة الكلية' : lang === 'fr' ? 'Déplacement Total' : 'Total Displacement', val: `${(prediction?.totalDisplacement ?? 0).toFixed(2)} ${T.u_m_s}`, icon: '↔️' },
+                  { label: lang === 'ar' ? 'متوسط السرعة' : lang === 'fr' ? 'Vitesse Moyenne' : 'Avg Speed', val: `${(prediction?.averageSpeed ?? 0).toFixed(2)} ${T.u_ms}`, icon: '⚡' },
+                  { label: lang === 'ar' ? 'الشغل المبذول' : lang === 'fr' ? 'Travail Effectué' : 'Work Done', val: `${(prediction?.workDone ?? 0).toFixed(2)} ${T.u_J}`, icon: '⚙️' },
                 ].map(({ label, val, icon }) => (
                   <div key={label} className="bg-background/60 rounded-lg p-3 text-center border border-border/30">
                     <div className="text-sm mb-1">{icon}</div>
