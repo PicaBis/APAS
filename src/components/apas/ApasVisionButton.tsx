@@ -257,57 +257,44 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       const reportText = result.text || '';
       setReport(reportText);
 
-      // Extract values from JSON in the report
-      const jsonMatch = reportText.match(/```json\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[1].trim());
-          const params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string } = {};
-          if (parsed.velocity) params.velocity = Number(parsed.velocity);
-          if (parsed.angle) params.angle = Number(parsed.angle);
-          if (parsed.height) params.height = Number(parsed.height);
-          if (parsed.mass) params.mass = Number(parsed.mass);
-          if (parsed.objectType) params.objectType = String(parsed.objectType);
+      // Elite Parser: Extract from the result object directly
+      const parsed = result.analysis;
+      if (parsed && parsed.detected) {
+        const params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string } = {
+          velocity: parsed.initial_velocity_m_s,
+          angle: parsed.launch_angle_deg,
+          height: parsed.launch_height_m,
+          mass: parsed.estimated_mass_kg,
+          objectType: parsed.object_type,
+        };
 
-          if (Object.keys(params).length > 0) {
-            onUpdateParams(params);
-            if (onDetectedMedia) {
-              onDetectedMedia({
-                source: 'image',
-                detectedAngle: params.angle,
-                detectedVelocity: params.velocity,
-                detectedHeight: params.height,
-                confidence: parsed.confidence,
-                objectType: params.objectType,
-              });
-            }
-            if (onAutoRun) setTimeout(() => onAutoRun(), 150);
-          }
-        } catch {
-          console.warn('Could not parse JSON from report');
+        onUpdateParams(params);
+        if (onDetectedMedia) {
+          onDetectedMedia({
+            source: 'image',
+            detectedAngle: params.angle,
+            detectedVelocity: params.velocity,
+            detectedHeight: params.height,
+            confidence: parsed.confidence_score,
+            objectType: params.objectType,
+          });
         }
+        if (onAutoRun) setTimeout(() => onAutoRun(), 150);
       }
 
-      // Notify analysis complete for record/log and unlocking predictions
+      // Notify analysis complete
       if (onAnalysisComplete) {
-        const jsonMatch2 = reportText.match(/```json\s*([\s\S]*?)```/);
-        let extractedParams: { velocity?: number; angle?: number; height?: number; mass?: number } | undefined;
-        if (jsonMatch2) {
-          try {
-            const p = JSON.parse(jsonMatch2[1].trim());
-            extractedParams = {};
-            if (p.velocity) extractedParams.velocity = Number(p.velocity);
-            if (p.angle) extractedParams.angle = Number(p.angle);
-            if (p.height) extractedParams.height = Number(p.height);
-            if (p.mass) extractedParams.mass = Number(p.mass);
-          } catch { /* ignore */ }
-        }
         onAnalysisComplete({
           type: 'vision',
           report: reportText,
-          mediaSrc: base64,
+          mediaSrc: cloudinaryUrl || base64,
           mediaType: 'image',
-          params: extractedParams,
+          params: parsed ? {
+            velocity: parsed.initial_velocity_m_s,
+            angle: parsed.launch_angle_deg,
+            height: parsed.launch_height_m,
+            mass: parsed.estimated_mass_kg,
+          } : undefined,
         });
       }
 

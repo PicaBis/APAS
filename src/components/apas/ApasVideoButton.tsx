@@ -336,6 +336,28 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       setProgress(55);
       setStatusMsg(isAr ? 'APAS يشاهد الفيديو...' : 'APAS watching video...');
 
+      // Step 2.5: Upload thumbnail to Cloudinary
+      let cloudinaryUrl: string | null = null;
+      if (preview) {
+        try {
+          const cloudFormData = new FormData();
+          cloudFormData.append('file', preview);
+          cloudFormData.append('upload_preset', 'apas_unsigned');
+          cloudFormData.append('folder', 'apas-video');
+
+          const cloudRes = await fetch(
+            `https://api.cloudinary.com/v1_1/dicpl6wjs/image/upload`,
+            { method: 'POST', body: cloudFormData }
+          );
+          if (cloudRes.ok) {
+            const cloudData = await cloudRes.json();
+            cloudinaryUrl = cloudData.secure_url || cloudData.url || null;
+          }
+        } catch (err) {
+          console.warn('Cloudinary upload failed for video thumbnail', err);
+        }
+      }
+
       // Step 3: Call video-analyze edge function
       const response = await fetch(`${SUPABASE_URL}/functions/v1/video-analyze`, {
         method: 'POST',
@@ -349,6 +371,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           lang,
           videoName: file.name,
           userId: user?.id || null,
+          cloudinaryUrl,
         }),
       });
 
@@ -368,57 +391,42 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       const reportText = result.text || '';
       setReport(reportText);
 
-      // Extract values from JSON in the report
-      const jsonMatch = reportText.match(/```json\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[1].trim());
-          const params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string } = {};
-          if (parsed.velocity) params.velocity = Number(parsed.velocity);
-          if (parsed.angle) params.angle = Number(parsed.angle);
-          if (parsed.height) params.height = Number(parsed.height);
-          if (parsed.mass) params.mass = Number(parsed.mass);
-          if (parsed.objectType) params.objectType = String(parsed.objectType);
+      // Elite Parser: Extract from the result object directly
+      const parsed = result.analysis;
+      if (parsed && parsed.detected) {
+        const params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string } = {
+          velocity: parsed.initial_velocity_m_s,
+          angle: parsed.launch_angle_deg,
+          height: parsed.launch_height_m,
+          objectType: parsed.object_type,
+        };
 
-          if (Object.keys(params).length > 0) {
-            onUpdateParams(params);
-            if (onDetectedMedia) {
-              onDetectedMedia({
-                source: 'video',
-                detectedAngle: params.angle,
-                detectedVelocity: params.velocity,
-                detectedHeight: params.height,
-                confidence: parsed.confidence,
-                objectType: params.objectType,
-              });
-            }
-            if (onAutoRun) setTimeout(() => onAutoRun(), 150);
-          }
-        } catch {
-          console.warn('Could not parse JSON from report');
+        onUpdateParams(params);
+        if (onDetectedMedia) {
+          onDetectedMedia({
+            source: 'video',
+            detectedAngle: params.angle,
+            detectedVelocity: params.velocity,
+            detectedHeight: params.height,
+            confidence: parsed.confidence_score,
+            objectType: params.objectType,
+          });
         }
+        if (onAutoRun) setTimeout(() => onAutoRun(), 150);
       }
 
-      // Notify analysis complete for record/log and unlocking predictions
+      // Notify analysis complete
       if (onAnalysisComplete) {
-        const jsonMatch2 = reportText.match(/```json\s*([\s\S]*?)```/);
-        let extractedParams: { velocity?: number; angle?: number; height?: number; mass?: number } | undefined;
-        if (jsonMatch2) {
-          try {
-            const p = JSON.parse(jsonMatch2[1].trim());
-            extractedParams = {};
-            if (p.velocity) extractedParams.velocity = Number(p.velocity);
-            if (p.angle) extractedParams.angle = Number(p.angle);
-            if (p.height) extractedParams.height = Number(p.height);
-            if (p.mass) extractedParams.mass = Number(p.mass);
-          } catch { /* ignore */ }
-        }
         onAnalysisComplete({
           type: 'video',
           report: reportText,
-          mediaSrc: thumbnailUrl,
+          mediaSrc: cloudinaryUrl || preview || undefined,
           mediaType: 'video',
-          params: extractedParams,
+          params: parsed ? {
+            velocity: parsed.initial_velocity_m_s,
+            angle: parsed.launch_angle_deg,
+            height: parsed.launch_height_m,
+          } : undefined,
         });
       }
 

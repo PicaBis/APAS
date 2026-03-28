@@ -8,136 +8,99 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "*",
 };
 
-// ── Frame Limiting ──
-const MAX_FRAMES = 10; // Gemini handles 10 frames easily and accurately
+const SYSTEM_PROMPT = `
+You are a Dynamic Systems Physicist. 
+Your mission is to read, understand, and deduce physics parameters from any video frames provided.
 
-function limitFrames(frames: Array<{ data: string; timestamp: number }>) {
-  if (frames.length <= MAX_FRAMES) return frames;
-  const limited = [];
-  const step = (frames.length - 1) / (MAX_FRAMES - 1);
-  for (let i = 0; i < MAX_FRAMES; i++) {
-    limited.push(frames[Math.round(i * step)]);
-  }
-  return limited;
+RULES FOR ELITE INTERPRETATION:
+1. Identify the overall context.
+2. Deduce launch angle, initial velocity, and trajectory by analyzing key moments (launch, peak, impact) from the sequence.
+3. If the video is blurry, laggy, or low-quality, you MUST still provide the most plausible physics-based estimate.
+4. Output must be a reasoned estimate formatted for direct dashboard integration.
+
+OUTPUT JSON FORMAT (STRICT):
+{
+  "detected": true,
+  "object_type": "string",
+  "launch_angle_deg": number,
+  "initial_velocity_m_s": number,
+  "launch_height_m": number,
+  "gravity_m_s2": 9.81,
+  "motion_description_ar": "Scientific description in Arabic of the motion observed across frames...",
+  "confidence_score": number (0-100)
 }
-
-// ── Main Handler ──
+`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const startTime = Date.now();
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+
   try {
-    const { frames, lang, userId } = await req.json();
-    if (!frames || !Array.isArray(frames) || frames.length === 0) throw new Error("No frames provided");
+    const { frames, lang, userId, cloudinaryUrl } = await req.json();
+    if (!frames || !Array.isArray(frames)) throw new Error("No frames provided");
 
-    const isAr = lang === "ar";
-    const limitedFrames = limitFrames(frames);
+    console.log(`[video-analyze] Analyzing ${frames.length} frames with Gemini 2.0 Flash...`);
 
-    console.log(`[video-analyze] Analyzing ${limitedFrames.length} frames with Gemini 2.0 Flash...`);
-
-    // Prepare multimodal content for Gemini
-    const userContent: any[] = [{ type: "text", text: "Analyze these sequential video frames for projectile motion. Identify the object, its launch angle, initial velocity, and height." }];
+    const userContent: any[] = [{ type: "text", text: "Analyze this video sequence for physics parameters." }];
     
-    limitedFrames.forEach((f, i) => {
-      let base64 = f.data;
-      let mime = "image/jpeg";
-      if (base64.startsWith("data:")) {
-        const match = base64.match(/^data:([^;]+);base64,(.+)$/);
-        if (match) { mime = match[1]; base64 = match[2]; }
-      }
-      userContent.push({ type: "text", text: `Frame ${i+1} at ${f.timestamp.toFixed(2)}s:` });
-      userContent.push({ inline_data: { mime_type: mime, data: base64 } });
+    // Sample frames to stay within token limits but maintain quality
+    const sampledFrames = frames.slice(0, 10); 
+    sampledFrames.forEach((f, i) => {
+      userContent.push({ type: "text", text: `Frame ${i+1} at ${f.timestamp}s:` });
+      userContent.push({
+        type: "image",
+        inline_data: { mime_type: "image/jpeg", data: f.data.split(",")[1] || f.data },
+      });
     });
-
-    const systemPrompt = `You are Professor APAS, an expert in motion analysis.
-Analyze the sequence of frames to track a projectile.
-1. Identify the object (e.g., ball, rocket).
-2. Find the launch frame.
-3. Calculate velocity based on displacement between frames and the provided timestamps.
-4. Estimate launch angle and height relative to the ground.
-5. Provide a detailed Arabic summary.
-
-Output ONLY JSON:
-{
-  "detected": true,
-  "objectType": "string",
-  "velocity": number,
-  "angle": number,
-  "height": number,
-  "gravity": 9.81,
-  "confidence": number,
-  "motionDescription": "string",
-  "analysis_summary_ar": "string"
-}`;
 
     const { text, provider } = await aiComplete({
       modelType: "video",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent }
-      ]
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
     });
 
     const parsed = JSON.parse(text);
-    if (!parsed.detected) {
-      return new Response(JSON.stringify({ 
-        detected: false, 
-        text: isAr ? "لم يتم اكتشاف حركة مقذوف واضحة في الفيديو." : "No clear projectile motion detected in the video."
-      }), { headers: corsHeaders });
-    }
 
-    // Recompute physics
-    const v0 = parsed.velocity || 15;
-    const angle = parsed.angle || 45;
-    const h0 = parsed.height || 1.0;
-    const g = parsed.gravity || 9.81;
+    // Auto-upsert into Supabase
+    const { data: upserted, error: dbError } = await supabase
+      .from("analyses")
+      .upsert({
+        user_id: userId,
+        source_type: "video",
+        cloudinary_url: cloudinaryUrl,
+        object_type: parsed.object_type,
+        velocity: parsed.initial_velocity_m_s,
+        angle: parsed.launch_angle_deg,
+        height: parsed.launch_height_m,
+        analysis_summary_ar: parsed.motion_description_ar,
+        analysis_metadata: {
+          confidence: parsed.confidence_score,
+          provider,
+          engine: "APAS Video Elite",
+          frameCount: frames.length
+        },
+      })
+      .select()
+      .single();
 
-    const rad = angle * Math.PI / 180;
-    const v0x = v0 * Math.cos(rad);
-    const v0y = v0 * Math.sin(rad);
-    const maxHeight = h0 + (v0y * v0y) / (2 * g);
-    const totalTime = (v0y + Math.sqrt(v0y * v0y + 2 * g * h0)) / g;
-    const maxRange = v0x * totalTime;
-
-    const finalResult = {
-      ...parsed,
-      v0x: Math.round(v0x * 100) / 100,
-      v0y: Math.round(v0y * 100) / 100,
-      maxHeight: Math.round(maxHeight * 100) / 100,
-      maxRange: Math.round(maxRange * 100) / 100,
-      totalTime: Math.round(totalTime * 100) / 100,
-      processingTimeMs: Date.now() - startTime,
-      provider
-    };
+    if (dbError) console.error("Database error:", dbError);
 
     return new Response(JSON.stringify({ 
-      text: buildMarkdownReport(isAr, finalResult),
-      analysis: finalResult 
-    }), { headers: corsHeaders });
+      text: parsed.motion_description_ar, 
+      analysis: parsed,
+      recordId: upserted?.id
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (e) {
-    console.error("video-analyze error:", e);
+    console.error("video-analyze elite error:", e);
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
   }
 });
-
-function buildMarkdownReport(isAr: boolean, r: any): string {
-  return `
-# ${isAr ? "تقرير تحليل الفيديو APAS" : "APAS Video Analysis Report"}
-
-- **${isAr ? "الكائن:" : "Object:"}** ${r.objectType}
-- **${isAr ? "السرعة المقدرة:" : "Estimated Velocity:"}** ${r.velocity} m/s
-- **${isAr ? "الزاوية:" : "Angle:"}** ${r.angle}°
-- **${isAr ? "الارتفاع:" : "Height:"}** ${r.height} m
-
-### ${isAr ? "التحليل الحركي:" : "Kinetic Analysis:"}
-${r.motionDescription}
-
-### ${isAr ? "ملخص APAS:" : "APAS Summary:"}
-${r.analysis_summary_ar}
-
----
-*${isAr ? "تم التحليل بواسطة:" : "Analyzed by:"} ${r.provider}*
-`;
-}

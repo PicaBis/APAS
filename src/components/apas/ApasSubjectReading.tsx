@@ -231,6 +231,27 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
     }
 
     try {
+      // Step 1: Upload to Cloudinary
+      let cloudinaryUrl: string | null = null;
+      try {
+        const cloudFormData = new FormData();
+        cloudFormData.append('file', `data:${mimeType};base64,${base64}`);
+        cloudFormData.append('upload_preset', 'apas_unsigned');
+        cloudFormData.append('folder', 'apas-subject');
+
+        const cloudRes = await fetch(
+          `https://api.cloudinary.com/v1_1/dicpl6wjs/image/upload`,
+          { method: 'POST', body: cloudFormData }
+        );
+        if (cloudRes.ok) {
+          const cloudData = await cloudRes.json();
+          cloudinaryUrl = cloudData.secure_url || cloudData.url || null;
+        }
+      } catch (err) {
+        console.warn('Cloudinary upload failed for subject image', err);
+      }
+
+      // Step 2: Call subject-reading edge function
       const resp = await fetch(EDGE_SUBJECT_URL, {
         method: 'POST',
         headers: {
@@ -242,50 +263,60 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
           imageBase64: base64,
           mimeType,
           lang,
+          userId: null, // Should add auth if available
+          cloudinaryUrl,
         }),
       });
 
       if (resp.ok) {
         const data = await resp.json();
-        if (data.text) {
+        if (data.analysis) {
           setProgress(100);
           setAnalysisStep('results');
           await new Promise(r => setTimeout(r, 400));
 
-          const parsed = parseSubjectResponse(data.text);
-          setSubjectData(parsed);
-          setExplanationText(parsed.explanation || '');
-          setSolutionText(parsed.solution || '');
+          const parsed = data.analysis;
+          setSubjectData({
+            recognized: parsed.recognized,
+            subject_data_ar: parsed.subject_data_ar,
+            step_by_step_solution_ar: parsed.step_by_step_solution_ar,
+            final_answer_ar: parsed.final_answer_ar,
+            extractedData: {
+              velocity: parsed.extracted_params?.v0,
+              angle: parsed.extracted_params?.angle,
+              height: parsed.extracted_params?.h0,
+              gravity: parsed.extracted_params?.g,
+            },
+            isProjectileMotion: true, // Assuming elite solver treats everything as physics
+          } as any);
+
+          setExplanationText(parsed.step_by_step_solution_ar || '');
+          setSolutionText(parsed.final_answer_ar || '');
 
           // Add to history
           setHistory(prev => [{
             id: Date.now(),
             timestamp: new Date(),
-            data: parsed,
-            explanationText: parsed.explanation || '',
-            solutionText: parsed.solution || '',
+            data: { recognized: parsed.recognized, extractedData: parsed.extracted_params } as any,
+            explanationText: parsed.step_by_step_solution_ar || '',
+            solutionText: parsed.final_answer_ar || '',
             thumbnailData: previewUrl || undefined,
           }, ...prev].slice(0, 20));
 
-          if (parsed.recognized && parsed.extractedData) {
-            const ed = parsed.extractedData;
-            if (parsed.isProjectileMotion) {
-              const appliedParams = {
-                velocity: ed.velocity,
-                angle: ed.angle,
-                height: ed.height,
-                mass: ed.mass,
-              };
-              onUpdateParams(appliedParams);
-              onAnalysisComplete?.({
-                type: 'subject',
-                report: parsed.explanation || '',
-                params: appliedParams,
-              });
-              toast.success(isAr ? 'تم استخراج بيانات التمرين وتطبيقها على المحاكاة' : 'Exercise data extracted and applied to simulation');
-            }
-          } else {
-            toast.info(isAr ? 'لم اتعرف على التمرين' : 'I did not recognize the exercise');
+          if (parsed.recognized && parsed.extracted_params) {
+            const ed = parsed.extracted_params;
+            const appliedParams = {
+              velocity: ed.v0,
+              angle: ed.angle,
+              height: ed.h0,
+            };
+            onUpdateParams(appliedParams);
+            onAnalysisComplete?.({
+              type: 'subject',
+              report: parsed.step_by_step_solution_ar || '',
+              params: appliedParams,
+            });
+            toast.success(isAr ? 'تم استخراج بيانات التمرين وتطبيقها على المحاكاة' : 'Exercise data extracted and applied to simulation');
           }
         } else {
           setExplanationText(isAr ? 'لم اتعرف على التمرين' : 'I did not recognize the exercise');
@@ -296,7 +327,8 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
         setSubjectData({ recognized: false });
         toast.error(isAr ? 'تعذر التحليل' : 'Analysis failed');
       }
-    } catch {
+    } catch (err) {
+      console.error('Subject reading error:', err);
       toast.error(isAr ? 'خطأ في الاتصال' : 'Connection error');
       setExplanationText(isAr ? 'خطأ في الاتصال — تحقق من اتصالك بالإنترنت' : 'Connection error — check your internet');
       setSubjectData({ recognized: false });
