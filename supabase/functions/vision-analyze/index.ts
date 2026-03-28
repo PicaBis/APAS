@@ -172,98 +172,133 @@ function buildMistralVisionPrompt(lang: string): string {
 
 // \u2500\u2500 Mistral Vision API Call (EXCLUSIVE - no Groq/LLaMA fallback) \u2500\u2500
 
-// Mistral vision models ordered by priority for fallback
-const MISTRAL_VISION_MODELS = [
-  "pixtral-large-latest",    // Primary: most powerful Mistral vision model (124B)
-  "pixtral-12b-2409",        // Fallback 1: lighter Mistral vision model (12B)
-  "mistral-small-latest",    // Fallback 2: Mistral Small with vision capabilities
-];
+const MISTRAL_VISION_MODELS = ["pixtral-12b-2409", "pixtral-large-latest"];
+const GROQ_VISION_MODEL = "llama-3.2-90b-vision-preview";
+const GEMINI_VISION_MODEL = "gemini-1.5-flash";
 
-async function callMistralVision(
+async function callAiWithFallback(
   imageBase64: string,
   mimeType: string,
   lang: string,
-  cloudinaryUrl?: string | null,
-): Promise<string> {
-  const apiKey = Deno.env.get("MISTRAL_API_KEY");
-  if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
-
+  cloudinaryUrl: string | null | undefined,
+): Promise<{ text: string; provider: string }> {
+  const isAr = lang === "ar";
+  const systemMessage = "You are Professor APAS - a senior mechanical physics expert from ENS Paris. Follow all instructions precisely.";
   const prompt = buildMistralVisionPrompt(lang);
-  const dataUrl = "data:" + mimeType + ";base64," + imageBase64;
+  const dataUrl = `data:${mimeType};base64,${imageBase64}`;
 
-  const systemMessage = "You are a World-Class Physics Professor from ENS (Ecole Normale Superieure, Paris). Analyze the provided image with EXTREME PRECISION. " +
-    "CRITICAL IMAGE UNDERSTANDING: You MUST carefully examine every pixel of this specific image. Describe EXACTLY what you see - the colors, shapes, objects, environment, background, lighting, and context. " +
-    "Each image is UNIQUE - you must provide DIFFERENT analysis for DIFFERENT images. NEVER give generic or template responses. " +
-    "OBJECT IDENTIFICATION: Identify the SPECIFIC object in the image based on its visual appearance - shape, color, texture, size relative to surroundings. " +
-    "DO NOT default to 'cannonball'. Look at what is actually in the image: Basketball (orange, textured), Soccer ball (black/white panels), Tennis ball (yellow/green, fuzzy), Baseball (white, red stitches), Golf ball (small, white, dimpled), Stone/Rock (irregular, gray/brown), Arrow (thin, pointed), Javelin (long, thin), Rocket (cylindrical with fins), etc. " +
-    "CONTEXT & SCALE: Use visible reference objects (humans ~1.7m, doors ~2m, cars ~1.5m tall, trees ~5-10m) to estimate real-world scale. Note the environment (indoor/outdoor, field, sky, laboratory, etc.). " +
-    "PHYSICS ESTIMATION: Based on YOUR visual analysis of THIS SPECIFIC image, estimate launch angle from trajectory arc or body posture, initial velocity from sport type and visible motion blur or arc, launch height from ground references. " +
-    "CALCULATION: Use y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) to verify consistency. " +
-    "You MUST respond with ONLY valid JSON - no markdown, no extra text. " +
-    "CRITICAL: Provide realistic NON-ZERO values unique to THIS image. A professor NEVER returns zeros or generic values - they provide expert estimates based on careful visual analysis of the SPECIFIC image provided. " +
-    "Include 'analysis_summary_ar' with a detailed expert explanation in ARABIC describing exactly what you see and how the physics applies to this specific object.";
+  const mistralKey = Deno.env.get("MISTRAL_API_KEY");
+  const groqKey = Deno.env.get("GROQ_API_KEY");
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
 
-  // Use Cloudinary URL if available (better for Mistral which handles URLs well), otherwise use base64
-  const imageContent = cloudinaryUrl
-    ? { type: "image_url" as const, image_url: { url: cloudinaryUrl } }
-    : { type: "image_url" as const, image_url: { url: dataUrl } };
+  const errors: string[] = [];
 
-  let lastError: Error | null = null;
+  // --- 1. TRY MISTRAL (Primary) ---
+  if (mistralKey) {
+    for (const model of MISTRAL_VISION_MODELS) {
+      try {
+        console.log(`[vision-analyze] Trying Mistral (${model})...`);
+        const imageContent = cloudinaryUrl
+          ? { type: "image_url", image_url: { url: cloudinaryUrl } }
+          : { type: "image_url", image_url: { url: dataUrl } };
 
-  for (const model of MISTRAL_VISION_MODELS) {
-    try {
-      console.log("[vision-analyze] Trying Mistral model: " + model);
-
-      const result = await retryWithBackoff(async () => {
         const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + apiKey,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${mistralKey}` },
           body: JSON.stringify({
             model,
             messages: [
               { role: "system", content: systemMessage },
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  imageContent,
-                ],
-              },
+              { role: "user", content: [{ type: "text", text: prompt }, imageContent] },
             ],
             temperature: 0.2,
             max_tokens: 4000,
           }),
         });
 
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error("Mistral API error (" + res.status + "): " + err);
-        }
-
+        if (!res.ok) throw new Error(`Mistral ${model} error: ${res.status}`);
         const data = await res.json();
-        return data.choices?.[0]?.message?.content || "";
-      }, "Mistral-Vision-" + model);
-
-      console.log("[vision-analyze] Mistral model " + model + " succeeded");
-      return result;
-    } catch (err) {
-      lastError = err as Error;
-      const errMsg = lastError.message || "";
-      // If model is decommissioned (400) or not found (404), try next model
-      const isModelError = errMsg.includes("400") || errMsg.includes("404") || errMsg.includes("decommissioned") || errMsg.includes("not found") || errMsg.includes("does not exist");
-      if (isModelError) {
-        console.warn("[vision-analyze] Mistral model " + model + " unavailable: " + errMsg + ", trying next...");
-        continue;
+        const text = data.choices?.[0]?.message?.content;
+        if (text) return { text, provider: `Mistral (${model})` };
+      } catch (err) {
+        console.warn(`[vision-analyze] Mistral ${model} failed:`, (err as Error).message);
+        errors.push(`Mistral ${model}: ${(err as Error).message}`);
       }
-      // For other errors (rate limit exhausted after retries, server error), throw
-      throw lastError;
     }
   }
 
-  throw lastError || new Error("All Mistral vision models failed");
+  // --- 2. TRY GROQ (Secondary) ---
+  if (groqKey) {
+    try {
+      console.log(`[vision-analyze] Falling back to Groq (${GROQ_VISION_MODEL})...`);
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+        body: JSON.stringify({
+          model: GROQ_VISION_MODEL,
+          messages: [
+            { role: "system", content: systemMessage },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: dataUrl } },
+              ],
+            },
+          ],
+          temperature: 0.2,
+          max_tokens: 4000,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Groq error: ${res.status}`);
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content;
+      if (text) return { text, provider: "Groq (Llama Vision)" };
+    } catch (err) {
+      console.warn("[vision-analyze] Groq failed:", (err as Error).message);
+      errors.push(`Groq: ${(err as Error).message}`);
+    }
+  }
+
+  // --- 3. TRY GEMINI (Tertiary) ---
+  if (geminiKey) {
+    try {
+      console.log(`[vision-analyze] Falling back to Gemini (${GEMINI_VISION_MODEL})...`);
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${geminiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: `${systemMessage}\n\n${prompt}` },
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+            ],
+          }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 4000 },
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return { text, provider: "Gemini Flash" };
+    } catch (err) {
+      console.warn("[vision-analyze] Gemini failed:", (err as Error).message);
+      errors.push(`Gemini: ${(err as Error).message}`);
+    }
+  }
+
+  throw new Error(`All vision providers failed: ${errors.join(" | ")}`);
+}
+
+async function callMistralVision(
+  imageBase64: string,
+  mimeType: string,
+  lang: string,
+  cloudinaryUrl?: string | null,
+): Promise<{ text: string; provider: string }> {
+  return await callAiWithFallback(imageBase64, mimeType, lang, cloudinaryUrl);
 }
 
 // \u2500\u2500 JSON Parser \u2500\u2500
@@ -461,9 +496,19 @@ function buildReport(
     (verification.verified ? "\u2705 " : "\u26a0\ufe0f ") + verification.note,
     "",
     finalJson.consistencyNote ? (finalJson.consistencyNote as string) + "\n" : "",
-    (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Mistral AI (Pixtral Vision)",
+    (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + finalJson.providers.extraction,
     (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",
   ];
+  
+  // If fallback was used (Mistral failed), add a notice
+  const usedFallback = !String(finalJson.providers.extraction).toLowerCase().includes("mistral");
+  if (usedFallback) {
+    const fallbackNotice = isAr
+      ? `> \u2139\ufe0f **\u0645\u0644\u062d\u0648\u0638\u0629**: \u062a\u0645 \u0627\u0644\u062a\u062d\u0648\u064a\u0644 \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b \u0625\u0644\u0649 **${finalJson.providers.extraction}** \u0644\u0636\u0645\u0627\u0646 \u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0633\u062a\u062c\u0627\u0628\u0629.`
+      : `> \u2139\ufe0f **Note**: Automatically switched to **${finalJson.providers.extraction}** to ensure fast response.`;
+    lines.splice(lines.indexOf(isAr ? "# APAS AI \u062a\u0642\u0631\u064a\u0631 \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0645\u0642\u0630\u0648\u0641" : "# APAS AI Projectile Analysis Report") + 1, 0, "", fallbackNotice);
+  }
+
   return lines.join("\n");
 }
 
@@ -502,10 +547,10 @@ serve(async (req) => {
       console.log("[vision-analyze] Using Cloudinary URL:", imageUrl);
     }
 
-    // Call Mistral Vision (EXCLUSIVE - no Groq/LLaMA fallback)
-    console.log("[vision-analyze] Calling Mistral Vision (exclusive provider)...");
-    const rawResponse = await callMistralVision(imageBase64, mimeType || "image/jpeg", lang, cloudinaryUrl);
-    console.log("[vision-analyze] Mistral response length:", rawResponse.length);
+    // Call AI Vision with fallback (Mistral -> Groq -> Gemini)
+    console.log("[vision-analyze] Calling AI Vision with fallback...");
+    const { text: rawResponse, provider } = await callMistralVision(imageBase64, mimeType || "image/jpeg", lang, cloudinaryUrl);
+    console.log(`[vision-analyze] AI response length: ${rawResponse.length} (from ${provider})`);
 
     const parsed = parseJsonFromText(rawResponse);
 
@@ -628,7 +673,7 @@ serve(async (req) => {
       imageDescription: imageDescription,
       verified: verification.verified,
       energyError: Math.round(verification.energyError * 10000) / 100,
-      providers: { extraction: "Mistral", solving: "Mistral" },
+      providers: { extraction: provider, solving: provider },
       processingTimeMs: processingTime,
       consistencyNote: consistencyNote,
     };
@@ -662,7 +707,7 @@ serve(async (req) => {
       report_text: scientificExplanation,
       report_lang: isAr ? "ar" : "en",
       analysis_summary_ar: analysisSummaryAr,
-      ai_provider: "Mistral",
+      ai_provider: provider.split(" ")[0],
       processing_time_ms: processingTime,
       user_id: userId || null,
     };

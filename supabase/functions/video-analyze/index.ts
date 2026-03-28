@@ -151,101 +151,124 @@ function buildVideoVisionPrompt(_lang?: string): string {
   ].join("\n");
 }
 
-// Mistral vision models ordered by priority for fallback
-const MISTRAL_VIDEO_VISION_MODELS = [
-  "pixtral-large-latest",    // Primary: most powerful Mistral vision model (124B)
-  "pixtral-12b-2409",        // Fallback 1: lighter Mistral vision model (12B)
-  "mistral-small-latest",    // Fallback 2: Mistral Small with vision capabilities
-];
+const MISTRAL_VIDEO_VISION_MODELS = ["pixtral-large-latest", "pixtral-12b-2409"];
+const GROQ_VISION_MODEL = "llama-3.2-90b-vision-preview";
+const GEMINI_VISION_MODEL = "gemini-1.5-flash";
 
-async function callMistralVideoAnalysis(
+async function callAiWithFallback(
   frames: Array<{ data: string; timestamp: number }>,
   lang: string,
-): Promise<string> {
-  const apiKey = Deno.env.get("MISTRAL_API_KEY");
-  if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
-
+): Promise<{ text: string; provider: string }> {
   const visionPrompt = buildVideoVisionPrompt(lang);
+  const systemMessage = "You are Professor APAS, the Elite Analyzer from ENS Paris. Analyze these video frames for projectile motion. Respond with ONLY valid JSON.";
 
-  // Build vision content with frames
-  const visionContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-  visionContent.push({ type: "text", text: visionPrompt + "\n\nNote: Showing key frames from the video." });
+  const mistralKey = Deno.env.get("MISTRAL_API_KEY");
+  const groqKey = Deno.env.get("GROQ_API_KEY");
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
 
-  const mistralMaxFrames = Math.min(6, frames.length);
-  const step = frames.length > 1 ? (frames.length - 1) / (mistralMaxFrames - 1) : 0;
-  for (let i = 0; i < mistralMaxFrames; i++) {
-    const idx = Math.round(i * step);
-    const frame = frames[idx];
-    const ts = typeof frame.timestamp === "number" ? frame.timestamp.toFixed(3) : String(idx * 0.1);
-    visionContent.push({ type: "text", text: "--- Frame " + (i + 1) + "/" + mistralMaxFrames + " (Time: " + ts + "s) ---" });
+  const errors: string[] = [];
 
-    let base64Data = frame.data;
-    let frameMime = "image/jpeg";
-    if (base64Data.startsWith("data:")) {
-      const match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        frameMime = match[1];
-        base64Data = match[2];
-      }
-    }
-    const dataUrl = "data:" + frameMime + ";base64," + base64Data;
-    visionContent.push({ type: "image_url", image_url: { url: dataUrl } });
-  }
+  // --- 1. TRY MISTRAL (Primary) ---
+  if (mistralKey) {
+    for (const model of MISTRAL_VIDEO_VISION_MODELS) {
+      try {
+        console.log(`[video-analyze] Trying Mistral (${model})...`);
+        const visionContent: any[] = [{ type: "text", text: visionPrompt }];
+        const mistralFrames = frames.slice(0, 6);
+        mistralFrames.forEach((f, i) => {
+          visionContent.push({ type: "text", text: `Frame ${i + 1}` });
+          visionContent.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${f.data}` } });
+        });
 
-  const systemMessage = "You are Professor APAS, the Elite Analyzer from ENS. ZERO BIAS: Provide strictly scientific estimates based on pixels and physics. " +
-    "CRITICAL: Identify the ACTUAL object in the video frames - DO NOT default to cannonball. Look at colors, shapes, textures, and context. " +
-    "Use the equation y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta)) for consistency. Respond with ONLY valid JSON. NEVER return zeros.";
-
-  let lastError: Error | null = null;
-
-  for (const model of MISTRAL_VIDEO_VISION_MODELS) {
-    try {
-      console.log("[video-analyze] Trying Mistral model: " + model);
-
-      const result = await retryWithBackoff(async () => {
         const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + apiKey,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${mistralKey}` },
           body: JSON.stringify({
             model,
-            messages: [
-              { role: "system", content: systemMessage },
-              { role: "user", content: visionContent },
-            ],
+            messages: [{ role: "system", content: systemMessage }, { role: "user", content: visionContent }],
             temperature: 0.2,
             max_tokens: 4000,
           }),
         });
 
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error("Mistral API error (" + res.status + "): " + err);
-        }
-
+        if (!res.ok) throw new Error(`Mistral ${model} error: ${res.status}`);
         const data = await res.json();
-        return data.choices?.[0]?.message?.content || "";
-      }, "Mistral-Video-" + model);
-
-      console.log("[video-analyze] Mistral model " + model + " succeeded");
-      return result;
-    } catch (err) {
-      lastError = err as Error;
-      const errMsg = lastError.message || "";
-      // If model is decommissioned (400) or not found (404), try next model
-      const isModelError = errMsg.includes("400") || errMsg.includes("404") || errMsg.includes("decommissioned") || errMsg.includes("not found") || errMsg.includes("does not exist");
-      if (isModelError) {
-        console.warn("[video-analyze] Mistral model " + model + " unavailable: " + errMsg + ", trying next...");
-        continue;
+        const text = data.choices?.[0]?.message?.content;
+        if (text) return { text, provider: `Mistral (${model})` };
+      } catch (err) {
+        console.warn(`[video-analyze] Mistral ${model} failed:`, (err as Error).message);
+        errors.push(`Mistral ${model}: ${(err as Error).message}`);
       }
-      // For other errors (rate limit exhausted after retries, server error), throw
-      throw lastError;
     }
   }
 
-  throw lastError || new Error("All Mistral video vision models failed");
+  // --- 2. TRY GROQ (Secondary) ---
+  if (groqKey) {
+    try {
+      console.log(`[video-analyze] Falling back to Groq (${GROQ_VISION_MODEL})...`);
+      const groqFrames = frames.slice(0, 4);
+      const visionContent: any[] = [{ type: "text", text: visionPrompt }];
+      groqFrames.forEach((f) => {
+        visionContent.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${f.data}` } });
+      });
+
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+        body: JSON.stringify({
+          model: GROQ_VISION_MODEL,
+          messages: [{ role: "system", content: systemMessage }, { role: "user", content: visionContent }],
+          temperature: 0.2,
+          max_tokens: 4000,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Groq error: ${res.status}`);
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content;
+      if (text) return { text, provider: "Groq (Llama Vision)" };
+    } catch (err) {
+      console.warn("[video-analyze] Groq failed:", (err as Error).message);
+      errors.push(`Groq: ${(err as Error).message}`);
+    }
+  }
+
+  // --- 3. TRY GEMINI (Tertiary) ---
+  if (geminiKey) {
+    try {
+      console.log(`[video-analyze] Falling back to Gemini (${GEMINI_VISION_MODEL})...`);
+      const parts = [
+        { text: `${systemMessage}\n\n${visionPrompt}` },
+        ...frames.map((f) => ({ inline_data: { mime_type: "image/jpeg", data: f.data } })),
+      ];
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${geminiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 4000 },
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return { text, provider: "Gemini Flash" };
+    } catch (err) {
+      console.warn("[video-analyze] Gemini failed:", (err as Error).message);
+      errors.push(`Gemini: ${(err as Error).message}`);
+    }
+  }
+
+  throw new Error(`All video providers failed: ${errors.join(" | ")}`);
+}
+
+async function callMistralVideoAnalysis(
+  frames: Array<{ data: string; timestamp: number }>,
+  lang: string,
+): Promise<{ text: string; provider: string }> {
+  return await callAiWithFallback(frames, lang);
 }
 
 // \u2500\u2500 JSON Parser \u2500\u2500
@@ -367,10 +390,10 @@ serve(async (req) => {
     const limitedFrames = limitFrames(frames);
     console.log("[video-analyze] Using " + limitedFrames.length + " frames (limited from " + frames.length + ")");
 
-    // Call Mistral Vision (EXCLUSIVE - no Groq/LLaMA fallback)
-    console.log("[video-analyze] Calling Mistral Vision (exclusive provider)...");
-    const rawResponse = await callMistralVideoAnalysis(limitedFrames, lang || "ar");
-    console.log("[video-analyze] Mistral response length:", rawResponse.length);
+    // Call AI Video Analysis with fallback (Mistral -> Groq -> Gemini)
+    console.log("[video-analyze] Calling AI Video Analysis with fallback...");
+    const { text: rawResponse, provider } = await callMistralVideoAnalysis(limitedFrames, lang || "ar");
+    console.log(`[video-analyze] AI response length: ${rawResponse.length} (from ${provider})`);
 
     const visionData = parseJsonFromText(rawResponse);
 
@@ -460,7 +483,7 @@ serve(async (req) => {
       framesUsed: limitedFrames.length,
       framesReceived: frames.length,
       analysisSummaryAr: analysisSummaryAr,
-      providers: { extraction: "Mistral", solving: "Mistral" },
+      providers: { extraction: provider, solving: provider },
       processingTimeMs: processingTime,
       consistencyNote,
     };
@@ -490,7 +513,7 @@ serve(async (req) => {
       report_text: motionDescription,
       report_lang: isAr ? "ar" : "en",
       analysis_summary_ar: analysisSummaryAr,
-      ai_provider: "Mistral",
+      ai_provider: provider.split(" ")[0],
       processing_time_ms: processingTime,
       user_id: userId || null,
     };
@@ -502,12 +525,21 @@ serve(async (req) => {
     }
 
     // Build report
+    const usedFallback = !provider.toLowerCase().includes("mistral");
+    let fallbackNotice = "";
+    if (usedFallback) {
+      fallbackNotice = isAr
+        ? `> \u2139\ufe0f **\u0645\u0644\u062d\u0648\u0638\u0629**: \u062a\u0645 \u0627\u0644\u062a\u062d\u0648\u064a\u0644 \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b \u0625\u0644\u0649 **${provider}** \u0644\u0636\u0645\u0627\u0646 \u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0633\u062a\u062c\u0627\u0628\u0629.`
+        : `> \u2139\ufe0f **Note**: Automatically switched to **${provider}** to ensure fast response.`;
+    }
+
     const report = [
       "```json",
       JSON.stringify(finalJson, null, 2),
       "```",
       "",
       isAr ? "# APAS AI \u062a\u0642\u0631\u064a\u0631 \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0641\u064a\u062f\u064a\u0648" : "# APAS AI Video Analysis Report",
+      fallbackNotice,
       "",
       isAr ? "## \u0627\u0644\u0643\u0627\u0626\u0646 \u0627\u0644\u0645\u0643\u062a\u0634\u0641" : "## Detected Object",
       (isAr ? "\u0627\u0644\u0646\u0648\u0639: " : "Type: ") + "**" + objectType + "**",
@@ -531,7 +563,7 @@ serve(async (req) => {
       (verification.verified ? "\u2705 " : "\u26a0\ufe0f ") + verification.note,
       "",
       finalJson.consistencyNote ? (finalJson.consistencyNote as string) + "\n" : "",
-      (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Mistral AI (Pixtral Vision)",
+      (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + provider,
       (isAr ? "\u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a: " : "Frames: ") + limitedFrames.length + "/" + frames.length + " used",
       (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",
     ];
