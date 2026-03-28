@@ -516,8 +516,33 @@ const Index = () => {
   // ═══ MOBILE LAYOUT ═══
   // ═══════════════════════════════════════════════
   if (isMobile) {
+    // تلميح تفاعلي للجوال
+    const [showTouchHint, setShowTouchHint] = useState(false);
+    useEffect(() => {
+      if (!localStorage.getItem('apas_touch_hint_shown')) {
+        setTimeout(() => setShowTouchHint(true), 1200);
+      }
+    }, []);
+    const handleDismissTouchHint = () => {
+      setShowTouchHint(false);
+      localStorage.setItem('apas_touch_hint_shown', '1');
+    };
     return (
       <PageTransition>
+        {showTouchHint && (
+          <div className="fixed inset-0 z-[1000] flex items-end justify-center pointer-events-none">
+            <div className="mb-24 bg-black/80 text-white rounded-2xl px-6 py-4 shadow-xl animate-fade-in pointer-events-auto flex flex-col items-center gap-2 max-w-xs">
+              <span className="text-lg font-bold">📱 {lang === 'ar' ? 'تلميح سريع' : 'Quick Tip'}</span>
+              <span className="text-sm">{lang === 'ar'
+                ? 'يمكنك السحب لتحريك المحاكاة، والقرص للتكبير أو التصغير.'
+                : 'You can drag to move the simulation, and pinch to zoom in or out.'}
+              </span>
+              <button onClick={handleDismissTouchHint} className="mt-2 px-4 py-1.5 rounded-lg bg-emerald-500 text-white font-bold shadow hover:bg-emerald-600 transition-all pointer-events-auto">
+                {lang === 'ar' ? 'فهمت' : 'Got it!'}
+              </button>
+            </div>
+          </div>
+        )}
         <div className={`min-h-screen bg-background relative overflow-hidden ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
           {/* Ambient background */}
           <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -1712,6 +1737,7 @@ const Index = () => {
                         gravity={sim.gravity}
                         observerType={relativity.enabled && relativity.mode === 'galilean' ? 'moving' : 'stationary'}
                         frameVelocity={relativity.enabled ? relativity.frameVelocity : 0}
+                        analysisHistory={analysisHistory}
                       />
                     </Suspense>
                   </div>

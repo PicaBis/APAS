@@ -11,6 +11,8 @@ import ApasWhiteboardScanner from '@/components/apas/ApasWhiteboardScanner';
 import ApasSlowMoAnalyzer from '@/components/apas/ApasSlowMoAnalyzer';
 import ApasReportGenerator from '@/components/apas/ApasReportGenerator';
 import AnalysisHistory from '@/components/apas/AnalysisHistory';
+import LearningModules from '@/components/apas/LearningModules';
+import InteractiveGuide from '@/components/apas/InteractiveGuide';
 import ShareSimulation from '@/components/apas/ShareSimulation';
 import SensorLab from '@/components/apas/SensorLab';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
@@ -102,6 +104,25 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
   return (
     <aside data-tour="right-panel" className={`space-y-3 sm:space-y-4 order-3 lg:sticky lg:top-16 lg:self-start lg:pt-2${isFocusMode ? ' hidden' : ''}`}>
+      {/* Interactive Guide */}
+      <InteractiveGuide lang={lang} />
+      {/* Interactive Learning Modules */}
+      <LearningModules lang={lang} analysisHistory={analysisHistory} />
+
+      {/* Live Sensor Input */}
+      <SensorLab
+        lang={lang}
+        muted={isMuted}
+        onDataCollected={(data) => {
+          // عند جمع بيانات المستشعر، استخدم آخر قراءة لتحديث السرعة/الزاوية
+          if (data && data.length > 0) {
+            const last = data[data.length - 1];
+            // مثال: استخدم تسارع المحور X لتحديث السرعة، وZ لتحديث الزاوية
+            if (typeof setVelocity === 'function') setVelocity(Math.abs(last.ax * 5));
+            if (typeof setAngle === 'function') setAngle(Math.max(10, Math.min(80, 45 + last.az)));
+          }
+        }}
+      />
       {/* Integration Methods - Simple Version */}
       <div className="border-2 border-border/40 rounded-2xl p-4 sm:p-5 bg-card/70 backdrop-blur-sm shadow-lg shadow-black/[0.06] dark:shadow-black/20 dark:border-border/30">
         <h3 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-tight mb-3 flex items-center gap-2.5">

@@ -3,6 +3,7 @@
 
 import type { TrajectoryPoint } from '@/utils/physics';
 import type { ForceVector } from './types';
+import { computeVectorsInWorker } from '@/utils/physicsWorkerManager';
 
 export interface VectorSet {
   velocity: { x: number; y: number; z: number; magnitude: number };
@@ -13,14 +14,22 @@ export interface VectorSet {
   netForce: { x: number; y: number; z: number; magnitude: number };
 }
 
-export function computeVectors(
+export async function computeVectors(
   point: TrajectoryPoint,
   _prevPoint: TrajectoryPoint | null,
   _nextPoint: TrajectoryPoint | null,
   mass: number,
   gravity: number,
   airResistance: number,
-): VectorSet {
+): Promise<VectorSet> {
+  // إذا كان في بيئة متصفح تدعم Worker استخدمه
+  if (typeof window !== 'undefined' && typeof Worker !== 'undefined') {
+    try {
+      return await computeVectorsInWorker({ point, prevPoint: _prevPoint, nextPoint: _nextPoint, mass, gravity, airResistance });
+    } catch {
+      // fallback
+    }
+  }
   // Velocity — use instantaneous velocity components directly from physics engine
   const vx = point.vx;
   const vy = point.vy;

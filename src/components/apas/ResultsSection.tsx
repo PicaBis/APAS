@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Lock } from 'lucide-react';
 import AnimatedValue from '@/components/apas/AnimatedValue';
 import CollapsibleSection from '@/components/apas/CollapsibleSection';
@@ -22,8 +22,61 @@ interface ResultsSectionProps {
 
 const ResultsSection: React.FC<ResultsSectionProps> = ({
   lang, T, prediction, velocity, angle, height, gravity,
-  showPathInfo, onTogglePathInfo, hasModelAnalysis = false,
+  airResistance, mass, showPathInfo, onTogglePathInfo, hasModelAnalysis = false,
 }) => {
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // إعداد بيانات المحاكاة لإرسالها للذكاء الاصطناعي
+  const simContext = {
+    velocity,
+    angle,
+    height,
+    gravity,
+    airResistance,
+    mass,
+    range: prediction.range?.toFixed(2),
+    maxHeight: prediction.maxHeight?.toFixed(2),
+    flightTime: prediction.timeOfFlight?.toFixed(2),
+  };
+
+  // دالة إرسال البيانات للذكاء الاصطناعي
+  const handleAIExplain = async () => {
+    setAiLoading(true);
+    setAiError(null);
+    setAiExplanation(null);
+    try {
+      const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
+      const res = await fetch(EDGE_TUTOR_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'أنت مساعد فيزيائي ذكي. حلل نتائج المحاكاة التالية وفسرها للمستخدم بلغة بسيطة، واقترح عليه كيف يمكنه تحسين النتائج أو فهمها بشكل أفضل.' },
+            { role: 'user', content: `نتائج المحاكاة: ${JSON.stringify(simContext)}` },
+          ],
+          lang,
+        }),
+      });
+      if (!res.body) throw new Error('No response from AI');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let explanation = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        explanation += decoder.decode(value, { stream: true });
+      }
+      // محاولة استخراج النص من الاستجابة (قد تكون بصيغة SSE)
+      const match = explanation.match(/"content"\s*:\s*"([^"]+)"/);
+      setAiExplanation(match ? match[1] : explanation);
+    } catch (err) {
+      setAiError(lang === 'ar' ? 'حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.' : 'AI request failed.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
   const { isGuest, user } = useAuth();
   // Predictions are only shown after an actual AI analysis (Vision/Video/Subject/Voice)
   // Even logged-in users or developers see the locked state until they analyze something
@@ -79,7 +132,28 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
             ))}
           </div>
 
-          {/* Advanced Path Information section with spacing adjusted downward */}
+          {/* زر التحليل الذكي */}
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={handleAIExplain}
+              disabled={aiLoading}
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500/80 to-emerald-500/80 text-white font-bold shadow hover:from-blue-600 hover:to-emerald-600 transition-all disabled:opacity-60"
+            >
+              {aiLoading
+                ? (lang === 'ar' ? 'جاري التحليل الذكي...' : lang === 'fr' ? 'Analyse intelligente...' : 'Smart Analysis...')
+                : (lang === 'ar' ? 'تحليل ذكي للنتائج' : lang === 'fr' ? 'Analyse intelligente' : 'Smart Analysis')}
+            </button>
+          </div>
+          {/* عرض تفسير الذكاء الاصطناعي */}
+          {(aiExplanation || aiError) && (
+            <div className="mt-4 p-4 rounded-xl bg-primary/10 border border-primary/30 text-primary-foreground animate-fade-in">
+              {aiError ? (
+                <span className="text-red-500 font-bold">{aiError}</span>
+              ) : (
+                <span style={{ whiteSpace: 'pre-line' }}>{aiExplanation}</span>
+              )}
+            </div>
+          )}
           <div className="mt-4">
             <CollapsibleSection
               title={lang === 'ar' ? '📋 معلومات المسار المتقدمة — Advanced' : lang === 'fr' ? '📋 Informations de Trajectoire Avancées — Advanced' : '📋 Advanced Path Information'}

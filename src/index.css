@@ -642,8 +642,15 @@ select:hover, input[type="number"]:hover, input[type="text"]:hover, textarea:hov
 
 /* ═══ Mobile touch targets ═══ */
 @media (max-width: 639px) {
-  button { min-height: 36px; }
+  button {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 1.08rem;
+    margin-bottom: 0.25rem;
+    border-radius: 0.9rem;
+  }
   .eq-box { font-size: 11px; padding: 8px 10px; }
+  .apas-assistant-btn { min-height: 48px; font-size: 1.1rem; }
 }
 
 /* ═══ Enhanced Focus & Active States ═══ */
@@ -755,7 +762,9 @@ body, .apas-panel, .apas-item, .eq-box, .academic-table, select, input, textarea
 }
 
 /* Touch manipulation for better mobile responsiveness */
-.touch-manipulation {
+.touch-manipulation,
+button,
+.apas-assistant-btn {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }

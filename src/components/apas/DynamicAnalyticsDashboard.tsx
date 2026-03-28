@@ -11,15 +11,120 @@ interface DynamicAnalyticsDashboardProps {
   gravity: number;
   observerType?: 'stationary' | 'moving';
   frameVelocity?: number;
+  analysisHistory?: Array<{
+    id: number;
+    timestamp: Date;
+    type: 'vision' | 'video' | 'subject' | 'voice';
+    report: string;
+    mediaSrc?: string;
+    mediaType?: 'video' | 'image';
+    params?: { velocity?: number; angle?: number; height?: number; mass?: number };
+  }>;
 }
 
 const DynamicAnalyticsDashboard: React.FC<DynamicAnalyticsDashboardProps> = ({
   lang, trajectoryData, currentTime, mass, gravity,
   observerType = 'stationary', frameVelocity = 0,
+  analysisHistory = [],
+}) => {
+  // ملخص إحصائي ذكي
+  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // حساب ملخصات سريعة
+  const totalExperiments = analysisHistory.length;
+  const avgRange = useMemo(() => {
+    if (!analysisHistory.length) return 0;
+    const ranges = analysisHistory.map(e => e.params?.velocity && e.params?.angle ? (e.params.velocity * Math.cos((e.params.angle * Math.PI) / 180) / 9.81) * (e.params.velocity * Math.sin((e.params.angle * Math.PI) / 180) + Math.sqrt(Math.pow(e.params.velocity * Math.sin((e.params.angle * Math.PI) / 180), 2))) : 0);
+    return ranges.reduce((a, b) => a + b, 0) / ranges.length;
+  }, [analysisHistory]);
+  const bestRange = useMemo(() => {
+    if (!analysisHistory.length) return 0;
+    return Math.max(...analysisHistory.map(e => e.params?.velocity && e.params?.angle ? (e.params.velocity * Math.cos((e.params.angle * Math.PI) / 180) / 9.81) * (e.params.velocity * Math.sin((e.params.angle * Math.PI) / 180) + Math.sqrt(Math.pow(e.params.velocity * Math.sin((e.params.angle * Math.PI) / 180), 2))) : 0));
+  }, [analysisHistory]);
+  // أكثر خطأ متكرر (بسيط: تكرار نفس الزاوية أو السرعة)
+  const mostCommonAngle = useMemo(() => {
+    const counts: Record<string, number> = {};
+    analysisHistory.forEach(e => {
+      if (e.params?.angle !== undefined) {
+        const key = e.params.angle.toFixed(1);
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    });
+    let max = 0, val = '';
+    for (const k in counts) if (counts[k] > max) { max = counts[k]; val = k; }
+    return val;
+  }, [analysisHistory]);
+
+  // دالة توصية ذكية من الذكاء الاصطناعي
+  const handleAIAdvice = async () => {
+    setAiLoading(true);
+    setAiError(null);
+    setAiAdvice(null);
+    try {
+      const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
+      const summary = `عدد التجارب: ${totalExperiments}, متوسط المدى: ${avgRange.toFixed(2)}, أفضل مدى: ${bestRange.toFixed(2)}, الزاوية الأكثر استخدامًا: ${mostCommonAngle}`;
+      const res = await fetch(EDGE_TUTOR_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'أنت مساعد فيزيائي ذكي. بناءً على ملخص تجارب المستخدم، قدم له نصيحة أو خطة تطوير مناسبة.' },
+            { role: 'user', content: `ملخص تجارب المستخدم: ${summary}` },
+          ],
+          lang,
+        }),
+      });
+      if (!res.body) throw new Error('No response from AI');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let advice = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        advice += decoder.decode(value, { stream: true });
+      }
+      const match = advice.match(/"content"\s*:\s*"([^"]+)"/);
+      setAiAdvice(match ? match[1] : advice);
+    } catch (err) {
+      setAiError(lang === 'ar' ? 'حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.' : 'AI request failed.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 }) => {
   const isRTL = lang === 'ar';
 
   // Filter data up to current animation time
+  // ملخص إحصائي ذكي
+  <div className="mb-4 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-blue-500/5 border border-primary/20">
+    <h3 className="text-base font-bold mb-2">{lang === 'ar' ? 'ملخص تجاربك' : lang === 'fr' ? 'Résumé de vos expériences' : 'Your Experiments Summary'}</h3>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm mb-2">
+      <div><span className="font-semibold">{lang === 'ar' ? 'عدد التجارب' : 'Experiments'}</span>: {totalExperiments}</div>
+      <div><span className="font-semibold">{lang === 'ar' ? 'متوسط المدى' : 'Avg Range'}</span>: {avgRange.toFixed(2)} m</div>
+      <div><span className="font-semibold">{lang === 'ar' ? 'أفضل مدى' : 'Best Range'}</span>: {bestRange.toFixed(2)} m</div>
+      <div><span className="font-semibold">{lang === 'ar' ? 'الزاوية الأكثر استخدامًا' : 'Most Used Angle'}</span>: {mostCommonAngle}</div>
+    </div>
+    <button
+      onClick={handleAIAdvice}
+      disabled={aiLoading}
+      className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500/80 to-emerald-500/80 text-white font-bold shadow hover:from-blue-600 hover:to-emerald-600 transition-all disabled:opacity-60 mt-2"
+    >
+      {aiLoading
+        ? (lang === 'ar' ? 'جاري توليد التوصية...' : lang === 'fr' ? 'Génération de conseil...' : 'Generating advice...')
+        : (lang === 'ar' ? 'احصل على توصية ذكية' : lang === 'fr' ? 'Obtenir un conseil intelligent' : 'Get Smart Advice')}
+    </button>
+    {(aiAdvice || aiError) && (
+      <div className="mt-3 p-3 rounded-xl bg-primary/10 border border-primary/30 text-primary-foreground animate-fade-in">
+        {aiError ? (
+          <span className="text-red-500 font-bold">{aiError}</span>
+        ) : (
+          <span style={{ whiteSpace: 'pre-line' }}>{aiAdvice}</span>
+        )}
+      </div>
+    )}
+  </div>
   const visibleData = useMemo(() => {
     if (!trajectoryData.length) return [];
     return trajectoryData.filter(p => p.time <= currentTime);

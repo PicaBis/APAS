@@ -106,6 +106,7 @@ const ObserverRelativityDashboard: React.FC<ObserverRelativityDashboardProps> = 
         gravity={gravity}
         observerType={observer}
         frameVelocity={observer === 'moving' ? frameVelocity : 0}
+        analysisHistory={analysisHistory}
       />
     </div>
   );
