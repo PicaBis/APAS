@@ -623,7 +623,6 @@ CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no extra text
           <span>{isAr ? 'توصيات' : 'Tips'}</span>
           <span className="font-extrabold">{isAr ? 'مهمة' : 'APAS'}</span>
         </span>
-        </span>
       </button>
 
       {/* Modal */}
