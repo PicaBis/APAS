@@ -29,7 +29,7 @@ const FooterRobot: React.FC = () => {
 
       {/* Robot SVG — uses CSS class to adapt colors in dark mode */}
       <svg
-        viewBox="0 0 260 220"
+        viewBox="-15 0 260 220"
         className="relative footer-robot-svg"
         style={{ width: '240px', height: '180px', zIndex: 2 }}
         xmlns="http://www.w3.org/2000/svg"
@@ -226,7 +226,7 @@ const FooterRobot: React.FC = () => {
         `}</style>
 
         {/* Ambient glow behind robot */}
-        <ellipse cx="130" cy="130" rx="75" ry="65" fill="url(#rbAmbient)" className="rb-breath" />
+        <ellipse cx="115" cy="130" rx="75" ry="65" fill="url(#rbAmbient)" className="rb-breath" />
 
         {/* === Shadow under the robot === */}
         <ellipse cx="115" cy="212" rx="42" ry="6" fill="#1e293b" opacity="0.10" />

@@ -2660,7 +2660,7 @@ const Index = () => {
                 </div>
                 <p className="text-[11px] text-muted-foreground">{T.footerSchool}</p>
                 <p className="text-[10px] font-mono text-muted-foreground/60 mt-2">v1.1 &mdash; 2025/2026</p>
-                <div className="relative inline-flex flex-col items-center mt-4" style={{ marginInlineEnd: '-20px' }}>
+                <div className="relative inline-flex flex-col items-center mt-4">
                   <FooterRobot />
                 </div>
                 {/* Did you know? tips — fixed position above bug report button */}
