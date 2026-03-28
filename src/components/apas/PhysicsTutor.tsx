@@ -7,6 +7,9 @@ import { toast } from 'sonner';
 import { playClick } from '@/utils/sound';
 import { cleanLatex } from '@/utils/cleanLatex';
 
+// AI calls go through edge functions which handle provider fallback internally
+const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
+
 type Msg = { role: 'user' | 'assistant'; content: string };
 
 interface SimContext {
@@ -27,10 +30,7 @@ interface Props {
   hasModel?: boolean;
 }
 
-// AI calls go through edge functions which handle provider fallback internally
 
-// cleanLatex is now imported from @/utils/cleanLatex
-const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function getGracefulFallback(text: string, lang: string) {
   const local = getLocalFallback(text, lang);
@@ -485,7 +485,7 @@ EQUATION FORMATTING RULES (VERY IMPORTANT — MUST FOLLOW):
   * Dollar signs: $...$ or $$...$$
   * Backslash commands: \\frac, \\cdot, \\theta, \\sqrt, \\text, \\left, \\right, \\implies, \\circ, \\times
   * Curly brace groups for math: {numerator}{denominator}
-  * Unicode subscripts/superscripts: v₀, θ, ², ·
+  * Unicode subscripts/superscripts: v₀, θ, ² ·
 - Write equations in simple readable format using only basic ASCII characters
 - Use: v0, theta, sin(), cos(), tan(), sqrt(), ^2, *, /, +, -
 - CORRECT equation format examples:
