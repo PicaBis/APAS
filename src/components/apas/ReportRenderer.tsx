@@ -21,8 +21,24 @@ function isEquationLine(line: string): boolean {
 export default function ReportRenderer({ text }: { text: string }) {
   // Enhanced renderer to catch mathematical expressions and wrap them in nice cards
   const renderContent = () => {
-    // Split by sections if they exist (e.g., "1.", "2.", "3.")
-    const sections = text.split(/\n(?=\d+\.)/);
+    // If text contains $ symbols or LaTeX commands, clean them before rendering
+    const cleanText = text
+      .replace(/\\\w+(\{.*?\})?/g, (match) => {
+        // Simple mapping for common LaTeX to plain text
+        if (match.includes('\\sin')) return 'sin';
+        if (match.includes('\\cos')) return 'cos';
+        if (match.includes('\\alpha')) return 'θ';
+        if (match.includes('\\theta')) return 'θ';
+        if (match.includes('\\sqrt')) return 'sqrt';
+        if (match.includes('\\frac{1}{2}')) return '½';
+        if (match.includes('\\cdot')) return '·';
+        if (match.includes('\\times')) return '·';
+        if (match.includes('\\circ')) return '°';
+        return match.replace(/\\/g, '');
+      })
+      .replace(/\$/g, '');
+
+    const sections = cleanText.split(/\n(?=\d+\.)/);
     
     return sections.map((section, sectionIdx) => {
       const lines = section.split('\n');
