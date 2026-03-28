@@ -402,4 +402,6 @@ const AnalysisHistory: React.FC<Props> = ({ lang, history, onClearHistory, onDel
       )}
     </>
   );
-}
+};
+
+export default AnalysisHistory;
