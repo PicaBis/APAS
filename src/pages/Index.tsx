@@ -119,7 +119,6 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
-  const [theme3d, setTheme3d] = useState<Theme3DId>('refined-lab');
   const [cameraMode, setCameraMode] = useState<'orbit' | 'pov' | 'follow'>('orbit');
   const [targetChallenge, setTargetChallenge] = useState<{ active: boolean; pos: { x: number; z: number } | null }>({ active: false, pos: null });
   const [webglError, setWebglError] = useState<string | null>(null);
