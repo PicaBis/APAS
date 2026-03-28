@@ -50,10 +50,11 @@ CRITICAL FORMATTING RULES (NO EXCEPTIONS):
    * \\frac{v_0^2}{2g}
 
 SOLVING STRATEGY (MANDATORY):
-- If the problem asks for V₀ and gives the Range (R) and Angle (θ), you MUST calculate V₀ using: V₀ = sqrt(R·g / sin(2θ)).
-- NEVER provide 0 or null for velocity or angle if they can be calculated from other given data in the image.
-- A professor NEVER returns 0 for a moving projectile. If a value is missing, derive it from the trajectory.
-- Ensure all calculated values are physically consistent (e.g., if range is 21.51m and angle is 45°, V₀ must be ~14.5 m/s, NOT 0).
+- READ THE ENTIRE EXERCISE: Extract "Given" data (معطيات) AND "Target" data (مطلوب).
+- SOLVE BEFORE RESPONDING: You MUST solve the physics problem to find unknowns (like V₀ or θ) BEFORE generating the final JSON block.
+- UPDATE JSON WITH RESULTS: The "extractedData" in JSON must contain the FINAL SOLVED VALUES to be applied to the simulation.
+- EXAMPLE: If the problem gives Range=21.51m and Angle=45°, you calculate V₀ ≈ 14.5 m/s and put "velocity": 14.5 in the JSON. NEVER put 0.
+- A professor NEVER returns 0 for a moving projectile. If a value is calculated in your solution text, it MUST be the same value in the JSON block.
 
 LANGUAGE RULES:
 - Respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}.
@@ -66,11 +67,11 @@ Respond with:
   "type": "projectile motion",
   "isProjectileMotion": true,
   "extractedData": {
-    "velocity": <calculated or extracted initial velocity in m/s>,
-    "angle": <calculated or extracted launch angle in degrees>,
-    "height": <calculated or extracted initial height in m>,
+    "velocity": <FINAL SOLVED initial velocity in m/s>,
+    "angle": <FINAL SOLVED launch angle in degrees>,
+    "height": <FINAL SOLVED initial height in m>,
     "mass": <extracted mass in kg or null>,
-    "range": <extracted horizontal range in m>,
+    "range": <extracted or solved horizontal range in m>,
     "gravity": <extracted gravity in m/s² or default 9.81>
   }
 }
@@ -207,16 +208,29 @@ Then provide in ${isAr ? "Arabic" : "English"}:
               }
             }
           } else if (v0 === 0 && givenRange != null && givenRange > 0 && angle != null && angle > 0) {
-            // Bugfix: if AI returns v0=0 but we have range and angle, calculate v0
-            const aRad = angle * Math.PI / 180;
-            const gVal = g || 9.81;
-            const sin2Theta = Math.sin(2 * aRad);
-            if (sin2Theta > 0) {
-              const derivedV0 = Math.sqrt((givenRange * gVal) / sin2Theta);
-              parsed.extractedData.velocity = Math.round(derivedV0 * 100) / 100;
-              console.log(`[subject-reading] Fixed zero velocity: derived ${parsed.extractedData.velocity} m/s from range ${givenRange} and angle ${angle}`);
+              // Bugfix: if AI returns v0=0 but we have range and angle, calculate v0
+              const aRad = angle * Math.PI / 180;
+              const gVal = g || 9.81;
+              const sin2Theta = Math.sin(2 * aRad);
+              if (sin2Theta > 0) {
+                const derivedV0 = Math.sqrt((givenRange * gVal) / sin2Theta);
+                parsed.extractedData.velocity = Math.round(derivedV0 * 100) / 100;
+                console.log(`[subject-reading] Fixed zero velocity: derived ${parsed.extractedData.velocity} m/s from range ${givenRange} and angle ${angle}`);
+              }
             }
-          }
+
+            // --- DEEP TEXT SCAN FALLBACK ---
+            // If velocity is still 0 or null, try to find a value in the text solution
+            if (!parsed.extractedData.velocity || parsed.extractedData.velocity === 0) {
+              const textVelocityMatch = text.match(/(?:v0|V₀|السرعة الابتدائية)\s*[:=≈]\s*(\d+\.?\d*)\s*(?:m\/s|م\/ث)/i);
+              if (textVelocityMatch && textVelocityMatch[1]) {
+                const foundV0 = parseFloat(textVelocityMatch[1]);
+                if (foundV0 > 0) {
+                  parsed.extractedData.velocity = foundV0;
+                  console.log(`[subject-reading] Fallback: Found velocity ${foundV0} in text solution.`);
+                }
+              }
+            }
 
           // If we have a valid velocity (either extracted or derived), finalize results
           if (parsed.extractedData.velocity != null && parsed.extractedData.velocity > 0) {
