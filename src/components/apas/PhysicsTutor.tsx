@@ -185,8 +185,7 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
 
   // Speech-to-text (STT) state
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
   const sendRef = useRef<(text: string) => Promise<void>>(null as any);
 
   // Stop speech when component unmounts or voice mode turns off
