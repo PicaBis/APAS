@@ -147,12 +147,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
     const time = Date.now() * 0.001;
     const fade = Math.min(prog * 2, 1);
 
-    // Subtle center radial glow - soft blue/gold
+    // Subtle center radial glow - soft blue
     const pulseScale = 1 + Math.sin(time * 0.6) * 0.05;
     const glowAlpha = (0.04 + Math.sin(time * 0.4) * 0.02) * fade;
     const centerGlow = ctx.createRadialGradient(w * 0.5, h * 0.4, 0, w * 0.5, h * 0.4, w * 0.4 * pulseScale);
     centerGlow.addColorStop(0, 'rgba(59,130,246,' + glowAlpha + ')');
-    centerGlow.addColorStop(0.4, 'rgba(245,158,11,' + (glowAlpha * 0.1) + ')');
+    centerGlow.addColorStop(0.4, 'rgba(59,130,246,' + (glowAlpha * 0.1) + ')');
     centerGlow.addColorStop(1, 'transparent');
     ctx.fillStyle = centerGlow;
     ctx.fillRect(0, 0, w, h);
@@ -160,7 +160,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
     // Subtle grid dots - darker for light theme
     if (fade > 0.3) {
       const gridAlpha = 0.08 * Math.min((fade - 0.3) * 2, 1);
-      ctx.fillStyle = 'rgba(71,85,105,' + gridAlpha + ')';
+      ctx.fillStyle = 'rgba(59,130,246,' + gridAlpha + ')';
       const spacing = 60;
       for (let gx = spacing; gx < w; gx += spacing) {
         for (let gy = spacing; gy < h; gy += spacing) {
@@ -171,7 +171,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
       }
     }
 
-    // Soft floating particles - blue and amber
+    // Soft floating particles - blue only
     for (let i = 0; i < 15; i++) {
       const px = w * (0.1 + 0.8 * ((Math.sin(time * 0.04 + i * 2.5) + 1) / 2));
       const py = h * (0.1 + 0.8 * ((Math.cos(time * 0.03 + i * 1.9) + 1) / 2));
@@ -179,11 +179,11 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
       const pAlpha = (0.1 + Math.sin(time * 0.5 + i) * 0.05) * fade;
       ctx.beginPath();
       ctx.arc(px, py, pRadius, 0, Math.PI * 2);
-      ctx.fillStyle = i % 3 === 0 ? 'rgba(245,158,11,' + pAlpha + ')' : 'rgba(59,130,246,' + pAlpha + ')';
+      ctx.fillStyle = 'rgba(59,130,246,' + pAlpha + ')';
       ctx.fill();
     }
 
-    // Projectile path animations in background
+    // Projectile path animations in background - blue only
     const drawProjectilePath = (startX: number, startY: number, v0: number, angle: number, color: string) => {
       const g = 9.8;
       const rad = angle * Math.PI / 180;
@@ -213,7 +213,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
     if (fade > 0.5) {
       const pathAlpha = 0.1 * Math.min((fade - 0.5) * 2, 1);
       drawProjectilePath(w * 0.1, h * 0.8, w * 0.08, 45, `rgba(59,130,246,${pathAlpha})`);
-      drawProjectilePath(w * 0.2, h * 0.9, w * 0.1, 30, `rgba(245,158,11,${pathAlpha})`);
+      drawProjectilePath(w * 0.2, h * 0.9, w * 0.1, 30, `rgba(59,130,246,${pathAlpha})`);
     }
   }, []);
 

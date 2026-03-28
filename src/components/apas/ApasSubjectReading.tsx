@@ -230,7 +230,46 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
       return;
     }
 
-    try {
+      const systemPrompt = `You are a Senior Physics Professor and Ballistics Expert. 
+Analyze the image of a physics problem or exercise.
+Your goal is to provide a comprehensive, expert-level report exactly in the following format:
+
+بناءً على تحليلي لهذا التمرين كأستاذ فيزياء، إليك المعطيات المتوقعة وكيف سيتصرف المقذوف في هذا السيناريو:
+
+1. تحليل البيئة والمعطيات المستخرجة:
+- الجسم (Projectile): [Identify the object and estimated mass, e.g., كرة تنس 58 جرام]
+- المرجع (Origin): [Identify the starting point, e.g., من يد الرامي أو فوهة المدفع]
+- الارتفاع الابتدائي (h): [Extract or estimate initial height with unit]
+- الزاوية المتوقعة (θ): [Extract or estimate launch angle with decimal precision]
+- السرعة الابتدائية (v0): [Extract or estimate initial velocity with unit]
+
+2. توقع مسار الحركة:
+[Provide a step-by-step description: Launch, Peak (where vy=0), Descent, and Impact/Range. Use academic physics terminology.]
+
+3. لماذا هذا التحليل منطقي؟
+- [Reason 1: e.g., Direct extraction from text]
+- [Reason 2: e.g., Physics laws application]
+
+رأيي الفني: [Provide a brief expert summary].
+
+ماذا لو كانت مائلة؟ [Briefly describe the change if the angle was different].
+
+You MUST also provide a JSON block at the end:
+{
+  "recognized": true,
+  "isProjectileMotion": true,
+  "type": "string",
+  "extractedData": {
+    "velocity": float,
+    "angle": float,
+    "height": float,
+    "mass": float,
+    "gravity": 9.81
+  },
+  "explanation": "The full text report above",
+  "solution": "Step-by-step mathematical solution if applicable"
+}`;
+
       const resp = await fetch(EDGE_SUBJECT_URL, {
         method: 'POST',
         headers: {
@@ -242,6 +281,7 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
           imageBase64: base64,
           mimeType,
           lang,
+          systemPrompt, // Passing the enhanced expert prompt
         }),
       });
 

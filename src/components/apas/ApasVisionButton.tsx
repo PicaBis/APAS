@@ -231,13 +231,29 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
 
       const systemPrompt = `You are a Senior Physics Professor and Ballistics Expert. 
 Analyze the image to extract projectile motion parameters with high precision.
-1. Identify the projectile (object) and its starting point (Origin).
-2. Look for calibration objects (like rulers, hands, furniture) to estimate scale.
-3. Determine Launch Angle (θ): 
-   - If the hand/launcher is pointing straight up, it's 85-89.9°.
-   - If tilted forward, estimate based on the launch vector (10-75°). Use decimal precision (e.g., 42.35°).
-4. Estimate Initial Velocity (v0): Based on the context (indoor hand toss is usually 2-5m/s, outdoor kick 15-25m/s).
-5. Output in JSON format inside a code block:
+Your goal is to provide a comprehensive, expert-level report exactly in the following format:
+
+بناءً على تحليلي لهذه الصورة كأستاذ فيزياء، إليك المعطيات المتوقعة وكيف سيتصرف المقذوف في هذا السيناريو:
+
+1. تحليل البيئة والمعطيات المستخرجة:
+- الجسم (Projectile): [Identify the object and estimated mass, e.g., كرة صغيرة ملونة، وزنها غالباً 50 جرام]
+- المرجع (Origin): [Identify the starting point, e.g., مركز الكرة في يد الشخص]
+- الارتفاع الابتدائي (h): [Extract or estimate initial height with unit, e.g., 0.2 إلى 0.4 متر]
+- الزاوية المتوقعة (θ): [Extract or estimate launch angle with decimal precision, e.g., 88.45°]
+- السرعة الابتدائية (v0): [Extract or estimate initial velocity with unit, e.g., 3.62 م/ث]
+
+2. توقع مسار الحركة (كيف ستمشي الصورة):
+[Provide a step-by-step description: Launch, Peak (where vy=0), Descent, and Impact/Range. Use phrases like "ستنطلق الكرة للأعلى", "ستصل الكرة إلى أقصى ارتفاع", "ستعود الكرة للسقوط شاقولياً"]
+
+3. لماذا هذا التحليل منطقي؟
+- [Reason 1: e.g., Calibration based on objects like rulers or hands]
+- [Reason 2: e.g., Physics constraints for the given environment (Indoor/Outdoor)]
+
+رأيي الفني: [Provide a brief expert summary, e.g., "هذه الصورة مثالية لاختبار دقة الزوايا..."]
+
+ماذا لو كانت مائلة؟ [Briefly describe the change if the angle was different].
+
+Output in JSON format inside a code block at the end:
 {
   "velocity": float,
   "angle": float,
@@ -245,7 +261,7 @@ Analyze the image to extract projectile motion parameters with high precision.
   "mass": float,
   "objectType": "string",
   "confidence": float,
-  "explanation": "Brief physical reasoning for these values"
+  "explanation": "The full text report above"
 }`;
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/vision-analyze`, {

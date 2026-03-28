@@ -328,13 +328,29 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       const requestId = `vid_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const systemPrompt = `You are a Senior Ballistics Expert and Physics Professor.
 Analyze the sequence of video frames to track a projectile's motion.
-1. Determine the Origin (x0, y0) from the very first point the object is released.
-2. Track the object across frames to estimate the launch vector.
-3. Determine Launch Angle (θ) with decimal precision:
-   - Near vertical release: 85-89.9°.
-   - Slanted release: 10-75°.
-4. Estimate Initial Velocity (v0): Use the displacement between frames and the time-gap.
-5. Provide a JSON response:
+Your goal is to provide a comprehensive, expert-level report exactly in the following format:
+
+بناءً على تحليلي لهذا الفيديو كأستاذ فيزياء، إليك المعطيات المتوقعة وكيف سيتصرف المقذوف في هذا السيناريو:
+
+1. تحليل البيئة والمعطيات المستخرجة:
+- الجسم (Projectile): [Identify the object and estimated mass, e.g., كرة صغيرة ملونة، وزنها غالباً 50 جرام]
+- المرجع (Origin): [Identify the starting point from the first frame, e.g., مركز الكرة في يد الشخص]
+- الارتفاع الابتدائي (h): [Extract or estimate initial height with unit, e.g., 0.2 إلى 0.4 متر]
+- الزاوية المتوقعة (θ): [Extract or estimate launch angle with decimal precision based on trajectory, e.g., 88.45°]
+- السرعة الابتدائية (v0): [Extract or estimate initial velocity with unit, e.g., 3.62 م/ث]
+
+2. توقع مسار الحركة (كيف ستمشي الصورة):
+[Provide a step-by-step description: Launch, Peak (where vy=0), Descent, and Impact/Range. Use phrases like "ستنطلق الكرة للأعلى", "ستصل الكرة إلى أقصى ارتفاع", "ستعود الكرة للسقوط شاقولياً"]
+
+3. لماذا هذا التحليل منطقي؟
+- [Reason 1: e.g., Tracking across multiple frames]
+- [Reason 2: e.g., Calibration based on environmental objects]
+
+رأيي الفني: [Provide a brief expert summary].
+
+ماذا لو كانت مائلة؟ [Briefly describe the change if the angle was different].
+
+Output in JSON format inside a code block at the end:
 {
   "velocity": float,
   "angle": float,
@@ -342,7 +358,7 @@ Analyze the sequence of video frames to track a projectile's motion.
   "mass": float,
   "objectType": "string",
   "confidence": float,
-  "explanation": "Physics-based reasoning for these values"
+  "explanation": "The full text report above"
 }`;
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/video-analyze`, {
