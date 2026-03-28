@@ -568,17 +568,6 @@ const Index = () => {
                         className={`p-1 rounded-md transition-all duration-200 active:scale-90 ${is3DMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
                         <Box className="w-3 h-3" />
                       </button>
-                      {is3DMode && (
-                        <button onClick={() => {
-                            const nextMode = cameraMode === 'orbit' ? 'follow' : cameraMode === 'follow' ? 'pov' : 'orbit';
-                            setCameraMode(nextMode);
-                            playClick(sim.isMuted);
-                          }}
-                          className="p-1 rounded-md bg-secondary/60 text-foreground transition-all duration-200 active:scale-90 flex items-center gap-0.5">
-                          <Video className="w-3 h-3" />
-                          <span className="text-[7px] font-bold uppercase">{cameraMode}</span>
-                        </button>
-                      )}
                       <div className="w-px h-4 bg-border/50 mx-0.5" />
                       {/* Screenshot */}
                       <button onClick={() => { exportSimulationPNG(); playClick(sim.isMuted); }}
@@ -2634,8 +2623,6 @@ const Index = () => {
               setActivePresetEmoji={setActivePresetEmoji}
               onSessionLoad={handleSessionLoad} onShowRestrictionOverlay={setShowRestrictionOverlay}
               onAutoRun={handleAutoRunSimulation}
-              onTargetChallenge={startTargetChallenge}
-              targetChallengeActive={targetChallenge.active}
               onDetectedMedia={handleDetectedMedia}
               onAnalysisComplete={handleAnalysisComplete}
               analysisHistory={analysisHistory}

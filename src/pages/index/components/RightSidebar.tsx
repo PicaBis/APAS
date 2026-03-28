@@ -56,8 +56,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   currentEnvId, nightMode, selectedIntegrationMethod,
   enableBounce, bounceCoefficient,
   setSelectedIntegrationMethod, setVelocity, setAngle, setHeight, setMass, setGravity,
-  setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed, onAutoRun, 
-  onDetectedMedia, onAnalysisComplete,
+  setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete,
   analysisHistory, onClearAnalysisHistory, onDeleteAnalysisEntry,
 }) => {
   const { isGuest, isApproved, isAdmin, isRestricted, user } = useAuth();
