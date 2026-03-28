@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { aiComplete } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
@@ -7,28 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "*",
 };
-
-// ── Smart Defaults ──
-
-interface PhysicsDefaults {
-  velocity: number;
-  angle: number;
-  height: number;
-  mass: number;
-}
-
-function getSmartDefaults(objectType: string): PhysicsDefaults {
-  const t = (objectType || "").toLowerCase();
-  if (t.includes("cannon") || t.includes("cannonball")) return { velocity: 120, angle: 40, height: 1.5, mass: 4.5 };
-  if (t.includes("rocket") || t.includes("missile")) return { velocity: 200, angle: 55, height: 2.0, mass: 15 };
-  if (t.includes("basketball")) return { velocity: 8, angle: 55, height: 2.2, mass: 0.62 };
-  if (t.includes("football") || t.includes("soccer")) return { velocity: 25, angle: 38, height: 0.3, mass: 0.43 };
-  if (t.includes("tennis")) return { velocity: 30, angle: 15, height: 1.0, mass: 0.058 };
-  if (t.includes("baseball")) return { velocity: 35, angle: 35, height: 1.8, mass: 0.145 };
-  if (t.includes("stone") || t.includes("rock")) return { velocity: 15, angle: 45, height: 1.7, mass: 0.3 };
-  if (t.includes("arrow")) return { velocity: 60, angle: 25, height: 1.5, mass: 0.025 };
-  return { velocity: 20, angle: 45, height: 1.5, mass: 0.5 };
-}
 
 // ── Prompt Builder ──
 
@@ -52,7 +29,6 @@ Output ONLY valid JSON.`;
 }
 
 function buildUserPrompt(lang: string): string {
-  const isAr = lang === "ar";
   return `Analyze this image for projectile motion.
 Return a JSON object with:
 {
@@ -77,12 +53,10 @@ serve(async (req) => {
 
   const startTime = Date.now();
   try {
-    const { imageBase64, mimeType, lang, userId, cloudinaryUrl } = await req.json();
-    if (!imageBase64 && !cloudinaryUrl) throw new Error("No image data provided");
+    const { imageBase64, mimeType, lang } = await req.json();
+    if (!imageBase64) throw new Error("No image data provided");
 
     const isAr = lang === "ar";
-    
-    console.log("[vision-analyze] Analyzing image with Gemini 2.0 Flash (via shared provider)...");
     
     const { text, provider } = await aiComplete({
       modelType: "vision",
@@ -91,9 +65,8 @@ serve(async (req) => {
         { 
           role: "user", 
           content: [
-            { type: "text", text: buildUserPrompt(lang) },
+            { text: buildUserPrompt(lang) },
             { 
-              type: "text", 
               inline_data: { 
                 mime_type: mimeType || "image/jpeg", 
                 data: imageBase64 
@@ -106,19 +79,17 @@ serve(async (req) => {
 
     const parsed = JSON.parse(text);
     if (!parsed.detected) {
-       // Even if AI says not detected, let's try to find if it gave a reason
        return new Response(JSON.stringify({ 
          detected: false, 
-         text: isAr ? "لم يتم العثور على مقذوف واضح. حاول رفع صورة أكثر وضوحاً." : "No clear projectile detected. Try a clearer image."
-       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+         text: isAr ? "لم يتم العثور على مقذوف واضح." : "No clear projectile detected."
+       }), { headers: corsHeaders });
     }
 
-    // Recompute physics for consistency
+    // Recompute physics
     const v0 = parsed.initial_velocity || 20;
     const angle = parsed.launch_angle || 45;
     const h0 = parsed.launch_height || 1.5;
     const g = parsed.gravity || 9.81;
-    const mass = parsed.estimated_mass || 0.5;
 
     const rad = angle * Math.PI / 180;
     const v0x = v0 * Math.cos(rad);
@@ -141,7 +112,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       text: buildMarkdownReport(isAr, finalResult),
       analysis: finalResult 
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { headers: corsHeaders });
 
   } catch (e) {
     console.error("vision-analyze error:", e);
@@ -157,14 +128,6 @@ function buildMarkdownReport(isAr: boolean, r: any): string {
 - **${isAr ? "السرعة:" : "Velocity:"}** ${r.initial_velocity} m/s
 - **${isAr ? "الزاوية:" : "Angle:"}** ${r.launch_angle}°
 - **${isAr ? "الارتفاع:" : "Height:"}** ${r.launch_height} m
-
-### ${isAr ? "النتائج المحسوبة:" : "Computed Results:"}
-- **${isAr ? "أقصى ارتفاع:" : "Max Height:"}** ${r.maxHeight} m
-- **${isAr ? "المدى الأفقي:" : "Range:"}** ${r.maxRange} m
-- **${isAr ? "زمن الطيران:" : "Flight Time:"}** ${r.totalTime} s
-
-### ${isAr ? "التفسير العلمي:" : "Scientific Explanation:"}
-${r.scientific_explanation}
 
 ---
 *${isAr ? "تم التحليل بواسطة:" : "Analyzed by:"} ${r.provider}*

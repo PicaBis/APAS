@@ -1,10 +1,5 @@
 /**
  * Shared AI Provider — Multi-Provider Routing (Gemini, Groq, Mistral).
- * 
- * Optimized Strategy:
- * - Vision/Video: Gemini 2.0 Flash (Best spatial reasoning)
- * - Text/Subject: Groq Llama 3.3 70B (Fastest reasoning)
- * - Fallback: Mistral Large
  */
 
 export type ModelType = "chat" | "vision" | "math" | "subject" | "video";
@@ -12,7 +7,7 @@ export type Provider = "gemini" | "groq" | "mistral";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
-  content: string | Array<{ type: string; text?: string; image_url?: { url: string }; inline_data?: { mime_type: string; data: string } }>;
+  content: string | Array<any>;
 }
 
 export interface AIRequestOptions {
@@ -51,13 +46,12 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
-// ── Provider: Gemini (Google AI) ──
+// ── Provider: Gemini ──
 
 async function callGemini(options: AIRequestOptions): Promise<string> {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
 
-  // Convert messages to Gemini format
   const contents = options.messages
     .filter(m => m.role !== "system")
     .map(m => {
@@ -67,30 +61,29 @@ async function callGemini(options: AIRequestOptions): Promise<string> {
       return {
         role: m.role === "assistant" ? "model" : "user",
         parts: m.content.map(p => {
-          if (p.type === "text") return { text: p.text };
+          if (p.text) return { text: p.text };
           if (p.inline_data) return { inline_data: p.inline_data };
-          if (p.image_url) {
-             // We'd need to fetch the image and convert to base64 if it's a URL
-             // For now, assume vision tasks use inline_data (base64)
-             return { text: "[Image URL not supported directly in Gemini helper yet]" };
-          }
-          return { text: "" };
-        })
+          // If it's a raw base64 string or something else, try to wrap it
+          if (typeof p === "string") return { text: p };
+          return null;
+        }).filter(Boolean)
       };
     });
 
   const systemInstruction = options.messages.find(m => m.role === "system")?.content;
 
   return retryWithBackoff(async () => {
+    // Use v1beta for Gemini 2.0 Flash
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents,
-        systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+        systemInstruction: typeof systemInstruction === "string" ? { parts: [{ text: systemInstruction }] } : undefined,
         generationConfig: {
           temperature: options.temperature ?? 0.2,
           maxOutputTokens: options.max_tokens ?? 4000,
+          // Gemini 2.0 Flash supports JSON mode via responseMimeType
           responseMimeType: "application/json",
         }
       }),
@@ -106,16 +99,16 @@ async function callGemini(options: AIRequestOptions): Promise<string> {
   }, "Gemini");
 }
 
-// ── Provider: Groq (Llama 3.3) ──
+// ── Provider: Groq ──
 
 async function callGroq(options: AIRequestOptions): Promise<string> {
   const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) throw new Error("GROQ_API_KEY not configured");
 
-  // Groq only supports text for Llama 3.3
   const groqMessages = options.messages.map(msg => {
     if (typeof msg.content === "string") return msg;
-    const text = msg.content.filter(p => p.type === "text").map(p => p.text).join("\n");
+    // Extract only text parts for Groq (it doesn't support vision yet via this endpoint)
+    const text = msg.content.map(p => p.text || "").filter(Boolean).join("\n");
     return { role: msg.role, content: text };
   });
 
@@ -151,6 +144,27 @@ async function callMistral(options: AIRequestOptions): Promise<string> {
   const apiKey = Deno.env.get("MISTRAL_API_KEY");
   if (!apiKey) throw new Error("MISTRAL_API_KEY not configured");
 
+  const isVision = options.modelType === "vision" || options.modelType === "video";
+  const model = isVision ? "pixtral-large-latest" : "mistral-large-latest";
+
+  // Mistral multimodal format: content is an array of {type: "text", text: "..."} or {type: "image_url", image_url: {url: "..."}}
+  const messages = options.messages.map(m => {
+    if (typeof m.content === "string") return m;
+    
+    const content = m.content.map(p => {
+      if (p.text) return { type: "text", text: p.text };
+      if (p.inline_data) {
+        return { 
+          type: "image_url", 
+          image_url: { url: `data:${p.inline_data.mime_type};base64,${p.inline_data.data}` }
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    return { role: m.role, content };
+  });
+
   return retryWithBackoff(async () => {
     const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
       method: "POST",
@@ -159,8 +173,8 @@ async function callMistral(options: AIRequestOptions): Promise<string> {
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: options.modelType === "vision" || options.modelType === "video" ? "pixtral-large-latest" : "mistral-large-latest",
-        messages: options.messages,
+        model,
+        messages,
         temperature: options.temperature ?? 0.3,
         max_tokens: options.max_tokens ?? 4000,
       }),
@@ -184,11 +198,9 @@ export async function aiComplete(
   const type = options.modelType || "chat";
   let provider = options.provider;
 
-  // Auto-routing based on type if no provider specified
   if (!provider) {
-    if (type === "vision" || type === "video") provider = "gemini";
-    else if (type === "subject" || type === "math") provider = "groq";
-    else provider = "groq"; // Default to Groq for chat/speed
+    if (type === "vision" || type === "video" || type === "subject") provider = "gemini";
+    else provider = "groq";
   }
 
   try {
@@ -200,11 +212,16 @@ export async function aiComplete(
     return { text, provider };
   } catch (err) {
     console.error(`[AI] Provider ${provider} failed:`, err);
-    // Fallback chain
+    // Only fallback if it's not already Mistral
     if (provider !== "mistral") {
       console.log("[AI] Falling back to Mistral...");
-      const text = await callMistral(options);
-      return { text, provider: "Mistral (fallback)" };
+      try {
+        const text = await callMistral(options);
+        return { text, provider: "Mistral (fallback)" };
+      } catch (fallbackErr) {
+        console.error("[AI] Fallback to Mistral also failed:", fallbackErr);
+        throw err; // Throw original error
+      }
     }
     throw err;
   }
@@ -213,7 +230,6 @@ export async function aiComplete(
 export async function aiStream(
   options: AIRequestOptions,
 ): Promise<{ body: ReadableStream<Uint8Array>; provider: string }> {
-  // Simple SSE wrapper for non-streaming providers or when streaming is complex
   const { text, provider } = await aiComplete(options);
   const encoder = new TextEncoder();
   const ssePayload = JSON.stringify({ choices: [{ delta: { content: text } }] });
@@ -225,14 +241,4 @@ export async function aiStream(
     },
   });
   return { body, provider };
-}
-
-export async function mathVerify(prompt: string): Promise<{ text: string; provider: string }> {
-  return aiComplete({
-    modelType: "math",
-    messages: [
-      { role: "system", content: "You are a physics math engine. Output ONLY JSON." },
-      { role: "user", content: prompt }
-    ]
-  });
 }

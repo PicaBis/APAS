@@ -27,10 +27,7 @@ interface Props {
   hasModel?: boolean;
 }
 
-// AI calls go through edge functions which handle provider fallback internally
 
-// cleanLatex is now imported from @/utils/cleanLatex
-const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function getGracefulFallback(text: string, lang: string) {
   const local = getLocalFallback(text, lang);
@@ -420,6 +417,8 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
 
   const send = async (text: string) => {
     if (!text.trim() || isLoading) return;
+    
+    const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
     const userMsg: Msg = { role: 'user', content: text.trim() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');

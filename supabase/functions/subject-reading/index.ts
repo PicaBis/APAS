@@ -43,15 +43,14 @@ Then provide the full exercise text, given data, explanation, and step-by-step s
 Use simple ASCII math (v0, theta, ^2, sqrt). NEVER use LaTeX ($ or \\).`;
 
     const { text, provider } = await aiComplete({
-      modelType: "vision",
+      modelType: "subject",
       messages: [
         { role: "system", content: systemPrompt },
         {
           role: "user",
           content: [
-            { type: "text", text: "Read and solve this physics exercise." },
+            { text: "Read and solve this physics exercise." },
             { 
-              type: "text", // Gemini helper in ai-provider handles inline_data
               inline_data: { mime_type: mimeType || "image/jpeg", data: imageBase64 } 
             }
           ]
