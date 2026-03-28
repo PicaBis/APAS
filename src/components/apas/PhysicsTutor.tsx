@@ -1,14 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
-import { MessageCircle, X, Send, Loader2, Trash2, User, Volume2, VolumeX, Mic, ArrowLeft, Sparkles, FileText } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Trash2, User, Volume2, VolumeX, Mic, ArrowLeft, Sparkles } from 'lucide-react';
 import ApasLogo from '@/components/apas/ApasLogo';
 import { toast } from 'sonner';
 import { playClick } from '@/utils/sound';
 import { cleanLatex } from '@/utils/cleanLatex';
-
-// AI calls go through edge functions which handle provider fallback internally
-const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -30,7 +27,10 @@ interface Props {
   hasModel?: boolean;
 }
 
+// AI calls go through edge functions which handle provider fallback internally
 
+// cleanLatex is now imported from @/utils/cleanLatex
+const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 function getGracefulFallback(text: string, lang: string) {
   const local = getLocalFallback(text, lang);
@@ -185,7 +185,8 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
 
   // Speech-to-text (STT) state
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sendRef = useRef<(text: string) => Promise<void>>(null as any);
 
   // Stop speech when component unmounts or voice mode turns off
@@ -404,14 +405,6 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
     setVoiceAnalysisText('');
   }, [stopSpeaking]);
 
-  const generateLabReport = useCallback(async () => {
-    const reportPrompt = lang === 'ar' 
-      ? "قم بإنشاء تقرير مختبري احترافي لهذه المحاكاة. التقرير يجب أن يتضمن: العنوان، الهدف، الأدوات (محاكي APAS)، المعطيات الفيزيائية الحالية، التحليل العلمي للمسار، النتائج النهائية (المدى، الارتفاع، الزمن)، والاستنتاج الفيزيائي."
-      : "Generate a professional lab report for this simulation. Include: Title, Objective, Tools (APAS Simulator), Current physical parameters, Scientific trajectory analysis, Final results (range, height, time), and Physics conclusion.";
-    
-    send(reportPrompt);
-  }, [lang, send]);
-
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
@@ -485,7 +478,7 @@ EQUATION FORMATTING RULES (VERY IMPORTANT — MUST FOLLOW):
   * Dollar signs: $...$ or $$...$$
   * Backslash commands: \\frac, \\cdot, \\theta, \\sqrt, \\text, \\left, \\right, \\implies, \\circ, \\times
   * Curly brace groups for math: {numerator}{denominator}
-  * Unicode subscripts/superscripts: v₀, θ, ² ·
+  * Unicode subscripts/superscripts: v₀, θ, ², ·
 - Write equations in simple readable format using only basic ASCII characters
 - Use: v0, theta, sin(), cos(), tan(), sqrt(), ^2, *, /, +, -
 - CORRECT equation format examples:
@@ -698,15 +691,6 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
                   title={lang === 'ar' ? 'العودة للمحادثة' : 'Back to Chat'}
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {messages.length > 0 && !voiceMode && (
-                <button 
-                  onClick={() => { generateLabReport(); playClick(false); }} 
-                  className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all duration-200"
-                  title={lang === 'ar' ? 'إنشاء تقرير مختبري' : 'Generate Lab Report'}
-                >
-                  <FileText className="w-3.5 h-3.5" />
                 </button>
               )}
               {messages.length > 0 && !voiceMode && (
