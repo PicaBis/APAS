@@ -324,9 +324,6 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
         </div>,
         document.body,
       )}
-    </>
-  );
-}
 
       {/* Full-screen Media Viewer */}
       {showMediaViewer && selectedEntry?.mediaSrc && createPortal(
