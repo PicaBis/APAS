@@ -324,7 +324,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       setProgress(55);
       setStatusMsg(isAr ? 'APAS يشاهد الفيديو...' : 'APAS watching video...');
 
-      // Step 3: Call video-analyze edge function
+      // Step 3: Call video-analyze edge function with a unique request ID to bypass cache
+      const requestId = `vid_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const response = await fetch(`${SUPABASE_URL}/functions/v1/video-analyze`, {
         method: 'POST',
         headers: {
@@ -335,8 +336,9 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         body: JSON.stringify({
           frames,
           lang,
-          videoName: file.name,
+          videoName: `${requestId}_${file.name}`,
           userId: user?.id || null,
+          requestId, // Pass unique request ID to bypass edge function cache if any
         }),
       });
 

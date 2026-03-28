@@ -202,9 +202,13 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       let cloudinaryUrl: string | null = null;
       try {
         const cloudFormData = new FormData();
+        // Add a timestamp to the file name to bypass potential Cloudinary/Supabase caching
+        const timestamp = Date.now();
+        const cacheBusterFile = new File([file], `vision-${timestamp}-${file.name}`, { type: file.type });
         cloudFormData.append('file', base64);
         cloudFormData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
         cloudFormData.append('folder', 'apas-vision');
+        cloudFormData.append('public_id', `vision_${timestamp}_${Math.random().toString(36).substring(7)}`);
 
         const cloudRes = await fetch(
           `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,

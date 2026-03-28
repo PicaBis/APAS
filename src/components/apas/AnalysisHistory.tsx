@@ -159,34 +159,48 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
                   </div>
 
                   {/* Extracted Params */}
-                  {selectedEntry.params && Object.keys(selectedEntry.params).length > 0 && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {selectedEntry.params.velocity !== undefined && (
-                        <div className="p-2 rounded-lg bg-secondary/50 border border-border/30">
-                          <span className="text-[10px] text-muted-foreground">{isAr ? 'السرعة' : 'Velocity'}</span>
-                          <p className="text-sm font-mono font-semibold text-foreground">{selectedEntry.params.velocity} m/s</p>
+                        <div className="p-3.5 rounded-xl bg-gradient-to-br from-blue-500/15 to-blue-600/5 border border-blue-500/30 text-center transition-all duration-300 hover:shadow-lg">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center mx-auto mb-2">
+                            <span className="text-base">🚀</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold block">{isAr ? 'السرعة' : 'Velocity'}</span>
+                          <p className="text-lg font-bold font-mono text-blue-600 dark:text-blue-400 leading-none">{selectedEntry.params.velocity}</p>
+                          <span className="text-[10px] text-muted-foreground mt-1 block">m/s</span>
                         </div>
                       )}
                       {selectedEntry.params.angle !== undefined && (
-                        <div className="p-2 rounded-lg bg-secondary/50 border border-border/30">
-                          <span className="text-[10px] text-muted-foreground">{isAr ? 'الزاوية' : 'Angle'}</span>
-                          <p className="text-sm font-mono font-semibold text-foreground">{selectedEntry.params.angle}°</p>
+                        <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-600/5 border border-emerald-500/30 text-center transition-all duration-300 hover:shadow-lg">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center mx-auto mb-2">
+                            <span className="text-base">📐</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold block">{isAr ? 'الزاوية' : 'Angle'}</span>
+                          <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 leading-none">{selectedEntry.params.angle}°</p>
+                          <span className="text-[10px] text-muted-foreground mt-1 block">deg</span>
                         </div>
                       )}
                       {selectedEntry.params.height !== undefined && (
-                        <div className="p-2 rounded-lg bg-secondary/50 border border-border/30">
-                          <span className="text-[10px] text-muted-foreground">{isAr ? 'الارتفاع' : 'Height'}</span>
-                          <p className="text-sm font-mono font-semibold text-foreground">{selectedEntry.params.height} m</p>
+                        <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/30 text-center transition-all duration-300 hover:shadow-lg">
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center mx-auto mb-2">
+                            <span className="text-base">📏</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold block">{isAr ? 'الارتفاع' : 'Height'}</span>
+                          <p className="text-lg font-bold font-mono text-amber-600 dark:text-amber-400 leading-none">{selectedEntry.params.height}</p>
+                          <span className="text-[10px] text-muted-foreground mt-1 block">m</span>
                         </div>
                       )}
                       {selectedEntry.params.mass !== undefined && (
-                        <div className="p-2 rounded-lg bg-secondary/50 border border-border/30">
-                          <span className="text-[10px] text-muted-foreground">{isAr ? 'الكتلة' : 'Mass'}</span>
-                          <p className="text-sm font-mono font-semibold text-foreground">{selectedEntry.params.mass} kg</p>
+                        <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-500/15 to-purple-600/5 border border-purple-500/30 text-center transition-all duration-300 hover:shadow-lg">
+                          <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center mx-auto mb-2">
+                            <span className="text-base">⚖️</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold block">{isAr ? 'الكتلة' : 'Mass'}</span>
+                          <p className="text-lg font-bold font-mono text-purple-600 dark:text-purple-400 leading-none">{selectedEntry.params.mass}</p>
+                          <span className="text-[10px] text-muted-foreground mt-1 block">kg</span>
                         </div>
                       )}
                     </div>
-                  )}
 
                   {/* Report */}
                   <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
@@ -252,9 +266,8 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
                           </p>
                         </div>
 
-                        {/* View indicator */}
+                        {/* View indicator - Removed eye icon overlap */}
                         <div className="shrink-0 flex items-center">
-                          <Eye className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                       </div>
                     </div>
