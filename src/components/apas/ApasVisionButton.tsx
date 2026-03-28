@@ -226,8 +226,27 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       }
 
       // Step 4: Call vision-analyze edge function with base64 + cloudinary URL
-      setStatusMsg(isAr ? 'APAS يحلل الصورة بالذكاء الاصطناعي...' : 'APAS analyzing image with AI...');
+      setStatusMsg(isAr ? 'أستاذ APAS يحلل الصورة فيزيائياً...' : 'APAS Physics Master analyzing image...');
       setProgress(55);
+
+      const systemPrompt = `You are a Senior Physics Professor and Ballistics Expert. 
+Analyze the image to extract projectile motion parameters with high precision.
+1. Identify the projectile (object) and its starting point (Origin).
+2. Look for calibration objects (like rulers, hands, furniture) to estimate scale.
+3. Determine Launch Angle (θ): 
+   - If the hand/launcher is pointing straight up, it's 85-89.9°.
+   - If tilted forward, estimate based on the launch vector (10-75°). Use decimal precision (e.g., 42.35°).
+4. Estimate Initial Velocity (v0): Based on the context (indoor hand toss is usually 2-5m/s, outdoor kick 15-25m/s).
+5. Output in JSON format inside a code block:
+{
+  "velocity": float,
+  "angle": float,
+  "height": float,
+  "mass": float,
+  "objectType": "string",
+  "confidence": float,
+  "explanation": "Brief physical reasoning for these values"
+}`;
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/vision-analyze`, {
         method: 'POST',
@@ -242,6 +261,7 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
           lang,
           userId: user?.id || null,
           cloudinaryUrl,
+          systemPrompt, // Passing the enhanced teacher prompt
         }),
       });
 

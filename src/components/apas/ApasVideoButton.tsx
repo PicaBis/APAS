@@ -326,6 +326,25 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
 
       // Step 3: Call video-analyze edge function with a unique request ID to bypass cache
       const requestId = `vid_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const systemPrompt = `You are a Senior Ballistics Expert and Physics Professor.
+Analyze the sequence of video frames to track a projectile's motion.
+1. Determine the Origin (x0, y0) from the very first point the object is released.
+2. Track the object across frames to estimate the launch vector.
+3. Determine Launch Angle (θ) with decimal precision:
+   - Near vertical release: 85-89.9°.
+   - Slanted release: 10-75°.
+4. Estimate Initial Velocity (v0): Use the displacement between frames and the time-gap.
+5. Provide a JSON response:
+{
+  "velocity": float,
+  "angle": float,
+  "height": float,
+  "mass": float,
+  "objectType": "string",
+  "confidence": float,
+  "explanation": "Physics-based reasoning for these values"
+}`;
+
       const response = await fetch(`${SUPABASE_URL}/functions/v1/video-analyze`, {
         method: 'POST',
         headers: {
@@ -338,7 +357,8 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
           lang,
           videoName: `${requestId}_${file.name}`,
           userId: user?.id || null,
-          requestId, // Pass unique request ID to bypass edge function cache if any
+          requestId, 
+          systemPrompt, // Passing the enhanced expert prompt
         }),
       });
 
