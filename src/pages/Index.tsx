@@ -179,6 +179,7 @@ const Index = () => {
   const [dragCd, setDragCd] = useState(0.47);
   const [airDensity, setAirDensity] = useState(1.225);
   const [savedSnapshot, setSavedSnapshot] = useState<SavedSnapshotData | null>(null);
+  const [methodChangePulse, setMethodChangePulse] = useState(false);
   const [vectorVisibility, setVectorVisibility] = useState<VectorVisibility>({
     V: true, Vx: true, Vy: true, Fg: true, Fd: true, Fw: false, Ffluid: false, Fnet: false, acc: false,
   });
@@ -441,6 +442,12 @@ const Index = () => {
     playUIClick(sim.isMuted);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sim.isMuted, sim.airResistance]);
+
+  const handleIntegrationMethodChange = useCallback((method: string) => {
+    setMethodChangePulse(true);
+    setTimeout(() => setMethodChangePulse(false), 1500);
+    sim.setSelectedIntegrationMethod(method as 'euler' | 'rk4' | 'ai-apas');
+  }, [sim]);
 
   const exportSimulationPNG = useCallback(() => {
     const canvas = document.querySelector('canvas');
@@ -1839,7 +1846,7 @@ const Index = () => {
                         label={lang === 'ar' ? '\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639' : lang === 'fr' ? 'Hauteur' : 'Height'}
                         value={getDisplayValue('height', sim.height)}
                         onChange={(v) => sim.setHeight(fromDisplayValue('height', v))}
-                        min={0} max={5000} step={0.5} isRTL={isRTL}
+                        min={-5000} max={5000} step={0.5} isRTL={isRTL}
                         unitKey="height" selectedUnit={selectedUnits.height}
                         units={UNIT_OPTIONS.height.units} lang={lang}
                         onUnitChange={(u) => setSelectedUnits(prev => ({ ...prev, height: u }))}
@@ -2107,23 +2114,29 @@ const Index = () => {
                   <button
                     onClick={() => { if (lastAnalyzedMediaSrc) { setShowCalculationsModal(true); playClick(sim.isMuted); } }}
                     disabled={!lastAnalyzedMediaSrc}
-                    className={`relative flex items-center gap-1 group transition-all duration-300 ${
+                    className={`relative flex items-center gap-1.5 group transition-all duration-300 ${
                       lastAnalyzedMediaSrc
-                        ? 'apas-assistant-btn rounded-md px-2 py-1 text-white shadow-md cursor-pointer hover:shadow-lg hover:scale-[1.02]'
-                        : 'rounded-md px-2 py-1 bg-secondary/50 text-muted-foreground cursor-not-allowed opacity-60 border border-border/50'
+                        ? 'apas-assistant-btn rounded-lg px-2.5 py-1.5 text-white shadow-lg cursor-pointer hover:shadow-xl hover:scale-[1.02]'
+                        : 'rounded-lg px-2.5 py-1.5 bg-secondary/50 text-muted-foreground cursor-not-allowed opacity-60 border border-border/50'
                     }`}
                     title={!lastAnalyzedMediaSrc ? (lang === 'ar' ? 'حلّل صورة أو فيديو أولاً لعرض الحسابات' : lang === 'fr' ? 'Analysez d\'abord une image ou vidéo' : 'Analyze an image or video first to view calculations') : ''}
                   >
-                    <span className="relative flex items-center justify-center w-3.5 h-3.5">
+                    <span className="relative flex items-center justify-center w-4 h-4">
                       {lastAnalyzedMediaSrc ? (
-                        <Calculator className="w-3.5 h-3.5 sparkle-icon-flash" />
+                        <>
+                          <Calculator className="w-4 h-4 sparkle-icon-flash" />
+                          <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/60 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-white shadow-sm"></span>
+                          </span>
+                        </>
                       ) : (
-                        <Lock className="w-3 h-3" />
+                        <Lock className="w-3.5 h-3.5" />
                       )}
                     </span>
-                    <span className="relative z-10 text-[10px] font-bold whitespace-nowrap flex items-center gap-0.5 tracking-wide" dir={isRTL ? 'rtl' : 'ltr'}>
-                      <span>{lang === 'ar' ? 'الحساب' : 'Calc'}</span>
-                      <span className="font-extrabold">APAS</span>
+                    <span className="relative z-10 text-[11px] font-bold whitespace-nowrap flex items-center gap-1 tracking-wide" dir={isRTL ? 'rtl' : 'ltr'}>
+                      <span>{lang === 'ar' ? 'كيف تم' : 'How'}</span>
+                      <span className="font-extrabold">{lang === 'ar' ? 'الحساب؟' : 'Calculated?'}</span>
                     </span>
                   </button>
                   <div className="flex items-center gap-0.5 bg-secondary/40 backdrop-blur-sm rounded-xl px-1.5 py-1 border border-border/30">
@@ -2276,13 +2289,15 @@ const Index = () => {
               {!isFocusMode && <>
                 {/* ── Results ── */}
                 {sim.prediction && (
-                  <ResultsSection
-                    lang={lang} T={T} prediction={sim.prediction}
-                    velocity={sim.velocity} angle={sim.angle} height={sim.height}
-                    gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
-                    showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
-                    hasModelAnalysis={hasModelAnalysis}
-                  />
+                  <div className={`transition-all duration-700 ${methodChangePulse ? 'calculation-pulse' : ''}`}>
+                    <ResultsSection
+                      lang={lang} T={T} prediction={sim.prediction}
+                      velocity={sim.velocity} angle={sim.angle} height={sim.height}
+                      gravity={sim.gravity} airResistance={sim.airResistance} mass={sim.mass}
+                      showPathInfo={showPathInfo} onTogglePathInfo={() => setShowPathInfo(!showPathInfo)}
+                      hasModelAnalysis={hasModelAnalysis}
+                    />
+                  </div>
                 )}
 
                 {/* Chart Section */}
@@ -2496,10 +2511,10 @@ const Index = () => {
                           <div className="space-y-4">
                             <p className="text-sm font-semibold text-muted-foreground">{lang === 'ar' ? '\u0646\u0638\u0631\u064a / \u0645\u062d\u0627\u0643\u0627\u0629' : 'Theoretical / Simulated'}</p>
                             {[
-                              { label: T.range, theo: sim.prediction!.rangeTheoretical ?? 0, exp: sim.prediction!.range ?? 0, err: sim.prediction!.rangeError ?? 0, unit: T.u_m_s },
-                              { label: T.maxHeight, theo: sim.prediction!.maxHeightTheoretical ?? 0, exp: sim.prediction!.maxHeight ?? 0, err: sim.prediction!.maxHeightError ?? 0, unit: T.u_m_s },
-                              { label: T.flightTime, theo: sim.prediction!.timeOfFlightTheoretical ?? 0, exp: sim.prediction!.timeOfFlight ?? 0, err: sim.prediction!.timeError ?? 0, unit: T.u_s },
-                            ].map(({ label, theo, exp, err }) => {
+                              { label: T.range, theo: sim.prediction!.rangeTheoretical ?? 0, exp: sim.prediction!.range ?? 0, err: sim.prediction!.rangeError ?? 0, unit: T.u_m_s, desc: lang === 'ar' ? 'المسافة الأفقية الكلية التي يقطعها المقذوف.' : 'Total horizontal distance traveled.' },
+                              { label: T.maxHeight, theo: sim.prediction!.maxHeightTheoretical ?? 0, exp: sim.prediction!.maxHeight ?? 0, err: sim.prediction!.maxHeightError ?? 0, unit: T.u_m_s, desc: lang === 'ar' ? 'أعلى نقطة يصل إليها المقذوف عمودياً.' : 'Highest vertical point reached.' },
+                              { label: T.flightTime, theo: sim.prediction!.timeOfFlightTheoretical ?? 0, exp: sim.prediction!.timeOfFlight ?? 0, err: sim.prediction!.timeError ?? 0, unit: T.u_s, desc: lang === 'ar' ? 'الوقت الكلي منذ الانطلاق حتى السقوط.' : 'Total time from launch to impact.' },
+                            ].map(({ label, theo, exp, err, desc }) => {
                               const absErr = Math.abs(exp - theo);
                               const accuracy = err < 5 ? T.errHigh : err < 15 ? T.errMed : T.errLow;
                               const accColor = err < 5 ? 'text-green-600 dark:text-green-400' : err < 15 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-500';
@@ -2507,25 +2522,42 @@ const Index = () => {
                               return (
                                 <div key={label} className="bg-secondary/30 rounded-lg p-4 space-y-3">
                                   <div className="flex items-center justify-between">
-                                    <p className="text-sm font-bold text-foreground">{label}</p>
+                                    <div className="space-y-0.5">
+                                      <p className="text-sm font-bold text-foreground">{label}</p>
+                                      <p className="text-[10px] text-muted-foreground leading-tight max-w-[200px]">{desc}</p>
+                                    </div>
                                     <span className={`text-xs font-semibold ${accColor}`}>{accuracy}</span>
                                   </div>
                                   <div className="grid grid-cols-3 gap-3">
-                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30">
+                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30 group relative cursor-help">
                                       <p className="text-[11px] text-muted-foreground mb-1">{T.theoryLabel}</p>
                                       <p className="text-sm font-mono font-bold text-foreground">{safeFixed(theo, 3)}</p>
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none border border-border">
+                                        {lang === 'ar' ? 'القيمة المحسوبة رياضياً (مثالية)' : 'Mathematically calculated (Ideal)'}
+                                      </div>
                                     </div>
-                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30">
+                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30 group relative cursor-help">
                                       <p className="text-[11px] text-muted-foreground mb-1">{T.theoryExp}</p>
                                       <p className="text-sm font-mono font-bold text-foreground">{safeFixed(exp, 3)}</p>
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none border border-border">
+                                        {lang === 'ar' ? 'القيمة المستخرجة من المحاكاة/الواقع' : 'Value extracted from simulation/reality'}
+                                      </div>
                                     </div>
-                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30">
+                                    <div className="bg-background rounded-lg p-3 text-center border border-border/30 group relative cursor-help">
                                       <p className="text-[11px] text-muted-foreground mb-1">{T.theoryErrPct}</p>
                                       <p className="text-sm font-mono font-bold text-foreground">{safeFixed(err, 2)}%</p>
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none border border-border">
+                                        {lang === 'ar' ? 'نسبة الانحراف بين النظري والتجريبي' : 'Deviation between theory and experiment'}
+                                      </div>
                                     </div>
                                   </div>
                                   <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                                    <span>|&Delta;| = {safeFixed(absErr, 4)}</span>
+                                    <span className="font-mono flex items-center gap-1.5">
+                                      <span className="opacity-60 text-lg leading-none">|</span>
+                                      <span>&Delta;</span>
+                                      <span className="opacity-60 text-lg leading-none">|</span>
+                                      <span className="ml-1">= {safeFixed(absErr, 4)}</span>
+                                    </span>
                                     <div className="flex items-center gap-2">
                                       <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
                                         <div className={`h-full rounded-full ${accBg}`} style={{ width: `${Math.max(0, 100 - (isFinite(err) ? err : 0))}%` }} />
@@ -2647,6 +2679,7 @@ const Index = () => {
               selectedIntegrationMethod={sim.selectedIntegrationMethod}
               enableBounce={sim.enableBounce} bounceCoefficient={sim.bounceCoefficient}
               setSelectedIntegrationMethod={sim.setSelectedIntegrationMethod}
+              onIntegrationMethodChange={handleIntegrationMethodChange}
               setVelocity={sim.setVelocity} setAngle={sim.setAngle} setHeight={sim.setHeight}
               setMass={sim.setMass} setGravity={sim.setGravity}
               setActivePresetEmoji={setActivePresetEmoji}
@@ -2662,10 +2695,21 @@ const Index = () => {
                 if (p.angle !== undefined) sim.setAngle(p.angle);
                 if (p.height !== undefined) sim.setHeight(p.height);
                 if (p.mass !== undefined) sim.setMass(p.mass);
+                
+                // Automatically enable features based on environment and request
                 if (p.isOutdoor) {
                   sim.setAirResistance(0.47);
                   sim.setShowExternalForces(true);
+                  setVectorVisibility(prev => ({ ...prev, V: true, Vx: true, Vy: true, Fg: true, Fd: true }));
+                } else {
+                  sim.setAirResistance(0);
+                  sim.setShowExternalForces(false);
                 }
+                
+                // Enable live data and force vectors for all analyses
+                sim.setShowExternalForces(true);
+                setShowLiveData(true);
+                playClick(sim.isMuted);
               }}
               forceOpenHistoryId={activeHistoryEntryId}
               onHistoryModalClose={() => setActiveHistoryEntryId(null)}

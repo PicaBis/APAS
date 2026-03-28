@@ -436,19 +436,6 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
           <span>{isAr ? 'APAS الأوامر الصوتية' : 'APAS Voice'}</span>
           <Sparkles className="w-3 h-3 text-purple-400" />
         </button>
-
-        {history.length > 0 && (
-          <button
-            onClick={() => setShowHistory(true)}
-            className="p-2 rounded-xl border border-purple-500/20 hover:border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 transition-all duration-300 relative"
-            title={isAr ? 'سجل الأوامر الصوتية' : 'Voice History'}
-          >
-            <History className="w-3.5 h-3.5 text-foreground" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[8px] font-bold rounded-full flex items-center justify-center">
-              {history.length}
-            </span>
-          </button>
-        )}
       </div>
 
       {/* Voice History Modal */}

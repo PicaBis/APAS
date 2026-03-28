@@ -657,6 +657,17 @@ body, .apas-panel, .apas-item, .eq-box, .academic-table, select, input, textarea
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease;
 }
 
+@keyframes calculationPulse {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.01); filter: brightness(1.15) drop-shadow(0 0 15px hsl(var(--primary) / 0.3)); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+.calculation-pulse {
+  animation: calculationPulse 0.8s ease-in-out 2;
+  border-color: hsl(var(--primary) / 0.5) !important;
+}
+
 /* ═══ APAS Assistant Button Premium Styling ═══ */
 @keyframes assistantPulse {
   0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4), 0 4px 15px hsl(var(--primary) / 0.15); }
@@ -685,6 +696,8 @@ body, .apas-panel, .apas-item, .eq-box, .academic-table, select, input, textarea
   position: relative;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Reset animation delay to ensure sync */
+  animation-delay: 0s !important;
 }
 .apas-assistant-btn::before {
   content: '';

@@ -618,8 +618,8 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
         <span className="relative z-10 text-[11px] font-bold whitespace-nowrap flex items-center gap-1 tracking-wide" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
           {open && voiceMode ? (lang === 'ar' ? 'عودة' : 'Back') : open ? '' : (
             <>
-              <span>{lang === 'ar' ? 'اسأل' : 'Ask'}</span>
-              <span className="font-extrabold">APAS</span>
+              <span>{lang === 'ar' ? 'المساعد' : 'Smart'}</span>
+              <span className="font-extrabold">{lang === 'ar' ? 'الذكي' : 'Assistant'}</span>
             </>
           )}
         </span>

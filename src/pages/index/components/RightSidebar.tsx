@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { Layers, ChevronDown, Filter } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { playClick, playUIClick, playSectionToggle, playSliderChange, playPageTransition } from '@/utils/sound';
 import { PRESETS, objectTypeToEmoji } from '../constants';
@@ -51,6 +52,7 @@ interface RightSidebarProps {
   onApplyAnalysisParams?: (params: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean }) => void;
   forceOpenHistoryId?: number | null;
   onHistoryModalClose?: () => void;
+  onIntegrationMethodChange?: (method: 'euler' | 'rk4' | 'ai-apas') => void;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -61,10 +63,31 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   setSelectedIntegrationMethod, setVelocity, setAngle, setHeight, setMass, setGravity,
   setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete,
   analysisHistory, onClearAnalysisHistory, onDeleteAnalysisEntry, onApplyAnalysisParams,
-  forceOpenHistoryId, onHistoryModalClose
+  forceOpenHistoryId, onHistoryModalClose,
+  onIntegrationMethodChange
 }) => {
   const { isGuest, isApproved, isAdmin, isRestricted, user } = useAuth();
   const canAccessRestrictedFeature = isAdmin || (user && isApproved && !isRestricted);
+
+  const handleMethodChange = (method: 'euler' | 'rk4' | 'ai-apas') => {
+    setSelectedIntegrationMethod(method);
+    playClick(isMuted);
+    
+    const methodNames = {
+      'euler': lang === 'ar' ? 'أويلر (سريع)' : 'Euler (Fast)',
+      'rk4': lang === 'ar' ? 'RK4 (دقيق)' : 'RK4 (Accurate)',
+      'ai-apas': lang === 'ar' ? 'ذكاء APAS (فائق الدقة)' : 'AI APAS (Ultra Precise)'
+    };
+    
+    toast.info(
+      lang === 'ar' 
+        ? `تم تغيير طريقة التكامل إلى ${methodNames[method]}. ستلاحظ تغييراً في دقة المسار والحسابات.`
+        : `Integration method changed to ${methodNames[method]}. You'll notice changes in path accuracy and calculations.`,
+      { icon: <Layers className="w-4 h-4 text-primary" /> }
+    );
+    
+    onIntegrationMethodChange?.(method);
+  };
 
   const loadPreset = (preset: typeof PRESETS[0]) => {
     setVelocity(preset.p.velocity);
@@ -116,10 +139,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
           ].map((method) => (
             <button
               key={method.id}
-              onClick={() => {
-                setSelectedIntegrationMethod(method.id);
-                playClick(isMuted);
-              }}
+              onClick={() => handleMethodChange(method.id)}
               className={`px-2 py-2.5 text-xs rounded-lg transition-all duration-300 font-semibold ${
                 selectedIntegrationMethod === method.id
                   ? `bg-gradient-to-r ${method.color} text-white shadow-md border border-transparent`

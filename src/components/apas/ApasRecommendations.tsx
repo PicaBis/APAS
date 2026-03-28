@@ -620,8 +620,9 @@ CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no extra text
           )}
         </span>
         <span className="relative z-10 text-[11px] font-bold whitespace-nowrap flex items-center gap-1 tracking-wide" dir={isAr ? 'rtl' : 'ltr'}>
-          <span>{isAr ? '\u062a\u0648\u0635\u064a\u0627\u062a' : 'Tips'}</span>
-          <span className="font-extrabold">APAS</span>
+          <span>{isAr ? 'توصيات' : 'Tips'}</span>
+          <span className="font-extrabold">{isAr ? 'مهمة' : 'APAS'}</span>
+        </span>
         </span>
       </button>
 

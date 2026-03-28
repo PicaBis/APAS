@@ -466,19 +466,6 @@ You MUST also provide a JSON block at the end:
           <span>{isAr ? 'APAS قراءة تمرين' : 'APAS Subject'}</span>
           <Sparkles className="w-3 h-3 text-amber-400" />
         </button>
-
-        {history.length > 0 && (
-          <button
-            onClick={() => setShowHistoryModal(true)}
-            className="p-2 rounded-xl border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 transition-all duration-300 relative"
-            title={isAr ? 'سجل التمارين' : 'Exercise History'}
-          >
-            <History className="w-3.5 h-3.5 text-foreground" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-foreground text-background text-[8px] font-bold rounded-full flex items-center justify-center">
-              {history.length}
-            </span>
-          </button>
-        )}
       </div>
 
       {/* Exercise History Modal */}
@@ -633,18 +620,21 @@ You MUST also provide a JSON block at the end:
                       );
                     })}
                   </div>
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    <span className="text-sm text-foreground font-medium">
+                  <div className="flex flex-col items-center gap-3 py-4">
+                    <div className="relative">
+                      <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                      <div className="absolute inset-0 blur-lg bg-blue-400/30 animate-pulse rounded-full" />
+                    </div>
+                    <span className="text-sm font-bold text-blue-700 dark:text-blue-400 text-center animate-pulse">
                       {analysisStep === 'upload'
                         ? (isAr ? 'جاري تحميل الصورة...' : 'Uploading image...')
                         : analysisStep === 'analyze'
                           ? (isAr ? 'جاري قراءة وتحليل التمرين...' : 'Reading and analyzing the exercise...')
                           : (isAr ? 'جاري معالجة النتائج...' : 'Processing results...')}
                     </span>
-                    <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
+                    <span className="text-xs font-mono font-bold text-blue-600/70">{Math.round(progress)}%</span>
                   </div>
-                  <Progress value={progress} className="h-2" />
+                  <Progress value={progress} className="h-2.5 bg-blue-100 dark:bg-blue-900/30" indicatorClassName="bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]" />
                 </div>
               )}
 

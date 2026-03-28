@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { History, X, Camera, Video, Eye, Trash2, FileText, Mic } from 'lucide-react';
+import { History, X, Camera, Video, Eye, Trash2, FileText, Mic, Play } from 'lucide-react';
+import { toast } from 'sonner';
 import ReportRenderer from './ReportRenderer';
 
 interface AnalysisEntry {
