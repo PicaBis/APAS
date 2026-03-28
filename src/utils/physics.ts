@@ -242,7 +242,7 @@ export const calculateTrajectory = (
   // Input validation: clamp to physically reasonable ranges
   velocity = Math.max(0, isFinite(velocity) ? velocity : 0);
   angle = isFinite(angle) ? angle : 45;
-  height = isFinite(height) ? height : 0;
+  height = isFinite(height) ? Math.max(-5000, height) : 0;
   gravity = isFinite(gravity) ? Math.max(0, gravity) : 9.81;
   airResistance = isFinite(airResistance) ? Math.max(0, airResistance) : 0;
   mass = isFinite(mass) ? Math.max(0.001, mass) : 1;
@@ -545,13 +545,24 @@ export const calculateTrajectory = (
 
   // Theoretical (no drag)
   const theoPoints: Array<{ x: number; y: number; time: number }> = [];
-  if (gravity === 0) {
-    // Zero gravity: straight line motion
-    const theoMaxTime = maxTime;
-    for (let tt = 0; tt <= theoMaxTime; tt += dt) {
-      const xt = initialX + vx0 * tt;
-      const yt = height + vy0 * tt;
-      theoPoints.push({ x: r3(xt), y: r3(yt), time: r3(tt) });
+  if (Math.abs(gravity) < 0.0001) {
+    const dt = 0.05;
+    const vx0 = velocity * Math.cos(angleRad);
+    const vy0 = velocity * Math.sin(angleRad);
+    const maxIter = 5000;
+    let iter = 0;
+    for (let t = 0; iter < maxIter; t += dt) {
+      const xt = initialX + vx0 * t;
+      const yt = height + vy0 * t;
+      
+      // Stop if it hits a hypothetical ground at y=0 from above
+      if (height >= 0 && yt < 0) break;
+      if (height < 0 && forceGroundDetection && yt < 0 && vy0 < 0) break;
+      
+      const limit = Math.max(1000, Math.abs(height) * 20);
+      if (Math.abs(xt) > limit || Math.abs(yt) > limit) break;
+      theoPoints.push({ x: r3(xt), y: r3(yt), time: r3(t) });
+      iter++;
     }
   } else {
     // Normal gravity: parabolic trajectory

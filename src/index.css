@@ -100,6 +100,23 @@
   }
 }
 
+/* ═══ Glassmorphism & Modern UI ═══ */
+.glass-panel {
+  @apply bg-card/60 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl shadow-black/5;
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.glass-panel:hover {
+  @apply bg-card/75 border-white/30 dark:border-white/20 shadow-2xl shadow-primary/5;
+}
+.glass-sidebar {
+  @apply bg-background/40 backdrop-blur-2xl border-r border-border/30;
+  box-shadow: 10px 0 30px -15px rgba(0, 0, 0, 0.05);
+}
+.dark .glass-sidebar {
+  @apply bg-background/20 backdrop-blur-2xl border-r border-white/5;
+  box-shadow: 10px 0 40px -20px rgba(0, 0, 0, 0.3);
+}
+
 @layer base {
   * {
     @apply border-border;

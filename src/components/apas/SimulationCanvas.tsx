@@ -253,6 +253,17 @@ interface SimulationCanvasProps {
   relativityFrameVelocity?: number;
 }
 
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  size: number;
+}
+
 const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   trajectoryData, theoreticalData, prediction, currentTime, height,
   showCriticalPoints, showExternalForces, vectorVisibility, showAIComparison, aiModels,
@@ -287,6 +298,71 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const panStart = useRef({ x: 0, y: 0 });
+  
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const lastTimeRef = useRef(currentTime);
+  const particlesRef = useRef<Particle[]>([]);
+
+  // ── Particle System logic ──
+  const spawnParticles = useCallback((x: number, y: number, envId: string) => {
+    const newParticles: Particle[] = [];
+    const count = 15 + Math.random() * 15;
+    
+    let color = '#94a3b8'; // Default dust
+    if (envId === 'underwater') color = '#7dd3fc'; // Bubbles
+    if (envId === 'mars') color = '#b45309'; // Red dust
+    if (envId === 'moon') color = '#cbd5e1'; // Lunar dust
+    
+    for (let i = 0; i < count; i++) {
+      newParticles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 1) * 6, // Mostly upwards
+        life: 1,
+        maxLife: 0.6 + Math.random() * 0.6,
+        color,
+        size: 1 + Math.random() * 4
+      });
+    }
+    particlesRef.current = [...particlesRef.current, ...newParticles];
+  }, []);
+
+  useEffect(() => {
+    // Check for ground impact to spawn particles
+    const idx = trajectoryData.findIndex(p => p.time >= currentTime);
+    const prevIdx = trajectoryData.findIndex(p => p.time >= lastTimeRef.current);
+    
+    if (idx > 0 && prevIdx >= 0 && idx !== prevIdx) {
+      const pt = trajectoryData[idx];
+      // Ground hit detection for particles (approaching y=0 or near zero)
+      const isGroundHit = Math.abs(pt.y) < 0.1 && trajectoryData[prevIdx].y > 0.1;
+      
+      if (isGroundHit) {
+        spawnParticles(pt.x, pt.y, environmentId);
+      }
+    }
+    lastTimeRef.current = currentTime;
+  }, [currentTime, trajectoryData, environmentId, spawnParticles]);
+
+  // Update particles loop
+  useEffect(() => {
+    let frameId: number;
+    const update = () => {
+      particlesRef.current = particlesRef.current
+        .map(p => ({
+          ...p,
+          x: p.x + p.vx * 0.015,
+          y: p.y - p.vy * 0.015, // Physics Y is up, Canvas Y is down handled in toY
+          vy: p.vy - 0.2, // Gravity pulling down in physics space
+          life: p.life - 0.025
+        }))
+        .filter(p => p.life > 0);
+      
+      frameId = requestAnimationFrame(update);
+    };
+    frameId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
 
   // Responsive canvas — use container WIDTH only, fixed aspect ratio
   // This prevents the canvas from expanding/stretching vertically on load
@@ -1531,6 +1607,21 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           }
         }
 
+      }
+
+      // ── Draw Particles ──
+      if (particlesRef.current.length > 0) {
+        ctx.save();
+        particlesRef.current.forEach(p => {
+          const px = toX(p.x);
+          const py = toY(p.y);
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(px, py, p.size * labelScale, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
       }
 
       // ── Stroboscopic marks ──
