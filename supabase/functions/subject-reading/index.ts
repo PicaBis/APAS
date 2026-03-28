@@ -58,10 +58,13 @@ Respond with:
 Then explain that this system specializes in projectile motion problems only.
 
 IF A PROJECTILE MOTION PROBLEM IS FOUND:
-1. Read and transcribe the problem carefully
-2. Extract ALL given data (velocity, angle, height, mass, gravity, range, time, etc.)
-3. Identify what needs to be found
-4. Solve step by step
+1. Read and transcribe the problem carefully.
+2. Extract ALL given data. If a value is not directly given, look for information to CALCULATE it.
+   - Example: If the problem gives range (R) and angle (\u03B8), use V\u2080 = \u221A(R\u00B7g / sin(2\u03B8)).
+   - Example: If it gives max height (H) and angle (\u03B8), use V\u2080 = \u221A(2\u00B7g\u00B7H) / sin(\u03B8).
+3. Do NOT provide null or 0 for velocity/angle if the problem contains enough info to solve for them.
+4. Identify what needs to be found.
+5. Solve step by step with extreme mathematical rigor.
 
 Respond with:
 \`\`\`json
@@ -246,7 +249,15 @@ IMPORTANT RULES:
             // Rebuild text with updated JSON
             const newJson = "```json\n" + JSON.stringify(parsed, null, 2) + "\n```";
             const afterJson = text.replace(/```json[\s\S]*?```/, "").trim();
-            finalText = newJson + "\n\n" + afterJson;
+            
+            let warningHeader = "";
+            if (parsed.extractedData.sanityWarning) {
+              warningHeader = isAr 
+                ? `> \u26a0\ufe0f **\u062a\u0646\u0628\u064a\u0647 \u0641\u064a\u0632\u064a\u0627\u0626\u064a**: ${parsed.extractedData.sanityWarning}\n\n`
+                : `> \u26a0\ufe0f **Physics Warning**: ${parsed.extractedData.sanityWarning}\n\n`;
+            }
+
+            finalText = newJson + "\n\n" + warningHeader + afterJson;
           }
         }
       }

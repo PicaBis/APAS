@@ -402,9 +402,10 @@ serve(async (req) => {
     const analysisSummaryAr = String((visionData as { analysis_summary_ar?: string }).analysis_summary_ar || "");
     const motionDescription = String((visionData as { motionDescription?: string }).motionDescription || "");
 
+    let usedDefaults = false;
     if (rawV0 === 0 || rawAngle === 0) {
+      usedDefaults = true;
       console.log("[video-analyze] AI returned zeros, using smart defaults for: " + objectType);
-      console.log("[video-analyze] Defaults applied: v0=" + v0 + ", angle=" + angle + ", h0=" + h0 + ", mass=" + mass);
     }
 
     // Always recompute physics from v0 and angle for consistency
@@ -427,6 +428,26 @@ serve(async (req) => {
       maxHeight, impactVelocity,
     });
 
+    // Cross-check AI results with mathematical results
+    const aiMaxHeight = Number((visionData as { maxHeight?: number }).maxHeight) || 0;
+    const aiRange = Number((visionData as { maxRange?: number }).maxRange) || 0;
+    const heightDiff = aiMaxHeight > 0 ? Math.abs(aiMaxHeight - maxHeight) / aiMaxHeight : 0;
+    const rangeDiff = aiRange > 0 ? Math.abs(aiRange - maxRange) / aiRange : 0;
+    
+    let consistencyNote = "";
+    if (heightDiff > 0.25 || rangeDiff > 0.25) {
+      consistencyNote = isAr 
+        ? "\u26a0\ufe0f \u062a\u0646\u0628\u064a\u0647: \u0647\u0646\u0627\u0643 \u062a\u0641\u0627\u0648\u062a \u0641\u064a \u062a\u062a\u0628\u0639 \u0627\u0644\u062d\u0631\u0643\u0629 \u0639\u0628\u0631 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a. \u062a\u0645 \u062a\u0635\u062d\u064a\u062d \u0627\u0644\u0642\u064a\u0645 \u0641\u064a\u0632\u064a\u0627\u0626\u064a\u0627\u064b."
+        : "\u26a0\ufe0f Warning: Discrepancy in motion tracking across frames. Physics-corrected values applied.";
+    }
+
+    if (usedDefaults) {
+      const defaultNote = isAr
+        ? "\u2139\ufe0f \u062a\u0645 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0642\u064a\u0645 \u0645\u0639\u064a\u0627\u0631\u064a\u0629 \u0644\u0644\u062c\u0633\u0645 \u0644\u0635\u0639\u0648\u0628\u0629 \u0627\u0644\u062a\u0642\u062f\u064a\u0631 \u0627\u0644\u062f\u0642\u064a\u0642 \u0645\u0646 \u0627\u0644\u0641\u064a\u062f\u064a\u0648."
+        : "\u2139\ufe0f Standard physical defaults used due to tracking limitations in the video.";
+      consistencyNote += (consistencyNote ? "\n" : "") + defaultNote;
+    }
+
     const processingTime = Date.now() - startTime;
 
     const finalJson: Record<string, unknown> = {
@@ -441,6 +462,7 @@ serve(async (req) => {
       analysisSummaryAr: analysisSummaryAr,
       providers: { extraction: "Mistral", solving: "Mistral" },
       processingTimeMs: processingTime,
+      consistencyNote,
     };
 
     // Upsert to Supabase analyses table
@@ -506,8 +528,9 @@ serve(async (req) => {
       (isAr ? "\u0633\u0631\u0639\u0629 \u0627\u0644\u0627\u0635\u0637\u062f\u0627\u0645 = " : "Impact velocity = ") + impactVelocity + " m/s",
       "",
       isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check",
-      (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
+      (verification.verified ? "\u2705 " : "\u26a0\ufe0f ") + verification.note,
       "",
+      finalJson.consistencyNote ? (finalJson.consistencyNote as string) + "\n" : "",
       (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Mistral AI (Pixtral Vision)",
       (isAr ? "\u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062a: " : "Frames: ") + limitedFrames.length + "/" + frames.length + " used",
       (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",

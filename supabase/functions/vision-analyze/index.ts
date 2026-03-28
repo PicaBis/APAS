@@ -457,9 +457,10 @@ function buildReport(
     isAr ? "## \u0627\u0644\u062a\u0641\u0633\u064a\u0631 \u0627\u0644\u0639\u0644\u0645\u064a" : "## Scientific Explanation",
     scientificExplanation,
     "",
-    isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check",
-    (verification.verified ? "OK" : "WARNING") + ": " + verification.note,
+    (isAr ? "## \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u062d\u0641\u0638 \u0627\u0644\u0637\u0627\u0642\u0629" : "## Energy Conservation Check"),
+    (verification.verified ? "\u2705 " : "\u26a0\ufe0f ") + verification.note,
     "",
+    finalJson.consistencyNote ? (finalJson.consistencyNote as string) + "\n" : "",
     (isAr ? "\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a: " : "AI Provider: ") + "Mistral AI (Pixtral Vision)",
     (isAr ? "\u0632\u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629: " : "Processing time: ") + processingTime + " ms",
   ];
@@ -542,9 +543,10 @@ serve(async (req) => {
     const mass = Number(parsed.estimated_mass) || defaults.mass;
     const confidence = Number(parsed.confidence_score) || 70;
 
+    let usedDefaults = false;
     if (rawV0 === 0 || rawAngle === 0) {
+      usedDefaults = true;
       console.log("[vision-analyze] AI returned zeros, using smart defaults for: " + objectType);
-      console.log("[vision-analyze] Defaults applied: v0=" + v0 + ", angle=" + angle + ", h0=" + h0 + ", mass=" + mass);
     }
 
     // Always recompute physics from v0 and angle for consistency
@@ -578,6 +580,26 @@ serve(async (req) => {
     });
     console.log("[vision-analyze] Energy verification:", verification);
 
+    // Cross-check AI results with mathematical results
+    const aiMaxHeight = Number(parsed.max_altitude) || 0;
+    const aiRange = Number(parsed.horizontal_range) || 0;
+    const heightDiff = aiMaxHeight > 0 ? Math.abs(aiMaxHeight - maxHeight) / aiMaxHeight : 0;
+    const rangeDiff = aiRange > 0 ? Math.abs(aiRange - maxRange) / aiRange : 0;
+    
+    let consistencyNote = "";
+    if (heightDiff > 0.2 || rangeDiff > 0.2) {
+      consistencyNote = isAr 
+        ? "\u26a0\ufe0f \u062a\u0646\u0628\u064aه: \u0647ناك \u0627ختلاف \u0628ين \u0627لتقدير \u0627لبصري \u0648الحساب \u0627لفيز\u064aا\u0626ي. \u062aم \u0627لاعتماد \u0639لى \u0627لحساب \u0627لأدق."
+        : "\u26a0\ufe0f Warning: Discrepancy between visual estimation and physical calculation. Using corrected physics values.";
+    }
+
+    if (usedDefaults) {
+      const defaultNote = isAr
+        ? "\u2139\ufe0f \u062aم \u0627ستخدام \u0642يم \u0627فتراضية \u0644لجسم \u0644عدم \u0648ضوح \u0645عالم \u0627لحركة."
+        : "\u2139\ufe0f Using standard physical defaults for this object type as motion cues were unclear.";
+      consistencyNote += (consistencyNote ? "\n" : "") + defaultNote;
+    }
+
     const processingTime = Date.now() - startTime;
 
     // Build final JSON result
@@ -608,6 +630,7 @@ serve(async (req) => {
       energyError: Math.round(verification.energyError * 10000) / 100,
       providers: { extraction: "Mistral", solving: "Mistral" },
       processingTimeMs: processingTime,
+      consistencyNote: consistencyNote,
     };
 
     // Upsert to Supabase analyses table
