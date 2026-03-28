@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
-import { MessageCircle, X, Send, Loader2, Trash2, User, Volume2, VolumeX, Mic, ArrowLeft, Sparkles } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Trash2, User, Volume2, VolumeX, Mic, ArrowLeft, Sparkles, FileText } from 'lucide-react';
 import ApasLogo from '@/components/apas/ApasLogo';
 import { toast } from 'sonner';
 import { playClick } from '@/utils/sound';
@@ -405,6 +405,14 @@ export default function PhysicsTutor({ lang, simulationContext, hasModel = false
     setVoiceAnalysisText('');
   }, [stopSpeaking]);
 
+  const generateLabReport = useCallback(async () => {
+    const reportPrompt = lang === 'ar' 
+      ? "قم بإنشاء تقرير مختبري احترافي لهذه المحاكاة. التقرير يجب أن يتضمن: العنوان، الهدف، الأدوات (محاكي APAS)، المعطيات الفيزيائية الحالية، التحليل العلمي للمسار، النتائج النهائية (المدى، الارتفاع، الزمن)، والاستنتاج الفيزيائي."
+      : "Generate a professional lab report for this simulation. Include: Title, Objective, Tools (APAS Simulator), Current physical parameters, Scientific trajectory analysis, Final results (range, height, time), and Physics conclusion.";
+    
+    send(reportPrompt);
+  }, [lang, send]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
@@ -691,6 +699,15 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
                   title={lang === 'ar' ? 'العودة للمحادثة' : 'Back to Chat'}
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {messages.length > 0 && !voiceMode && (
+                <button 
+                  onClick={() => { generateLabReport(); playClick(false); }} 
+                  className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all duration-200"
+                  title={lang === 'ar' ? 'إنشاء تقرير مختبري' : 'Generate Lab Report'}
+                >
+                  <FileText className="w-3.5 h-3.5" />
                 </button>
               )}
               {messages.length > 0 && !voiceMode && (

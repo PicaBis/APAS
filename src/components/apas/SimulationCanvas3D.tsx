@@ -44,6 +44,9 @@ interface SimulationCanvas3DProps {
   enableMagnusSpin?: boolean;
   spinRate?: number;
   theme3d?: Theme3DId;
+  cameraMode?: 'orbit' | 'pov' | 'follow';
+  targetPosition?: { x: number; z: number } | null;
+  onTargetHit?: (distance: number) => void;
 }
 
 /** Linearly interpolate between two trajectory points */
@@ -720,6 +723,9 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   environmentId = 'earth', activePresetEmoji, showGrid = true, onWebglError,
   enableMagnusSpin = false, spinRate = 0,
   theme3d = 'refined-lab',
+  cameraMode = 'orbit',
+  targetPosition = null,
+  onTargetHit = () => {},
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -740,6 +746,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   const gravityRef = useRef(gravity);
   const airResistanceRef = useRef(airResistance);
   const playbackSpeedRef = useRef(playbackSpeed);
+  const cameraModeRef = useRef(cameraMode);
   const smoothTimeRef = useRef(currentTime);
   const lastTickTsRef = useRef(0);
   const wasAnimatingRef = useRef(false);
@@ -762,6 +769,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   environmentIdRef.current = environmentId;
   enableMagnusSpinRef.current = enableMagnusSpin;
   spinRateRef.current = spinRate;
+  cameraModeRef.current = cameraMode;
 
   // Keep refs in sync
   currentTimeRef.current = currentTime;
@@ -1015,6 +1023,35 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
         }
         projectile.position.copy(pos3D);
 
+        // ── Camera Modes (POV / Follow) ──
+        const curMode = cameraModeRef.current;
+        if (curMode === 'pov' || curMode === 'follow') {
+          // Find next position for orientation/tangent
+          const nextPos = getInterpolatedPosition(data, displayTime + 0.05);
+          const nextPos3D = trajMeshes && trajMeshes.curve 
+            ? trajMeshes.curve.getPointAt(Math.min((pos.fractionalIdx + 1) / (n - 1), 1))
+            : project3D(nextPos.x, nextPos.y, curPhiRad);
+          
+          const tangent = new THREE.Vector3().subVectors(nextPos3D, pos3D).normalize();
+          
+          if (curMode === 'pov') {
+            // POV: Inside/on the projectile looking forward
+            camera.position.copy(pos3D);
+            // Offset slightly forward so we don't see inside the mesh
+            camera.position.addScaledVector(tangent, 0.05);
+            camera.lookAt(nextPos3D);
+          } else if (curMode === 'follow') {
+            // Follow: Behind the projectile
+            const followOffset = tangent.clone().negate().multiplyScalar(boundsRef.current.span * 0.25);
+            followOffset.y += boundsRef.current.span * 0.08; // slightly above
+            camera.position.copy(pos3D).add(followOffset);
+            camera.lookAt(pos3D);
+          }
+          controls.enabled = false;
+        } else {
+          controls.enabled = true;
+        }
+
         // Ground collision: clamp projectile so it sits ON the ground, not inside it.
         // The projectile is a sphere with a radius that depends on the preset type.
         // We must offset by the ball's radius so the bottom of the sphere
@@ -1027,6 +1064,17 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
         );
         if (projectile.position.y < ballRadius) {
           projectile.position.y = ballRadius;
+
+          // ── Hit Detection (Target Challenge) ──
+          if (targetPosition) {
+            const dist = Math.sqrt(
+              Math.pow(pos3D.x - targetPosition.x, 2) + 
+              Math.pow(pos3D.z - targetPosition.z, 2)
+            );
+            if (dist < 1.0 && isAnimatingRef.current) { // Hit within 1 meter while animating
+              onTargetHit(dist);
+            }
+          }
         }
 
         // Align directional models (rocket, arrow) tangent to the path
@@ -1152,6 +1200,72 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
       rendererRef.current = null;
     };
   }, [trajectoryData, prediction, height, showCriticalPoints, nightMode, webglError, lang, phi, environmentId, activePresetEmoji, airResistance, theme3d, showGrid]);
+
+  const targetGroupRef = useRef<THREE.Group | null>(null);
+
+  // ── Target Marker 3D ──
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    if (targetGroupRef.current) {
+      scene.remove(targetGroupRef.current);
+      targetGroupRef.current.traverse((obj) => {
+        if ((obj as THREE.Mesh).geometry) (obj as THREE.Mesh).geometry.dispose();
+        const mat = (obj as THREE.Mesh).material;
+        if (mat) {
+          if (Array.isArray(mat)) mat.forEach(m => m.dispose());
+          else (mat as THREE.Material).dispose();
+        }
+      });
+      targetGroupRef.current = null;
+    }
+
+    if (!targetPosition) return;
+
+    const group = new THREE.Group();
+    group.name = 'target-group';
+    const { x, z } = targetPosition;
+
+    // Outer Ring
+    const ring1 = new THREE.Mesh(
+      new THREE.RingGeometry(0.8, 1, 32),
+      new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+    );
+    ring1.rotation.x = -Math.PI / 2;
+    ring1.position.set(x, 0.01, z);
+    group.add(ring1);
+
+    // Inner Ring
+    const ring2 = new THREE.Mesh(
+      new THREE.RingGeometry(0.4, 0.5, 32),
+      new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })
+    );
+    ring2.rotation.x = -Math.PI / 2;
+    ring2.position.set(x, 0.012, z);
+    group.add(ring2);
+
+    // Center
+    const center = new THREE.Mesh(
+      new THREE.CircleGeometry(0.1, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+    );
+    center.rotation.x = -Math.PI / 2;
+    center.position.set(x, 0.015, z);
+    group.add(center);
+
+    // Glow
+    const glow = new THREE.Mesh(
+      new THREE.CircleGeometry(1.2, 32),
+      new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.1, side: THREE.DoubleSide })
+    );
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.set(x, 0.005, z);
+    group.add(glow);
+
+    scene.add(group);
+    targetGroupRef.current = group;
+  }, [targetPosition]);
 
   // ── Toggle 3D grid visibility ──
   useEffect(() => {

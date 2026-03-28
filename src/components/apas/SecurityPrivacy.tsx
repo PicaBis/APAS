@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Shield, Lock, Trash2, CheckCircle, Eye, Database, Key } from 'lucide-react';
+import { X, Shield, Lock, Trash2, CheckCircle, Eye, Database, Key, Loader2 } from 'lucide-react';
 
 interface SecurityPrivacyProps {
   open: boolean;
@@ -12,6 +12,18 @@ interface SecurityPrivacyProps {
 const SecurityPrivacy: React.FC<SecurityPrivacyProps> = ({ open, onClose, lang, autoDeleteEnabled, onToggleAutoDelete }) => {
 
   const [showDetails, setShowDetails] = useState<string | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
+
+  const clearAllData = () => {
+    if (confirm(t('هل أنت متأكد من حذف جميع البيانات؟ سيتم مسح الإعدادات والتاريخ والجلسات.', 'Are you sure you want to delete all data? Settings, history, and sessions will be cleared.', 'Êtes-vous sûr de vouloir supprimer toutes les données ? Les paramètres, l\'historique et les sessions seront effacés.'))) {
+      setIsClearing(true);
+      localStorage.clear();
+      sessionStorage.clear();
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  };
 
   const t = (ar: string, en: string, fr: string) =>
     lang === 'ar' ? ar : lang === 'fr' ? fr : en;
@@ -183,6 +195,25 @@ const SecurityPrivacy: React.FC<SecurityPrivacyProps> = ({ open, onClose, lang, 
               </div>
             </button>
           ))}
+
+          {/* Wipe All Data Button */}
+          <button
+            onClick={clearAllData}
+            disabled={isClearing}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20 transition-all duration-300 font-bold text-xs"
+          >
+            {isClearing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {t('جاري الحذف...', 'Clearing...', 'Suppression...')}
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4" />
+                {t('مسح جميع البيانات المحلية', 'Clear All Local Data', 'Effacer toutes les données locales')}
+              </>
+            )}
+          </button>
         </div>
 
         {/* Footer */}

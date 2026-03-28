@@ -119,6 +119,9 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
+  const [theme3d, setTheme3d] = useState<Theme3DId>('refined-lab');
+  const [cameraMode, setCameraMode] = useState<'orbit' | 'pov' | 'follow'>('orbit');
+  const [targetChallenge, setTargetChallenge] = useState<{ active: boolean; pos: { x: number; z: number } | null }>({ active: false, pos: null });
   const [webglError, setWebglError] = useState<string | null>(null);
   const [isLangTransitioning, setIsLangTransitioning] = useState(false);
   const [showIntegrationComparison, setShowIntegrationComparison] = useState(false);
@@ -217,6 +220,27 @@ const Index = () => {
       setTimeout(() => sim.startAnimation(), 100);
     }
   }, [sim]);
+
+  const startTargetChallenge = useCallback(() => {
+    const randomDist = 20 + Math.random() * 80; // 20-100m
+    const randomPhi = (Math.random() - 0.5) * 60; // +/- 30 deg
+    const rad = (randomPhi * Math.PI) / 180;
+    const x = randomDist * Math.cos(rad);
+    const z = randomDist * Math.sin(rad);
+    
+    setTargetChallenge({ active: true, pos: { x, z } });
+    setIs3DMode(true);
+    toast.info(lang === 'ar' ? `تحدي الهدف: حاول إصابة الهدف على بعد ${randomDist.toFixed(1)}م!` : `Target Challenge: Try to hit the target ${randomDist.toFixed(1)}m away!`);
+  }, [lang]);
+
+  const handleTargetHit = useCallback((dist: number) => {
+    if (targetChallenge.active) {
+      setTargetChallenge({ active: false, pos: null });
+      toast.success(lang === 'ar' ? 'إصابة رائعة! لقد أصبت الهدف بدقة!' : 'Great Shot! You hit the target perfectly!');
+      // Play a sound if possible
+      playSnapshotSound(sim.isMuted);
+    }
+  }, [targetChallenge.active, lang, sim.isMuted]);
 
   const handleDetectedMedia = useCallback((data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => {
     setDetectedMedia(data);
@@ -568,6 +592,17 @@ const Index = () => {
                         className={`p-1 rounded-md transition-all duration-200 active:scale-90 ${is3DMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
                         <Box className="w-3 h-3" />
                       </button>
+                      {is3DMode && (
+                        <button onClick={() => {
+                            const nextMode = cameraMode === 'orbit' ? 'follow' : cameraMode === 'follow' ? 'pov' : 'orbit';
+                            setCameraMode(nextMode);
+                            playClick(sim.isMuted);
+                          }}
+                          className="p-1 rounded-md bg-secondary/60 text-foreground transition-all duration-200 active:scale-90 flex items-center gap-0.5">
+                          <Video className="w-3 h-3" />
+                          <span className="text-[7px] font-bold uppercase">{cameraMode}</span>
+                        </button>
+                      )}
                       <div className="w-px h-4 bg-border/50 mx-0.5" />
                       {/* Screenshot */}
                       <button onClick={() => { exportSimulationPNG(); playClick(sim.isMuted); }}
@@ -612,6 +647,9 @@ const Index = () => {
                           environmentId={currentEnvId} activePresetEmoji={activePresetEmoji} showGrid={showGrid}
                           enableMagnusSpin={advancedPhysics.enableMagnus && advancedPhysics.spinRate !== 0}
                           spinRate={advancedPhysics.spinRate} theme3d={theme3d}
+                          cameraMode={cameraMode}
+                          targetPosition={targetChallenge.pos}
+                          onTargetHit={handleTargetHit}
                           onWebglError={(msg) => { setWebglError(msg); setIs3DMode(false); }}
                         />
                       </Suspense>
@@ -2122,6 +2160,18 @@ const Index = () => {
                       title={lang === 'ar' ? '\u0648\u0636\u0639 \u062b\u0644\u0627\u062b\u064a \u0627\u0644\u0623\u0628\u0639\u0627\u062f' : '3D Mode'}>
                       <Box className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
                     </button>
+                    {is3DMode && (
+                      <button onClick={() => {
+                          const nextMode = cameraMode === 'orbit' ? 'follow' : cameraMode === 'follow' ? 'pov' : 'orbit';
+                          setCameraMode(nextMode);
+                          playUIClick(sim.isMuted);
+                        }}
+                        className="group p-1.5 rounded-lg bg-secondary/60 text-foreground border border-border/40 hover:bg-secondary hover:shadow-md transition-all duration-300 flex items-center gap-1"
+                        title={lang === 'ar' ? 'وضع الكاميرا' : 'Camera Mode'}>
+                        <Video className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110" />
+                        <span className="text-[9px] font-bold uppercase">{cameraMode}</span>
+                      </button>
+                    )}
                     <div className="w-px h-5 bg-border/50 mx-0.5" />
                     {/* Capture group */}
                     <div className="flex items-center gap-0.5">
@@ -2176,6 +2226,9 @@ const Index = () => {
                           environmentId={currentEnvId} activePresetEmoji={activePresetEmoji} showGrid={showGrid}
                           enableMagnusSpin={advancedPhysics.enableMagnus && advancedPhysics.spinRate !== 0}
                           spinRate={advancedPhysics.spinRate} theme3d={theme3d}
+                          cameraMode={cameraMode}
+                          targetPosition={targetChallenge.pos}
+                          onTargetHit={handleTargetHit}
                           onWebglError={(msg) => { setWebglError(msg); setIs3DMode(false); }}
                         />
                         {webglError && (
@@ -2623,6 +2676,8 @@ const Index = () => {
               setActivePresetEmoji={setActivePresetEmoji}
               onSessionLoad={handleSessionLoad} onShowRestrictionOverlay={setShowRestrictionOverlay}
               onAutoRun={handleAutoRunSimulation}
+              onTargetChallenge={startTargetChallenge}
+              targetChallengeActive={targetChallenge.active}
               onDetectedMedia={handleDetectedMedia}
               onAnalysisComplete={handleAnalysisComplete}
               analysisHistory={analysisHistory}
