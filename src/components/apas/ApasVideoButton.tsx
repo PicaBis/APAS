@@ -24,12 +24,17 @@ interface Props {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const MAX_FRAMES = 8;
+const MAX_FRAMES_CLIENT = 16;
 
-function extractFrames(video: HTMLVideoElement, count: number): Promise<Array<{ data: string; timestamp: number }>> {
+function extractFramesWithRange(
+  video: HTMLVideoElement, 
+  count: number, 
+  startTime: number, 
+  endTime: number
+): Promise<Array<{ data: string; timestamp: number }>> {
   return new Promise((resolve) => {
-    const duration = video.duration;
-    if (!duration || duration <= 0) { resolve([]); return; }
+    const duration = endTime - startTime;
+    if (duration <= 0) { resolve([]); return; }
 
     const frames: Array<{ data: string; timestamp: number }> = [];
     const interval = duration / (count + 1);
@@ -40,15 +45,16 @@ function extractFrames(video: HTMLVideoElement, count: number): Promise<Array<{ 
     let idx = 0;
     const captureNext = () => {
       if (idx >= count) { resolve(frames); return; }
-      const t = interval * (idx + 1);
+      const t = startTime + interval * (idx + 1);
       video.currentTime = t;
     };
 
     video.onseeked = () => {
-      canvas.width = Math.min(video.videoWidth, 640);
+      // Use higher resolution for better analysis
+      canvas.width = Math.min(video.videoWidth, 800);
       canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       frames.push({ data: dataUrl, timestamp: video.currentTime });
       idx++;
       captureNext();
@@ -250,12 +256,11 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
   // Submit video for analysis (from file or preview)
   const submitForAnalysis = useCallback(() => {
     if (!videoFile) return;
-    setVideoSrc(null);
-    setShowTrimmer(false);
-    analyzeVideo(videoFile);
-  }, [videoFile]);
+    const isTrimmed = showTrimmer && (trimStart > 0 || trimEnd < duration);
+    analyzeVideo(videoFile, isTrimmed ? { start: trimStart, end: trimEnd } : undefined);
+  }, [videoFile, showTrimmer, trimStart, trimEnd, duration]);
 
-  const analyzeVideo = useCallback(async (file: File) => {
+  const analyzeVideo = useCallback(async (file: File, trimRange?: { start: number; end: number }) => {
     setLoading(true);
     setProgress(5);
     setReport(null);
@@ -290,10 +295,10 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         setTimeout(() => reject(new Error('Video load timeout')), 15000);
       });
 
-      // Generate thumbnail from first frame
+      // Generate thumbnail from first frame or trim start
       const thumbCanvas = document.createElement('canvas');
       const thumbCtx = thumbCanvas.getContext('2d');
-      videoEl.currentTime = 0.1;
+      videoEl.currentTime = trimRange ? trimRange.start : 0.1;
       await new Promise<void>((resolve) => {
         videoEl.onseeked = () => resolve();
       });
@@ -312,9 +317,16 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       setProgress(40);
       setStatusMsg(isAr ? 'جاري تحليل الإطارات...' : 'Analyzing frames...');
 
-      // Extract frames
-      const frameCount = Math.min(MAX_FRAMES, Math.max(4, Math.floor(videoEl.duration * 2)));
-      const frames = await extractFrames(videoEl, frameCount);
+      // Extract frames - INCREASED MAX_FRAMES for better accuracy
+      const finalMaxFrames = 16; 
+      const startT = trimRange ? trimRange.start : 0;
+      const endT = trimRange ? trimRange.end : videoEl.duration;
+      const actualDuration = endT - startT;
+      
+      const frameCount = Math.min(finalMaxFrames, Math.max(8, Math.floor(actualDuration * 4)));
+      
+      // Update extractFrames call to use trim range
+      const frames = await extractFramesWithRange(videoEl, frameCount, startT, endT);
       URL.revokeObjectURL(videoUrl);
 
       if (frames.length === 0) {

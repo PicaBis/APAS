@@ -64,8 +64,8 @@ function getSmartDefaults(objectType: string): PhysicsDefaults {
   return { velocity: 20, angle: 45, height: 1.5, mass: 0.5 };
 }
 
-// \u2500\u2500 Frame Limiting \u2500\u2500
-const MAX_FRAMES = 8;
+// ── Frame Limiting ──
+const MAX_FRAMES = 16; // Increased from 8 to 16 for better temporal resolution
 
 function limitFrames(
   frames: Array<{ data: string; timestamp: number }>,
@@ -81,7 +81,7 @@ function limitFrames(
   return limited;
 }
 
-// \u2500\u2500 Mistral Vision for Video (EXCLUSIVE) \u2500\u2500
+// ── Mistral Vision for Video (EXCLUSIVE) ──
 
 function buildVideoVisionPrompt(_lang?: string): string {
   return [
@@ -93,60 +93,46 @@ function buildVideoVisionPrompt(_lang?: string): string {
     "",
     "STEP 1 - DETECT PROJECTILE:",
     "Watch ALL frames sequentially. Look for ANY object being launched, thrown, shot, or in mid-flight.",
-    "Valid projectiles: ball (basketball, football, tennis, etc.), rocket, stone, bullet, grenade, arrow, javelin, cannonball, any thrown/launched object.",
-    "Also detect diagrams, illustrations, animations, or educational videos showing projectile motion - these are VALID.",
-    "If NO clear projectile motion is visible, respond with ONLY:",
-    '{"detected": false, "error": "No projectile motion detected in this video."}',
+    "Identify the EXACT frame where the motion starts (the launch frame).",
     "",
     "STEP 2 - TRACK AND ANALYZE:",
-    "- Identify the projectile object SPECIFICALLY from its visual appearance (color, shape, size, texture) - DO NOT default to cannonball",
-    "- Track the object position across frames",
-    "- Use reference objects for scale: person ~1.7m, door ~2m, car ~1.5m tall, basketball hoop 3.05m",
-    "- Estimate launch angle from trajectory arc",
-    "- Estimate initial velocity from frame-to-frame displacement",
-    "- Estimate launch height from ground reference",
-    "- Estimate mass from object type (basketball ~0.62kg, cannonball ~4.5kg, stone ~0.3kg, etc.)",
+    "- Identify the projectile object SPECIFICALLY (color, shape, size).",
+    "- TRACK object position (x, y) relative to the frame dimensions.",
+    "- Identify the GROUND PLANE and HORIZON to calibrate the angle.",
+    "- CALIBRATE SCALE: Use a person (~1.7m), door (~2m), or the projectile size if known.",
+    "- ESTIMATE ANGLE: Measure the angle relative to the horizontal ground. ",
+    "  * A projectile going straight up is EXACTLY 90 degrees.",
+    "  * A horizontal throw is 0 degrees.",
+    "  * Be extremely precise. Do not round to common angles like 45 or 60 unless they are correct.",
+    "- ESTIMATE VELOCITY: Use frame-to-frame displacement (pixels) and the timestamp difference (s).",
+    "  * v = (distance in meters) / (time in seconds)",
     "",
     "CRITICAL RULES FOR ESTIMATION:",
-    "- You MUST provide NON-ZERO values for velocity, angle, and height.",
-    "- NEVER return 0 for velocity. A projectile MUST have a non-zero initial velocity.",
-    "- NEVER return 0 for angle. Even a horizontal throw has a small angle (~5 degrees).",
-    "- For a cannonball: velocity is typically 80-200 m/s, angle 30-50 degrees",
-    "- For a ball throw: velocity is typically 8-30 m/s, angle 30-60 degrees",
-    "- For a rocket/missile: velocity is typically 100-500 m/s, angle 30-70 degrees",
-    "- Professors estimate, they NEVER return zeros!",
+    "- You MUST provide NON-ZERO values.",
+    "- If the projectile is moving vertically up, the angle MUST be close to 90.",
+    "- If the trajectory is a wide arc, the angle is likely 30-60.",
+    "- If it's a flat shot, the angle is 0-15.",
     "",
-    "STEP 3 - COMPUTE PHYSICS using the projectile motion equation:",
-    "The fundamental equation is: y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta))",
-    "Ensure your angle and velocity estimates are CONSISTENT with the visual trajectory.",
+    "STEP 3 - COMPUTE PHYSICS:",
+    "The fundamental equation: y = x*tan(theta) - (g*x^2)/(2*v0^2*cos^2(theta))",
     "- v0x = v0 * cos(angle), v0y = v0 * sin(angle)",
     "- Max height: H = h0 + v0y^2 / (2*g)",
     "- Time of flight: solve y(t) = 0",
-    "- Range: R = v0x * T",
-    "- Impact velocity: v_impact = sqrt(v0x^2 + (v0y - g*T)^2)",
     "",
-    "RESPOND WITH ONLY valid JSON (no markdown fences):",
+    "RESPOND WITH ONLY valid JSON:",
     "{",
     '  "detected": true,',
-    '  "objectType": "specific object name in English",',
-    '  "confidence": 75,',
-    '  "angle": 42,',
-    '  "velocity": 120,',
-    '  "height": 1.5,',
-    '  "mass": 4.5,',
+    '  "objectType": "specific object name",',
+    '  "confidence": 90,',
+    '  "angle": 89.5,',
+    '  "velocity": 15.2,',
+    '  "height": 1.2,',
+    '  "mass": 0.5,',
     '  "gravity": 9.81,',
-    '  "v0x": 89.17,',
-    '  "v0y": 80.26,',
-    '  "maxHeight": 329.96,',
-    '  "maxRange": 1461.74,',
-    '  "totalTime": 16.39,',
-    '  "impactVelocity": 120.12,',
-    '  "calibrationRef": "reference object used for scale",',
-    '  "motionDescription": "description of the motion observed",',
-    '  "analysis_summary_ar": "Arabic summary of the analysis"',
+    '  "calibrationRef": "using person height for scale",',
+    '  "motionDescription": "The projectile was launched almost vertically at 89.5 degrees...",',
+    '  "analysis_summary_ar": "Arabic summary explaining why 90 degrees was chosen..."',
     "}",
-    "",
-    "REMEMBER: ALL numeric values MUST be non-zero and physically realistic!",
   ].join("\n");
 }
 
