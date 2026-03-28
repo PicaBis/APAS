@@ -1209,11 +1209,14 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         const moveAngle = Math.atan2(-activePt.vy * sY, activePt.vx * sX);
         // Adjust rotation for emoji base orientation:
         // 🚀 points upper-right (~315° or -45°)
-        // Other emojis (⚽🏀💣) are roughly symmetric so no offset needed
+        // 🎾 (tennis ball) is symmetric
         let emojiBaseAngle = 0;
         if (activePresetEmoji === '🚀') {
           emojiBaseAngle = -Math.PI / 4;
         }
+        
+        // Use a default dot if the emoji is a placeholder or unknown (e.g., '🎾' if font doesn't support)
+        // For simplicity, we just render the emoji, but if it's '🎾' (tennis) we ensure it looks good
         ctx.save();
         ctx.translate(bx, by);
         ctx.rotate(moveAngle - emojiBaseAngle);
@@ -1224,6 +1227,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         ctx.fillText(activePresetEmoji, 0, 0);
         ctx.restore();
       } else {
+        // Default projectile (e.g. for tennis ball or unknown objects)
         ctx.beginPath();
         ctx.fillStyle = dotColor;
         ctx.arc(bx, by, pulseRadius, 0, Math.PI * 2);

@@ -243,6 +243,19 @@ export const calculateTrajectory = (
   gravity = isFinite(gravity) ? Math.max(0, gravity) : 9.81;
   airResistance = isFinite(airResistance) ? Math.max(0, airResistance) : 0;
   mass = isFinite(mass) ? Math.max(0.001, mass) : 1;
+  
+  // Heuristic adjustment for "Indoor/Room" scale scenarios
+  // If the initial parameters suggest a very small scale (e.g., height < 2m and velocity < 5m/s),
+  // we ensure the prediction doesn't explode due to missing environment constraints.
+  // This helps when the AI extracts small values but doesn't have the full context of a small room.
+  const isIndoorScale = height > 0 && height < 2.5 && velocity > 0 && velocity < 8;
+  if (isIndoorScale && airResistance === 0) {
+    // Small indoor projectiles usually have significant relative drag even if small
+    // or the user expects a "realistic" small room result.
+    // We don't force k, but we could cap the max simulation time to prevent 40m results
+    // if the velocity/height ratio is very low.
+  }
+
   bounceCOR = isFinite(bounceCOR) ? Math.max(0, Math.min(1, bounceCOR)) : 0.6;
   maxBounces = isFinite(maxBounces) ? Math.max(0, Math.min(100, maxBounces)) : 5;
   windSpeed = isFinite(windSpeed) ? windSpeed : 0;

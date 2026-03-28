@@ -96,46 +96,72 @@ const playWelcomeVoice = (lang: string = 'ar') => {
   } catch { /* silent */ }
 };
 
+const TIPS_EN = [
+  "At 45°, a projectile achieves maximum range on flat ground.",
+  "In vacuum, all objects fall at the same rate regardless of mass.",
+  "The trajectory of a projectile is a parabola in ideal conditions.",
+  "Kinetic energy is proportional to the square of velocity.",
+  "At the peak of trajectory, vertical velocity is exactly zero.",
+  "Projectile motion consists of two independent perpendicular motions.",
+];
+
+const TIPS_AR = [
+  "عند زاوية 45° يحقق المقذوف أقصى مدى على سطح مستوٍ.",
+  "في الفراغ، تسقط جميع الأجسام بنفس المعدل بغض النظر عن الكتلة.",
+  "مسار المقذوف يكون قطعاً مكافئاً في الظروف المثالية.",
+  "الطاقة الحركية تتناسب مع مربع السرعة.",
+  "عند قمة المسار، السرعة الرأسية تساوي صفراً تماماً.",
+  "حركة المقذوف تتكون من حركتين مستقلتين متعامدتين.",
+];
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
   const [phase, setPhase] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [letterReveal, setLetterReveal] = useState(0);
   const [isExiting, setIsExiting] = useState(false);
+  const [tipIndex, setTipIndex] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const letterIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const tips = lang === 'ar' ? TIPS_AR : TIPS_EN;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTipIndex(prev => (prev + 1) % tips.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [tips.length]);
+
   const drawScene = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, prog: number) => {
     ctx.clearRect(0, 0, w, h);
-    // Deep navy background with subtle indigo gradient
+    // Clean white to very light gray gradient
     const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-    bgGrad.addColorStop(0, '#1a1a3e');
-    bgGrad.addColorStop(0.3, '#1e2144');
-    bgGrad.addColorStop(0.6, '#1a1a3e');
-    bgGrad.addColorStop(1, '#151535');
+    bgGrad.addColorStop(0, '#ffffff');
+    bgGrad.addColorStop(0.5, '#f8fafc');
+    bgGrad.addColorStop(1, '#f1f5f9');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
     const time = Date.now() * 0.001;
     const fade = Math.min(prog * 2, 1);
 
-    // Subtle center radial glow - golden/indigo
+    // Subtle center radial glow - soft blue/gold
     const pulseScale = 1 + Math.sin(time * 0.6) * 0.05;
-    const glowAlpha = (0.06 + Math.sin(time * 0.4) * 0.02) * fade;
+    const glowAlpha = (0.04 + Math.sin(time * 0.4) * 0.02) * fade;
     const centerGlow = ctx.createRadialGradient(w * 0.5, h * 0.4, 0, w * 0.5, h * 0.4, w * 0.4 * pulseScale);
-    centerGlow.addColorStop(0, 'rgba(45,58,110,' + glowAlpha + ')');
-    centerGlow.addColorStop(0.4, 'rgba(201,168,76,' + (glowAlpha * 0.15) + ')');
+    centerGlow.addColorStop(0, 'rgba(59,130,246,' + glowAlpha + ')');
+    centerGlow.addColorStop(0.4, 'rgba(245,158,11,' + (glowAlpha * 0.1) + ')');
     centerGlow.addColorStop(1, 'transparent');
     ctx.fillStyle = centerGlow;
     ctx.fillRect(0, 0, w, h);
 
-    // Very subtle grid dots
+    // Subtle grid dots - darker for light theme
     if (fade > 0.3) {
-      const gridAlpha = 0.04 * Math.min((fade - 0.3) * 2, 1);
-      ctx.fillStyle = 'rgba(107,125,181,' + gridAlpha + ')';
-      const spacing = 50;
+      const gridAlpha = 0.08 * Math.min((fade - 0.3) * 2, 1);
+      ctx.fillStyle = 'rgba(71,85,105,' + gridAlpha + ')';
+      const spacing = 60;
       for (let gx = spacing; gx < w; gx += spacing) {
         for (let gy = spacing; gy < h; gy += spacing) {
           ctx.beginPath();
@@ -145,42 +171,49 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
       }
     }
 
-    // Soft floating particles - golden and blue
-    for (let i = 0; i < 20; i++) {
+    // Soft floating particles - blue and amber
+    for (let i = 0; i < 15; i++) {
       const px = w * (0.1 + 0.8 * ((Math.sin(time * 0.04 + i * 2.5) + 1) / 2));
       const py = h * (0.1 + 0.8 * ((Math.cos(time * 0.03 + i * 1.9) + 1) / 2));
-      const pRadius = 1 + Math.sin(time * 0.3 + i * 0.7) * 0.5;
-      const pAlpha = (0.06 + Math.sin(time * 0.5 + i) * 0.03) * fade;
+      const pRadius = 1.5 + Math.sin(time * 0.3 + i * 0.7) * 0.5;
+      const pAlpha = (0.1 + Math.sin(time * 0.5 + i) * 0.05) * fade;
       ctx.beginPath();
       ctx.arc(px, py, pRadius, 0, Math.PI * 2);
-      ctx.fillStyle = i % 3 === 0 ? 'rgba(201,168,76,' + pAlpha + ')' : 'rgba(107,125,181,' + pAlpha + ')';
+      ctx.fillStyle = i % 3 === 0 ? 'rgba(245,158,11,' + pAlpha + ')' : 'rgba(59,130,246,' + pAlpha + ')';
       ctx.fill();
     }
 
-    // Gentle connecting lines
-    const particles: [number, number][] = [];
-    for (let i = 0; i < 8; i++) {
-      particles.push([
-        w * (0.2 + 0.6 * ((Math.sin(time * 0.03 + i * 3.5) + 1) / 2)),
-        h * (0.25 + 0.5 * ((Math.cos(time * 0.025 + i * 2.7) + 1) / 2)),
-      ]);
-    }
-    ctx.lineWidth = 0.3;
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i][0] - particles[j][0];
-        const dy = particles[i][1] - particles[j][1];
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const maxDist = Math.min(w, h) * 0.2;
-        if (dist < maxDist) {
-          const lineAlpha = (1 - dist / maxDist) * 0.04 * fade;
-          ctx.beginPath();
-          ctx.moveTo(particles[i][0], particles[i][1]);
-          ctx.lineTo(particles[j][0], particles[j][1]);
-          ctx.strokeStyle = 'rgba(107,125,181,' + lineAlpha + ')';
-          ctx.stroke();
-        }
+    // Projectile path animations in background
+    const drawProjectilePath = (startX: number, startY: number, v0: number, angle: number, color: string) => {
+      const g = 9.8;
+      const rad = angle * Math.PI / 180;
+      const vx = v0 * Math.cos(rad);
+      const vy = -v0 * Math.sin(rad);
+      ctx.beginPath();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.moveTo(startX, startY);
+      
+      const duration = (2 * v0 * Math.sin(rad)) / g;
+      const steps = 40;
+      const currentStep = (time * 0.5) % 2; // Loop animation
+      
+      for (let s = 0; s <= steps; s++) {
+        const t = (s / steps) * duration;
+        if (t > currentStep * duration) break;
+        const x = startX + vx * t;
+        const y = startY + vy * t + 0.5 * g * t * t;
+        ctx.lineTo(x, y);
       }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+
+    if (fade > 0.5) {
+      const pathAlpha = 0.1 * Math.min((fade - 0.5) * 2, 1);
+      drawProjectilePath(w * 0.1, h * 0.8, w * 0.08, 45, `rgba(59,130,246,${pathAlpha})`);
+      drawProjectilePath(w * 0.2, h * 0.9, w * 0.1, 30, `rgba(245,158,11,${pathAlpha})`);
     }
   }, []);
 
@@ -272,7 +305,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
   return (
     <div
       className={'fixed inset-0 flex items-center justify-center z-[99999] transition-all duration-700 ' + (isExiting ? 'opacity-0 scale-105' : 'opacity-100 scale-100')}
-      style={{ background: '#1a1a3e' }}
+      style={{ background: '#ffffff' }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       <div className="text-center flex flex-col items-center gap-0 relative z-10">
@@ -287,14 +320,14 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
             {apasLetters.map((letter, i) => (
               <span key={i} className="text-5xl sm:text-6xl md:text-7xl font-black inline-block"
                 style={{
-                  color: '#e0e4f0',
+                  color: '#1e293b',
                   opacity: letterReveal > i ? 1 : 0,
                   transform: letterReveal > i
                     ? 'translateY(0) scale(1)'
                     : 'translateY(30px) scale(0.8)',
                   transition: 'opacity 0.6s ease, transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)',
                   letterSpacing: '0.15em',
-                  textShadow: letterReveal > i ? '0 2px 20px rgba(201,168,76,0.3)' : 'none',
+                  textShadow: letterReveal > i ? '0 2px 10px rgba(59,130,246,0.1)' : 'none',
                   fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
                 }}>{letter}</span>
             ))}
@@ -305,14 +338,14 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
             <div style={{
               width: letterReveal >= 4 ? 60 : 0,
               height: 2,
-              background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.6), rgba(201,168,76,0.8))',
+              background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.4), rgba(59,130,246,0.8))',
               transition: 'width 1s cubic-bezier(0.25, 1, 0.5, 1) 0.4s',
               borderRadius: 2,
             }} />
             <div style={{
               width: letterReveal >= 4 ? 8 : 0,
               height: 8,
-              background: 'rgba(201,168,76,0.7)',
+              background: 'rgba(59,130,246,0.7)',
               borderRadius: '50%',
               transition: 'all 0.6s ease 0.6s',
               opacity: letterReveal >= 4 ? 1 : 0,
@@ -321,7 +354,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
             <div style={{
               width: letterReveal >= 4 ? 60 : 0,
               height: 2,
-              background: 'linear-gradient(90deg, rgba(201,168,76,0.8), rgba(201,168,76,0.6), transparent)',
+              background: 'linear-gradient(90deg, rgba(59,130,246,0.8), rgba(59,130,246,0.4), transparent)',
               transition: 'width 1s cubic-bezier(0.25, 1, 0.5, 1) 0.4s',
               borderRadius: 2,
             }} />
@@ -332,7 +365,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
             <div className="text-lg sm:text-xl md:text-2xl font-semibold tracking-[0.4em]"
               style={{
                 fontFamily: "'Noto Sans Arabic', 'Cairo', sans-serif",
-                color: '#a8b8d8',
+                color: '#475569',
                 opacity: letterReveal >= 4 ? 1 : 0,
                 transform: letterReveal >= 4 ? 'translateY(0) scale(1)' : 'translateY(15px) scale(0.9)',
                 transition: 'all 0.8s cubic-bezier(0.25, 1, 0.5, 1) 0.5s',
@@ -347,18 +380,36 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
           transition: 'all 0.8s ease 0.2s',
           marginTop: '24px',
         }}>
-          <div className="text-sm sm:text-base font-medium tracking-wider" style={{ color: '#c9cfe0' }}>
+          <div className="text-sm sm:text-base font-medium tracking-wider" style={{ color: '#334155' }}>
             {lang === 'ar' ? 'نظام تحليل المقذوفات بالذكاء الاصطناعي'
               : lang === 'fr' ? "Système d'Analyse des Projectiles par IA"
                 : 'AI Projectile Analysis System'}
           </div>
-          <div className="text-[11px] sm:text-xs max-w-sm mx-auto mt-3 leading-relaxed" style={{ color: '#8890b0' }}>
+          <div className="text-[11px] sm:text-xs max-w-sm mx-auto mt-3 leading-relaxed" style={{ color: '#64748b' }}>
             {lang === 'ar'
               ? 'محاكاة فيزيائية متقدمة لحركة المقذوفات مع تحليل بالذكاء الاصطناعي، رؤية حاسوبية، ونظام إدارة الفصل الدراسي'
               : lang === 'fr'
                 ? 'Simulation physique avancée du mouvement des projectiles avec analyse IA, vision par ordinateur et gestion de classe'
                 : 'Advanced physics simulation of projectile motion with AI analysis, computer vision, and classroom management'}
           </div>
+
+          {/* Physics Teacher Tips */}
+          <div className="h-8 mt-4 overflow-hidden relative">
+            {tips.map((tip, i) => (
+              <div
+                key={i}
+                className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs font-medium italic transition-all duration-700"
+                style={{
+                  color: '#3b82f6',
+                  opacity: tipIndex === i ? 1 : 0,
+                  transform: tipIndex === i ? 'translateY(0)' : 'translateY(10px)',
+                }}
+              >
+                {tip}
+              </div>
+            ))}
+          </div>
+
           <div className="flex items-center justify-center gap-3 sm:gap-4 mt-4 flex-wrap">
             {(lang === 'ar'
               ? ['محاكي ثنائي وثلاثي الأبعاد', 'تحليل ذكي', 'فصل دراسي']
@@ -368,9 +419,9 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
             ).map((tag, i) => (
               <span key={i} className="text-[10px] sm:text-xs font-semibold tracking-wider px-3 sm:px-4 py-1 sm:py-1.5 rounded-full"
                 style={{
-                  color: '#e8d48b',
-                  background: 'rgba(201,168,76,0.15)',
-                  border: '1px solid rgba(201,168,76,0.35)',
+                  color: '#2563eb',
+                  background: 'rgba(59,130,246,0.1)',
+                  border: '1px solid rgba(59,130,246,0.2)',
                   backdropFilter: 'blur(4px)',
                   opacity: phase >= 2 ? 1 : 0,
                   transform: phase >= 2 ? 'translateY(0)' : 'translateY(8px)',
@@ -380,7 +431,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
               </span>
             ))}
           </div>
-          <div className="text-xs sm:text-sm font-mono tracking-wider mt-3 font-medium" style={{ color: '#8090c0' }}>
+          <div className="text-xs sm:text-sm font-mono tracking-wider mt-3 font-medium" style={{ color: '#94a3b8' }}>
             v1.1
           </div>
         </div>
@@ -393,17 +444,16 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
           marginTop: '32px',
         }}>
           <div className="w-64 sm:w-80 mx-auto relative">
-            <div className="h-[4px] rounded-full overflow-hidden relative" style={{ background: 'rgba(107,125,181,0.2)' }}>
+            <div className="h-[4px] rounded-full overflow-hidden relative" style={{ background: 'rgba(148,163,184,0.1)' }}>
               <div className="h-full rounded-full transition-all duration-200 ease-out"
                 style={{
                   width: Math.min(loadingProgress, 100) + '%',
-                  background: 'linear-gradient(90deg, rgba(45,58,110,0.7), rgba(201,168,76,0.9), rgba(107,125,181,0.7))',
+                  background: 'linear-gradient(90deg, #3b82f6, #f59e0b, #3b82f6)',
                 }} />
             </div>
             <div className="flex justify-between items-center mt-3">
               <span className="text-xs sm:text-sm font-bold tracking-[0.2em] uppercase" style={{ 
-                color: loadingProgress >= 100 ? '#c9a84c' : '#b0b8d0',
-                textShadow: loadingProgress >= 100 ? '0 0 12px rgba(201,168,76,0.4)' : 'none',
+                color: loadingProgress >= 100 ? '#2563eb' : '#64748b',
                 transition: 'all 0.5s ease',
               }}>
                 {loadingProgress >= 100
@@ -411,8 +461,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
                   : (lang === 'ar' ? '⟳ تحميل...' : '⟳ LOADING...')}
               </span>
               <span className="text-xs sm:text-sm font-bold font-mono tabular-nums" style={{ 
-                color: loadingProgress >= 100 ? '#c9a84c' : '#b0b8d0',
-                textShadow: loadingProgress >= 100 ? '0 0 12px rgba(201,168,76,0.4)' : 'none',
+                color: loadingProgress >= 100 ? '#2563eb' : '#64748b',
                 transition: 'all 0.5s ease',
               }}>
                 {Math.min(Math.round(loadingProgress), 100)}%
@@ -432,26 +481,25 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
           <button onClick={handleEnterSystem}
             className="group relative px-14 sm:px-16 py-4 sm:py-5 font-bold tracking-[0.25em] text-sm sm:text-base uppercase overflow-hidden transition-all duration-400 hover:shadow-2xl"
             style={{
-              color: '#f0e6c0',
-              background: 'linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.08))',
-              border: '2px solid rgba(201,168,76,0.5)',
+              color: '#1e293b',
+              background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05))',
+              border: '2px solid rgba(59,130,246,0.4)',
               borderRadius: '8px',
-              boxShadow: '0 0 20px rgba(201,168,76,0.15), inset 0 1px 0 rgba(255,255,255,0.05)',
+              boxShadow: '0 4px 15px rgba(59,130,246,0.1)',
               letterSpacing: '0.25em',
-              textShadow: '0 1px 8px rgba(201,168,76,0.3)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(201,168,76,0.9)';
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(201,168,76,0.35), rgba(201,168,76,0.15))';
-              e.currentTarget.style.color = '#fff5d4';
-              e.currentTarget.style.boxShadow = '0 0 30px rgba(201,168,76,0.3), inset 0 1px 0 rgba(255,255,255,0.1)';
+              e.currentTarget.style.borderColor = 'rgba(59,130,246,0.8)';
+              e.currentTarget.style.background = 'rgba(59,130,246,0.15)';
+              e.currentTarget.style.color = '#000';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(59,130,246,0.2)';
               e.currentTarget.style.transform = 'scale(1.03)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(201,168,76,0.5)';
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.08))';
-              e.currentTarget.style.color = '#f0e6c0';
-              e.currentTarget.style.boxShadow = '0 0 20px rgba(201,168,76,0.15), inset 0 1px 0 rgba(255,255,255,0.05)';
+              e.currentTarget.style.borderColor = 'rgba(59,130,246,0.4)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05))';
+              e.currentTarget.style.color = '#1e293b';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(59,130,246,0.1)';
               e.currentTarget.style.transform = 'scale(1)';
             }}
           >
@@ -459,7 +507,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
           </button>
           <div className="flex items-center justify-center gap-1.5 mt-5">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="w-1 h-1 rounded-full" style={{ background: 'rgba(201,168,76,0.5)', animation: 'splashDotPulse 1.5s ease-in-out ' + (i * 0.2) + 's infinite' }} />
+              <div key={i} className="w-1 h-1 rounded-full" style={{ background: 'rgba(59,130,246,0.5)', animation: 'splashDotPulse 1.5s ease-in-out ' + (i * 0.2) + 's infinite' }} />
             ))}
           </div>
         </div>
@@ -469,10 +517,10 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
           opacity: phase >= 2 ? 1 : 0,
           transition: 'opacity 1.2s ease 0.6s',
         }}>
-          <div className="text-[10px] font-mono tracking-wider font-medium" style={{ color: '#8890b0' }}>
+          <div className="text-[10px] font-mono tracking-wider font-medium" style={{ color: '#64748b' }}>
             Medjahed Abdelhadi &middot; Moufook Ibrahim
           </div>
-          <div className="text-[9px] font-mono mt-1" style={{ color: '#6b7db5' }}>
+          <div className="text-[9px] font-mono mt-1" style={{ color: '#94a3b8' }}>
             École Normale Supérieure de Laghouat
           </div>
         </div>
@@ -481,7 +529,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
         @keyframes splashDotPulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.5); } }
         @keyframes splashLogoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes splashGlowPulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
-      `}</style>
+      `}
+      </style>
     </div>
   );
 };

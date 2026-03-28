@@ -271,16 +271,23 @@ export default function ApasSubjectReading({ lang, onUpdateParams, autoOpen, onD
             const ed = parsed.extractedData;
             if (parsed.isProjectileMotion) {
               const appliedParams = {
-                velocity: ed.velocity,
-                angle: ed.angle,
-                height: ed.height,
-                mass: ed.mass,
+                velocity: ed.velocity || undefined,
+                angle: ed.angle || undefined,
+                height: ed.height || undefined,
+                mass: ed.mass || undefined,
+                range: ed.range || undefined,
+                gravity: ed.gravity || undefined,
               };
               onUpdateParams(appliedParams);
               onAnalysisComplete?.({
                 type: 'subject',
                 report: parsed.explanation || '',
-                params: appliedParams,
+                params: {
+                  velocity: ed.velocity || 0,
+                  angle: ed.angle || 0,
+                  height: ed.height || 0,
+                  mass: ed.mass || 1
+                },
               });
               toast.success(isAr ? 'تم استخراج بيانات التمرين وتطبيقها على المحاكاة' : 'Exercise data extracted and applied to simulation');
             }

@@ -29,6 +29,27 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
   // Even logged-in users or developers see the locked state until they analyze something
   const predictionsLocked = !hasModelAnalysis;
 
+  const teacherTips = lang === 'ar' ? [
+    "💡 هل تعلم؟ أقصى مدى أفقي يتحقق عند زاوية 45 درجة (في غياب مقاومة الهواء).",
+    "💡 نصيحة: عند الذروة، تكون السرعة الرأسية دائماً صفراً، بينما تبقى السرعة الأفقية ثابتة.",
+    "💡 تذكر: كتلة الجسم لا تؤثر على مساره في الفراغ، لكنها تصبح حاسمة عند وجود مقاومة الهواء."
+  ] : lang === 'fr' ? [
+    "💡 Le saviez-vous ? La portée maximale est atteinte à 45° (en l'absence de résistance de l'air).",
+    "💡 Conseil : Au sommet, la vitesse verticale est nulle, tandis que la vitesse horizontale reste constante.",
+    "💡 Rappel : La masse n'affecte pas la trajectoire dans le vide, mais elle est cruciale avec la résistance de l'air."
+  ] : [
+    "💡 Did you know? Maximum range is achieved at 45° (neglecting air resistance).",
+    "💡 Tip: At the peak, vertical velocity is zero, while horizontal velocity remains constant.",
+    "💡 Remember: Mass doesn't affect trajectory in a vacuum, but it's crucial with air resistance."
+  ];
+
+  const formulas = {
+    range: "R = (v₀² sin 2θ) / g",
+    maxHeight: "H = (v₀² sin² θ) / 2g",
+    flightTime: "t = (2v₀ sin θ) / g",
+    finalVel: "v_f = √(vₓ² + v_y²)"
+  };
+
   if (predictionsLocked) {
     return (
       <div data-tour="below-canvas" className="relative rounded-xl p-[2px] overflow-visible backdrop-blur-sm">
@@ -62,21 +83,32 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
             <div className="flex-1 h-px bg-gradient-to-r from-primary/30 to-transparent" />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 stagger-children">
-            {[
-              { label: T.range, value: prediction?.range ?? 0, unit: T.u_m_s, icon: '📏', color: 'from-blue-500/15 to-blue-600/5 border-blue-500/30 hover:border-blue-500/50', iconBg: 'bg-blue-500/15', textColor: 'text-blue-600 dark:text-blue-400' },
-              { label: T.maxHeight, value: prediction?.maxHeight ?? 0, unit: T.u_m_s, icon: '📐', color: 'from-emerald-500/15 to-emerald-600/5 border-emerald-500/30 hover:border-emerald-500/50', iconBg: 'bg-emerald-500/15', textColor: 'text-emerald-600 dark:text-emerald-400' },
-              { label: T.flightTime, value: prediction?.timeOfFlight ?? 0, unit: T.u_s, icon: '⏱️', color: 'from-amber-500/15 to-amber-600/5 border-amber-500/30 hover:border-amber-500/50', iconBg: 'bg-amber-500/15', textColor: 'text-amber-600 dark:text-amber-400' },
-              { label: T.finalVel, value: prediction?.finalVelocity ?? 0, unit: T.u_ms, icon: '💨', color: 'from-purple-500/15 to-purple-600/5 border-purple-500/30 hover:border-purple-500/50', iconBg: 'bg-purple-500/15', textColor: 'text-purple-600 dark:text-purple-400' },
-            ].map(({ label, value, unit, icon, color, iconBg, textColor }) => (
-              <div key={label} className={`text-center p-3.5 bg-gradient-to-br ${color} rounded-xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group`}>
+             {[
+              { label: T.range, value: prediction?.range ?? 0, unit: T.u_m_s, icon: '📏', color: 'from-blue-500/15 to-blue-600/5 border-blue-500/30 hover:border-blue-500/50', iconBg: 'bg-blue-500/15', textColor: 'text-blue-600 dark:text-blue-400', formula: formulas.range },
+              { label: T.maxHeight, value: prediction?.maxHeight ?? 0, unit: T.u_m_s, icon: '📐', color: 'from-emerald-500/15 to-emerald-600/5 border-emerald-500/30 hover:border-emerald-500/50', iconBg: 'bg-emerald-500/15', textColor: 'text-emerald-600 dark:text-emerald-400', formula: formulas.maxHeight },
+              { label: T.flightTime, value: prediction?.timeOfFlight ?? 0, unit: T.u_s, icon: '⏱️', color: 'from-amber-500/15 to-amber-600/5 border-amber-500/30 hover:border-amber-500/50', iconBg: 'bg-amber-500/15', textColor: 'text-amber-600 dark:text-amber-400', formula: formulas.flightTime },
+              { label: T.finalVel, value: prediction?.finalVelocity ?? 0, unit: T.u_ms, icon: '💨', color: 'from-purple-500/15 to-purple-600/5 border-purple-500/30 hover:border-purple-500/50', iconBg: 'bg-purple-500/15', textColor: 'text-purple-600 dark:text-purple-400', formula: formulas.finalVel },
+            ].map(({ label, value, unit, icon, color, iconBg, textColor, formula }) => (
+              <div key={label} className={`text-center p-3.5 bg-gradient-to-br ${color} rounded-xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group relative`}>
                 <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center mx-auto mb-2 transition-transform duration-300 group-hover:scale-110`}>
                   <span className="text-lg">{icon}</span>
                 </div>
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold">{label}</div>
                 <AnimatedValue value={value} className={`text-xl font-bold font-mono ${textColor}`} />
-                <div className="text-[10px] text-muted-foreground mt-0.5 font-medium">{unit}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5 font-medium mb-2">{unit}</div>
+                <div className="text-[9px] font-mono opacity-60 group-hover:opacity-100 transition-opacity bg-background/40 py-0.5 px-1.5 rounded-md inline-block">
+                  {formula}
+                </div>
               </div>
             ))}
+          </div>
+
+          {/* Teacher Tip Bar */}
+          <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10 flex items-center gap-3 animate-pulse-subtle">
+            <span className="text-lg">👨‍🏫</span>
+            <p className="text-[11px] font-medium text-primary/80 italic leading-relaxed">
+              {teacherTips[Math.floor(Date.now() / 10000) % teacherTips.length]}
+            </p>
           </div>
 
           {/* Advanced Path Information section with spacing adjusted downward */}
