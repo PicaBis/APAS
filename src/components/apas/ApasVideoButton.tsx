@@ -327,28 +327,36 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       // Step 3: Call video-analyze edge function with a unique request ID to bypass cache
       const requestId = `vid_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const systemPrompt = `You are a Senior Ballistics Expert and Physics Professor.
-Analyze the sequence of video frames to track a projectile's motion.
-Your goal is to provide a comprehensive, expert-level report exactly in the following format:
+Analyze the sequence of video frames to track a projectile's motion with high precision.
+Your goal is to provide a comprehensive, expert-level scientific report exactly in the following format:
 
-بناءً على تحليلي لهذا الفيديو كأستاذ فيزياء، إليك المعطيات المتوقعة وكيف سيتصرف المقذوف في هذا السيناريو:
+بناءً على تحليلي لهذا الفيديو كأستاذ فيزياء، إليك التقرير العلمي المفصل للمعطيات المتوقعة وكيف سيتصرف المقذوف في هذا السيناريو:
 
 1. تحليل البيئة والمعطيات المستخرجة:
-- الجسم (Projectile): [Identify the object and estimated mass, e.g., كرة صغيرة ملونة، وزنها غالباً 50 جرام]
-- المرجع (Origin): [Identify the starting point from the first frame, e.g., مركز الكرة في يد الشخص]
-- الارتفاع الابتدائي (h): [Extract or estimate initial height with unit, e.g., 0.2 إلى 0.4 متر]
-- الزاوية المتوقعة (θ): [Extract or estimate launch angle with decimal precision based on trajectory, e.g., 88.45°]
-- السرعة الابتدائية (v0): [Extract or estimate initial velocity with unit, e.g., 3.62 م/ث]
+- الجسم (Projectile): [Identify the object precisely, estimated mass, and aerodynamic properties, e.g., كرة صغيرة ملونة، وزنها غالباً 50 جرام]
+- المرجع (Origin): [Identify the starting point precisely using coordinates from the first frame, e.g., مركز الكرة لحظة مغادرة يد الشخص]
+- الارتفاع الابتدائي (h): [Extract or estimate initial height with decimal precision, e.g., 0.42 متر]
+- الزاوية المتوقعة (θ): [Extract or estimate launch angle with high decimal precision based on trajectory tracking across frames, e.g., 88.45°]
+- السرعة الابتدائية (v0): [Extract or estimate initial velocity using frame-to-frame displacement, e.g., 3.62 م/ث]
 
-2. توقع مسار الحركة (كيف ستمشي الصورة):
-[Provide a step-by-step description: Launch, Peak (where vy=0), Descent, and Impact/Range. Use phrases like "ستنطلق الكرة للأعلى", "ستصل الكرة إلى أقصى ارتفاع", "ستعود الكرة للسقوط شاقولياً"]
+2. توقع مسار الحركة (التفسير العلمي العملي):
+[Provide a long, detailed, and professional step-by-step description: 
+- Launch phase: Describe the initial energy and release vector.
+- Peak (Apex): Explain where vertical velocity becomes zero and the peak height.
+- Descent: Describe the gravity effect and path symmetry.
+- Impact: Predict the range and impact velocity.
+Use academic phrases like "ستنطلق الكرة بطاقة حركية...", "ستصل الذروة عند ارتفاع...", "تأثير الجاذبية سيعيدها..."]
 
-3. لماذا هذا التحليل منطقي؟
-- [Reason 1: e.g., Tracking across multiple frames]
-- [Reason 2: e.g., Calibration based on environmental objects]
+3. لماذا هذا التحليل منطقي وعلمي؟
+- [Reason 1: Tracking object coordinates across multiple frames]
+- [Reason 2: Calibration based on environmental objects or scale]
+- [Reason 3: Consistency with physical laws of motion]
 
-رأيي الفني: [Provide a brief expert summary].
+رأيي الفني الخبير: [Provide a long summary about the physics involved in this video scenario].
 
-ماذا لو كانت مائلة؟ [Briefly describe the change if the angle was different].
+ماذا لو كانت مائلة؟ [Describe the change in range and height if the angle was different].
+
+Environment Context: If the video is Outdoors (Park, Street, Nature), set "isOutdoor": true. If Indoors (Room, Lab), set "isOutdoor": false.
 
 Output in JSON format inside a code block at the end:
 {
@@ -358,7 +366,8 @@ Output in JSON format inside a code block at the end:
   "mass": float,
   "objectType": "string",
   "confidence": float,
-  "explanation": "The full text report above"
+  "isOutdoor": boolean,
+  "explanation": "The full long text report above"
 }`;
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/video-analyze`, {

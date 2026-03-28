@@ -132,7 +132,7 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
                   { label: lang === 'ar' ? 'زاوية الإطلاق' : lang === 'fr' ? 'Angle de Tir' : 'Launch Angle', val: `${(angle ?? 0).toFixed(1)}°`, icon: '📐' },
                   { label: lang === 'ar' ? 'الارتفاع الابتدائي' : lang === 'fr' ? 'Hauteur Initiale' : 'Initial Height', val: `${(height ?? 0).toFixed(2)} ${T.u_m_s}`, icon: '📏' },
                   { label: lang === 'ar' ? 'الجاذبية' : lang === 'fr' ? 'Gravité' : 'Gravity', val: `${(gravity ?? 9.81).toFixed(2)} ${T.u_ms2}`, icon: '🌍' },
-                  { label: lang === 'ar' ? 'نقطة السقوط' : lang === 'fr' ? 'Point d\'Impact' : 'Impact Point', val: `X={(prediction?.range ?? 0).toFixed(2)} ${T.u_m_s}`, icon: '🎯' },
+                  { label: lang === 'ar' ? 'نقطة السقوط' : lang === 'fr' ? 'Point d\'Impact' : 'Impact Point', val: `X=${(prediction?.range ?? 0).toFixed(2)} ${T.u_m_s}`, icon: '🎯' },
                   { label: lang === 'ar' ? 'زاوية السقوط' : lang === 'fr' ? 'Angle d\'Impact' : 'Impact Angle', val: `${(prediction?.impactAngle ?? 0).toFixed(1)}°`, icon: '📉' },
                   { label: lang === 'ar' ? 'الإزاحة الكلية' : lang === 'fr' ? 'Déplacement Total' : 'Total Displacement', val: `${(prediction?.totalDisplacement ?? 0).toFixed(2)} ${T.u_m_s}`, icon: '↔️' },
                   { label: lang === 'ar' ? 'متوسط السرعة' : lang === 'fr' ? 'Vitesse Moyenne' : 'Avg Speed', val: `${(prediction?.averageSpeed ?? 0).toFixed(2)} ${T.u_ms}`, icon: '⚡' },

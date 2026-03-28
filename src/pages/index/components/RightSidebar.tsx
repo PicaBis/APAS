@@ -44,10 +44,13 @@ interface RightSidebarProps {
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
   onAutoRun?: () => void;
   onDetectedMedia?: (data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => void;
-  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
-  analysisHistory?: Array<{ id: number; timestamp: Date; type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }>;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean } }) => void;
+  analysisHistory?: Array<{ id: number; timestamp: Date; type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean } }>;
   onClearAnalysisHistory?: () => void;
   onDeleteAnalysisEntry?: (id: number) => void;
+  onApplyAnalysisParams?: (params: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean }) => void;
+  forceOpenHistoryId?: number | null;
+  onHistoryModalClose?: () => void;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -57,7 +60,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   enableBounce, bounceCoefficient,
   setSelectedIntegrationMethod, setVelocity, setAngle, setHeight, setMass, setGravity,
   setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete,
-  analysisHistory, onClearAnalysisHistory, onDeleteAnalysisEntry,
+  analysisHistory, onClearAnalysisHistory, onDeleteAnalysisEntry, onApplyAnalysisParams,
+  forceOpenHistoryId, onHistoryModalClose
 }) => {
   const { isGuest, isApproved, isAdmin, isRestricted, user } = useAuth();
   const canAccessRestrictedFeature = isAdmin || (user && isApproved && !isRestricted);
@@ -177,6 +181,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             history={analysisHistory}
             onClearHistory={onClearAnalysisHistory}
             onDeleteEntry={onDeleteAnalysisEntry}
+            onApplyParams={onApplyAnalysisParams}
+            forceOpenId={forceOpenHistoryId}
+            onModalClose={onHistoryModalClose}
           />
         )}
       </div>

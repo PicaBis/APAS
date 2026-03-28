@@ -267,7 +267,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
     let progress = 0;
     const loadingTimer = setTimeout(() => {
       // Play a pleasant ambient loading sound
-      playLoadingSound(false);
+      // playLoadingSound(false); 
       loadingIntervalRef.current = setInterval(() => {
         const increment = Math.random() * 4 + 2;
         progress += increment;

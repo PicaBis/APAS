@@ -230,28 +230,36 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
       setProgress(55);
 
       const systemPrompt = `You are a Senior Physics Professor and Ballistics Expert. 
-Analyze the image to extract projectile motion parameters with high precision.
-Your goal is to provide a comprehensive, expert-level report exactly in the following format:
+Analyze the image to extract projectile motion parameters with extreme scientific precision.
+Your goal is to provide a comprehensive, expert-level scientific report exactly in the following format:
 
-بناءً على تحليلي لهذه الصورة كأستاذ فيزياء، إليك المعطيات المتوقعة وكيف سيتصرف المقذوف في هذا السيناريو:
+بناءً على تحليلي لهذه الصورة كأستاذ فيزياء، إليك التقرير العلمي المفصل للمعطيات المتوقعة وكيف سيتصرف المقذوف في هذا السيناريو:
 
 1. تحليل البيئة والمعطيات المستخرجة:
-- الجسم (Projectile): [Identify the object and estimated mass, e.g., كرة صغيرة ملونة، وزنها غالباً 50 جرام]
-- المرجع (Origin): [Identify the starting point, e.g., مركز الكرة في يد الشخص]
-- الارتفاع الابتدائي (h): [Extract or estimate initial height with unit, e.g., 0.2 إلى 0.4 متر]
-- الزاوية المتوقعة (θ): [Extract or estimate launch angle with decimal precision, e.g., 88.45°]
-- السرعة الابتدائية (v0): [Extract or estimate initial velocity with unit, e.g., 3.62 م/ث]
+- الجسم (Projectile): [Identify the object precisely, estimated mass, and aerodynamic properties, e.g., كرة تنس بوزن 58 جرام وسطح خشن]
+- المرجع (Origin): [Identify the starting point precisely using coordinates (x0, y0), e.g., مركز الكرة لحظة مغادرة يد الشخص]
+- الارتفاع الابتدائي (h): [Extract or estimate initial height with decimal precision, e.g., 0.42 متر]
+- الزاوية المتوقعة (θ): [Extract or estimate launch angle with high decimal precision, e.g., 88.45°]
+- السرعة الابتدائية (v0): [Extract or estimate initial velocity with decimal precision, e.g., 3.62 م/ث]
 
-2. توقع مسار الحركة (كيف ستمشي الصورة):
-[Provide a step-by-step description: Launch, Peak (where vy=0), Descent, and Impact/Range. Use phrases like "ستنطلق الكرة للأعلى", "ستصل الكرة إلى أقصى ارتفاع", "ستعود الكرة للسقوط شاقولياً"]
+2. توقع مسار الحركة (التفسير العلمي العملي):
+[Provide a long, detailed, and professional step-by-step description: 
+- Launch phase: Describe the initial energy and vector.
+- Peak (Apex): Explain where vertical velocity becomes zero and the height reached.
+- Descent: Describe the gravity effect and path symmetry.
+- Impact: Predict the range and final velocity.
+Use academic phrases like "ستنطلق الكرة بطاقة حركية...", "ستصل الذروة عند ارتفاع...", "تأثير الجاذبية سيعيدها..."]
 
-3. لماذا هذا التحليل منطقي؟
-- [Reason 1: e.g., Calibration based on objects like rulers or hands]
-- [Reason 2: e.g., Physics constraints for the given environment (Indoor/Outdoor)]
+3. لماذا هذا التحليل منطقي وعلمي؟
+- [Reason 1: Calibration based on environmental objects like rulers, hands, or furniture]
+- [Reason 2: Physical constraints and environmental context (Indoor/Outdoor)]
+- [Reason 3: Trajectory logic and aerodynamics]
 
-رأيي الفني: [Provide a brief expert summary, e.g., "هذه الصورة مثالية لاختبار دقة الزوايا..."]
+رأيي الفني الخبير: [Provide a long summary about the physics involved in this specific case].
 
-ماذا لو كانت مائلة؟ [Briefly describe the change if the angle was different].
+ماذا لو كانت مائلة؟ [Describe the change in range and height if the angle was different].
+
+Environment Context: If the image is Outdoors (Park, Street, Nature), set "isOutdoor": true. If Indoors (Room, Lab), set "isOutdoor": false.
 
 Output in JSON format inside a code block at the end:
 {
@@ -261,7 +269,8 @@ Output in JSON format inside a code block at the end:
   "mass": float,
   "objectType": "string",
   "confidence": float,
-  "explanation": "The full text report above"
+  "isOutdoor": boolean,
+  "explanation": "The full long text report above"
 }`;
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/vision-analyze`, {

@@ -163,8 +163,10 @@ const Index = () => {
     report: string;
     mediaSrc?: string;
     mediaType?: 'video' | 'image';
-    params?: { velocity?: number; angle?: number; height?: number; mass?: number };
+    params?: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean };
   }>>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [activeHistoryEntryId, setActiveHistoryEntryId] = useState<number | null>(null);
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const [showDynamicDashboard, setShowDynamicDashboard] = useState(false);
   const [showTheoreticalComparison, setShowTheoreticalComparison] = useState(false);
@@ -229,19 +231,41 @@ const Index = () => {
     report: string;
     mediaSrc?: string;
     mediaType?: 'video' | 'image';
-    params?: { velocity?: number; angle?: number; height?: number; mass?: number };
+    params?: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean };
   }) => {
     setHasModelAnalysis(true);
     const newId = Date.now();
-    setAnalysisHistory(prev => [{
+    const fullEntry = {
       id: newId,
       timestamp: new Date(),
       ...entry,
-    }, ...prev].slice(0, 50));
-    
-    // Automatically set the most recent entry as active if needed
-    // or notify user. The history button badge already updates.
-  }, []);
+    };
+    setAnalysisHistory(prev => [fullEntry, ...prev].slice(0, 50));
+
+    // Auto-apply logic
+    if (entry.params) {
+      if (entry.params.velocity !== undefined) sim.setVelocity(entry.params.velocity);
+      if (entry.params.angle !== undefined) sim.setAngle(entry.params.angle);
+      if (entry.params.height !== undefined) sim.setHeight(entry.params.height);
+      if (entry.params.mass !== undefined) sim.setMass(entry.params.mass);
+      
+      if (entry.params.isOutdoor) {
+        sim.setAirResistance(0.47);
+        sim.setShowExternalForces(true);
+      }
+      
+      // Enable live data and vectors automatically
+      sim.setShowExternalForces(true);
+      // sim.setShowLiveStats is handled via detectedMedia logic
+    }
+
+    // Unify UI: Open the history modal with this specific entry selected
+    // Only for vision/video/voice as requested
+    if (entry.type !== 'subject') {
+      setActiveHistoryEntryId(newId);
+      setShowHistoryModal(true);
+    }
+  }, [sim]);
 
   const handleClearAnalysisHistory = useCallback(() => {
     setAnalysisHistory([]);
@@ -2633,6 +2657,18 @@ const Index = () => {
               analysisHistory={analysisHistory}
               onClearAnalysisHistory={handleClearAnalysisHistory}
               onDeleteAnalysisEntry={handleDeleteAnalysisEntry}
+              onApplyAnalysisParams={(p) => {
+                if (p.velocity !== undefined) sim.setVelocity(p.velocity);
+                if (p.angle !== undefined) sim.setAngle(p.angle);
+                if (p.height !== undefined) sim.setHeight(p.height);
+                if (p.mass !== undefined) sim.setMass(p.mass);
+                if (p.isOutdoor) {
+                  sim.setAirResistance(0.47);
+                  sim.setShowExternalForces(true);
+                }
+              }}
+              forceOpenHistoryId={activeHistoryEntryId}
+              onHistoryModalClose={() => setActiveHistoryEntryId(null)}
               onMediaAnalyzed={(src: string) => {
                 setLastAnalyzedMediaSrc(src || null);
                 if (src) {

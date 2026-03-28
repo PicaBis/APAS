@@ -327,7 +327,8 @@ You MUST also provide a JSON block at the end:
                   velocity: ed.velocity || 0,
                   angle: ed.angle || 0,
                   height: ed.height || 0,
-                  mass: ed.mass || 1
+                  mass: ed.mass || 1,
+                  isOutdoor: false // Exercises are usually ideal/indoor logic unless specified
                 },
                 mediaSrc: previewUrl || undefined,
                 mediaType: 'image'

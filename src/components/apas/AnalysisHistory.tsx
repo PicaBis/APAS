@@ -10,7 +10,7 @@ interface AnalysisEntry {
   report: string;
   mediaSrc?: string;
   mediaType?: 'video' | 'image';
-  params?: { velocity?: number; angle?: number; height?: number; mass?: number };
+  params?: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean };
 }
 
 interface Props {
@@ -18,14 +18,32 @@ interface Props {
   history: AnalysisEntry[];
   onClearHistory?: () => void;
   onDeleteEntry?: (id: number) => void;
+  onApplyParams?: (params: NonNullable<AnalysisEntry['params']>) => void;
+  forceOpenId?: number | null;
+  onModalClose?: () => void;
 }
 
-export default function AnalysisHistory({ lang, history, onClearHistory, onDeleteEntry }: Props) {
+const AnalysisHistory: React.FC<Props> = ({ lang, history, onClearHistory, onDeleteEntry, onApplyParams, forceOpenId, onModalClose }) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<AnalysisEntry | null>(null);
   const [showMediaViewer, setShowMediaViewer] = useState(false);
-
   const isAr = lang === 'ar';
+
+  useEffect(() => {
+    if (forceOpenId) {
+      const entry = history.find(e => e.id === forceOpenId);
+      if (entry) {
+        setSelectedEntry(entry);
+        setShowModal(true);
+      }
+    }
+  }, [forceOpenId, history]);
+
+  const handleClose = () => {
+    setShowModal(false);
+    setSelectedEntry(null);
+    onModalClose?.();
+  };
 
   const typeLabel = (type: AnalysisEntry['type']) => {
     switch (type) {
@@ -60,51 +78,64 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
 
   if (history.length === 0) return null;
 
-  // Split history into Subject (Lateral) and Others (Bottom)
   const subjectHistory = history.filter(e => e.type === 'subject');
   const otherHistory = history.filter(e => e.type !== 'subject');
 
+  const handleApplyToSimulation = (entry: AnalysisEntry) => {
+    if (entry.params) {
+      onApplyParams?.(entry.params);
+      handleClose();
+      toast.success(isAr ? 'تم تطبيق المعطيات على المحاكاة بنجاح' : 'Parameters applied to simulation successfully');
+    }
+  };
+
   return (
     <>
-      {/* Trigger Button */}
-      <button
-        onClick={() => setShowModal(true)}
-        className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/20 hover:border-amber-500/40 text-foreground font-medium text-sm transition-all duration-300 relative"
-      >
-        <History className="w-4 h-4" />
-        <span>{isAr ? 'سجل التحليلات' : 'Analysis Records'}</span>
-        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-sm">
-          {history.length}
-        </span>
-      </button>
+      {/* Trigger Button - Bottom Position */}
+      <div className="flex justify-center mt-8 mb-4">
+        <button
+          onClick={() => setShowModal(true)}
+          className="w-full max-w-sm flex items-center justify-center gap-3 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/20 hover:border-amber-500/40 text-foreground font-black text-sm transition-all duration-300 relative shadow-xl shadow-amber-500/5 group"
+        >
+          <History className="w-5 h-5 text-amber-500 group-hover:rotate-180 transition-transform duration-500" />
+          <span className="tracking-widest uppercase">{isAr ? 'سجل التحليلات الموحد' : 'Unified Analysis History'}</span>
+          <span className="absolute -top-2.5 -right-2.5 w-7 h-7 bg-amber-500 text-white text-[11px] font-black rounded-full flex items-center justify-center shadow-lg border-2 border-background">
+            {history.length}
+          </span>
+        </button>
+      </div>
 
       {/* History Modal */}
       {showModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { setShowModal(false); setSelectedEntry(null); }}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={handleClose}>
           <div
-            className={`bg-card border border-border rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-500 ${selectedEntry ? 'max-w-4xl h-[90vh]' : 'max-w-lg max-h-[85vh]'}`}
+            className={`bg-card border border-border/50 rounded-3xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-500 ${selectedEntry ? 'max-w-5xl h-[92vh]' : 'max-w-xl max-h-[85vh]'}`}
             dir={isAr ? 'rtl' : 'ltr'}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-border/50">
-              <div className="flex items-center gap-2">
-                <History className="w-5 h-5 text-amber-500" />
-                <h2 className="font-bold text-foreground">{isAr ? 'سجل التحليلات' : 'Analysis Records'}</h2>
-                <span className="text-xs text-muted-foreground">({history.length})</span>
+            <div className="flex items-center justify-between p-5 border-b border-border/30 bg-muted/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                  <History className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <h2 className="font-black text-foreground uppercase tracking-wider">{isAr ? 'سجل التحليلات' : 'Analysis Records'}</h2>
+                  <p className="text-[10px] text-muted-foreground font-bold">{history.length} {isAr ? 'نموذج تم تحليله' : 'models analyzed'}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 {onClearHistory && history.length > 0 && !selectedEntry && (
                   <button
                     onClick={onClearHistory}
-                    className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors text-xs"
+                    className="p-2.5 rounded-xl hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all duration-300"
                     title={isAr ? 'مسح الكل' : 'Clear all'}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4.5 h-4.5" />
                   </button>
                 )}
-                <button onClick={() => { setShowModal(false); setSelectedEntry(null); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                  <X className="w-4 h-4" />
+                <button onClick={handleClose} className="p-2.5 rounded-xl hover:bg-muted transition-all duration-300 group">
+                  <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                 </button>
               </div>
             </div>
@@ -170,8 +201,8 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
                     <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-3">
                         {selectedEntry.params?.velocity !== undefined && (
-                          <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 text-center shadow-sm">
-                            <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center mx-auto mb-3">
+                          <div className="p-4 rounded-2xl bg-white dark:bg-card border border-border/50 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto mb-3">
                               <span className="text-xl">🚀</span>
                             </div>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold block mb-1">{isAr ? 'السرعة' : 'Velocity'}</span>
@@ -180,8 +211,8 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
                           </div>
                         )}
                         {selectedEntry.params?.angle !== undefined && (
-                          <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 text-center shadow-sm">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center mx-auto mb-3">
+                          <div className="p-4 rounded-2xl bg-white dark:bg-card border border-border/50 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
                               <span className="text-xl">📐</span>
                             </div>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold block mb-1">{isAr ? 'الزاوية' : 'Angle'}</span>
@@ -190,8 +221,8 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
                           </div>
                         )}
                         {selectedEntry.params?.height !== undefined && (
-                          <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 text-center shadow-sm">
-                            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center mx-auto mb-3">
+                          <div className="p-4 rounded-2xl bg-white dark:bg-card border border-border/50 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
                               <span className="text-xl">📏</span>
                             </div>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold block mb-1">{isAr ? 'الارتفاع' : 'Height'}</span>
@@ -200,8 +231,8 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
                           </div>
                         )}
                         {selectedEntry.params?.mass !== undefined && (
-                          <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 text-center shadow-sm">
-                            <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center mx-auto mb-3">
+                          <div className="p-4 rounded-2xl bg-white dark:bg-card border border-border/50 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mx-auto mb-3">
                               <span className="text-xl">⚖️</span>
                             </div>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold block mb-1">{isAr ? 'الكتلة' : 'Mass'}</span>
@@ -210,6 +241,17 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
                           </div>
                         )}
                       </div>
+
+                      {/* Apply to Simulation Button */}
+                      {selectedEntry.params && (
+                        <button
+                          onClick={() => handleApplyToSimulation(selectedEntry)}
+                          className="w-full py-4 px-6 rounded-2xl bg-primary text-primary-foreground font-black text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group"
+                        >
+                          <span className="group-hover:rotate-12 transition-transform">🎯</span>
+                          {isAr ? 'تطبيق على المحاكاة الآن' : 'Apply to Simulation Now'}
+                        </button>
+                      )}
 
                       {/* Physics Tips / Logic */}
                       <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">

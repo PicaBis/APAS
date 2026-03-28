@@ -19,89 +19,33 @@ function isEquationLine(line: string): boolean {
 }
 
 export default function ReportRenderer({ text }: { text: string }) {
-  const lines = text.split('\n');
-  const blocks: { type: 'text' | 'equation' | 'heading' | 'json'; content: string }[] = [];
-  let currentText: string[] = [];
-  let inJson = false;
-  let jsonLines: string[] = [];
+  // Enhanced renderer to catch mathematical expressions and wrap them in nice cards
+  const renderContent = () => {
+    const lines = text.split('\n');
+    return lines.map((line, i) => {
+      // Check if line is a LaTeX formula (often starts with $ or contains \ or equations)
+      const isFormula = line.trim().startsWith('$') || line.includes('\\') || line.includes('=');
+      const isHeader = line.trim().match(/^\d+\./) || line.trim().startsWith('#');
 
-  const flushText = () => {
-    if (currentText.length > 0) {
-      blocks.push({ type: 'text', content: currentText.join('\n') });
-      currentText = [];
-    }
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed === '```json' || trimmed === '```') {
-      if (inJson) {
-        flushText();
-        blocks.push({ type: 'json', content: jsonLines.join('\n') });
-        jsonLines = [];
-        inJson = false;
-      } else if (trimmed === '```json') {
-        flushText();
-        inJson = true;
-      }
-      continue;
-    }
-    if (inJson) { jsonLines.push(line); continue; }
-    if (/^[|\s\-:]+$/.test(trimmed) && trimmed.includes('-')) continue;
-    if (trimmed.startsWith('#')) {
-      flushText();
-      blocks.push({ type: 'heading', content: trimmed });
-    } else if (trimmed.startsWith('|')) {
-      const cells = trimmed.split('|').map(c => c.trim()).filter(c => c.length > 0);
-      if (cells.length > 0) currentText.push(cells.join(' : '));
-    } else if (isEquationLine(line)) {
-      flushText();
-      blocks.push({ type: 'equation', content: trimmed });
-    } else {
-      currentText.push(line);
-    }
-  }
-  flushText();
-
-  return (
-    <div className="space-y-2 text-sm leading-relaxed">
-      {blocks.map((block, i) => {
-        if (block.type === 'heading') {
-          const level = block.content.match(/^#+/)?.[0].length || 1;
-          const text = block.content.replace(/^#+\s*/, '');
-          if (level === 1) return <h2 key={i} className="text-lg font-bold text-primary mt-4 mb-2">{text}</h2>;
-          if (level === 2) return <h3 key={i} className="text-base font-semibold text-foreground mt-3 mb-1.5">{text}</h3>;
-          return <h4 key={i} className="text-sm font-semibold text-foreground mt-2 mb-1">{text}</h4>;
-        }
-        if (block.type === 'equation') {
-          return (
-            <div key={i} className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 font-mono text-xs text-primary">
-              {block.content}
-            </div>
-          );
-        }
-        if (block.type === 'json') {
-          return (
-            <details key={i} className="group">
-              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                JSON Data
-              </summary>
-              <pre className="mt-1 bg-muted/50 rounded-lg p-2 text-xs overflow-x-auto max-h-40">{block.content}</pre>
-            </details>
-          );
-        }
+      if (isFormula && !isHeader) {
         return (
-          <div key={i} className="text-muted-foreground whitespace-pre-wrap">
-            {block.content.split('\n').map((line, j) => {
-              const t = line.trim();
-              if (t.startsWith('**') && t.endsWith('**')) return <p key={j} className="font-semibold text-foreground">{t.slice(2, -2)}</p>;
-              if (t.startsWith('- ') || t.startsWith('* ')) return <p key={j} className="pl-3">{'\u2022'} {t.slice(2)}</p>;
-              if (!t) return <br key={j} />;
-              return <p key={j}>{line}</p>;
-            })}
+          <div key={i} className="my-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm text-center font-mono text-sm overflow-x-auto scrollbar-hide">
+            <span className="text-primary/90">{line.replace(/\$/g, '')}</span>
           </div>
         );
-      })}
+      }
+
+      if (isHeader) {
+        return <h4 key={i} className="text-sm font-black text-foreground mt-6 mb-3 uppercase tracking-wider">{line}</h4>;
+      }
+
+      return <p key={i} className="text-[13px] leading-relaxed text-muted-foreground mb-2">{line}</p>;
+    });
+  };
+
+  return (
+    <div className="report-content animate-in fade-in duration-500">
+      {renderContent()}
     </div>
   );
 }
