@@ -267,7 +267,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
     let progress = 0;
     const loadingTimer = setTimeout(() => {
       // Play a pleasant ambient loading sound
-      // playLoadingSound(false); 
+      playLoadingSound(false); 
       loadingIntervalRef.current = setInterval(() => {
         const increment = Math.random() * 4 + 2;
         progress += increment;
@@ -448,7 +448,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
               <div className="h-full rounded-full transition-all duration-200 ease-out"
                 style={{
                   width: Math.min(loadingProgress, 100) + '%',
-                  background: 'linear-gradient(90deg, #3b82f6, #f59e0b, #3b82f6)',
+                  background: 'linear-gradient(90deg, #3b82f6, #60a5fa, #3b82f6)',
+                  boxShadow: '0 0 10px rgba(59, 130, 246, 0.4)',
                 }} />
             </div>
             <div className="flex justify-between items-center mt-3">
