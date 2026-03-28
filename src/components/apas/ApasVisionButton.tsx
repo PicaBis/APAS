@@ -263,10 +263,10 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
         try {
           const parsed = JSON.parse(jsonMatch[1].trim());
           const params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string } = {};
-          if (parsed.velocity) params.velocity = Number(parsed.velocity);
-          if (parsed.angle) params.angle = Number(parsed.angle);
-          if (parsed.height) params.height = Number(parsed.height);
-          if (parsed.mass) params.mass = Number(parsed.mass);
+          if (parsed.velocity) params.velocity = Number(parseFloat(String(parsed.velocity)).toFixed(2));
+          if (parsed.angle) params.angle = Number(parseFloat(String(parsed.angle)).toFixed(2));
+          if (parsed.height) params.height = Number(parseFloat(String(parsed.height)).toFixed(2));
+          if (parsed.mass) params.mass = Number(parseFloat(String(parsed.mass)).toFixed(2));
           if (parsed.objectType) params.objectType = String(parsed.objectType);
 
             if (Object.keys(params).length > 0) {
