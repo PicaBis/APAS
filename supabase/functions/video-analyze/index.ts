@@ -180,16 +180,18 @@ async function callAiWithFallback(
           visionContent.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${f.data}` } });
         });
 
-        const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${mistralKey}` },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "system", content: systemMessage }, { role: "user", content: visionContent }],
-            temperature: 0.2,
-            max_tokens: 4000,
-          }),
-        });
+        const res = await retryWithBackoff(async () => {
+          return await fetch("https://api.mistral.ai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${mistralKey}` },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "system", content: systemMessage }, { role: "user", content: visionContent }],
+              temperature: 0.2,
+              max_tokens: 4000,
+            }),
+          });
+        }, 'Mistral-Video-' + model);
 
         if (!res.ok) throw new Error(`Mistral ${model} error: ${res.status}`);
         const data = await res.json();
@@ -212,16 +214,18 @@ async function callAiWithFallback(
         visionContent.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${f.data}` } });
       });
 
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
-        body: JSON.stringify({
-          model: GROQ_VISION_MODEL,
-          messages: [{ role: "system", content: systemMessage }, { role: "user", content: visionContent }],
-          temperature: 0.2,
-          max_tokens: 4000,
-        }),
-      });
+      const res = await retryWithBackoff(async () => {
+        return await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({
+            model: GROQ_VISION_MODEL,
+            messages: [{ role: "system", content: systemMessage }, { role: "user", content: visionContent }],
+            temperature: 0.2,
+            max_tokens: 4000,
+          }),
+        });
+      }, 'Groq-Video');
 
       if (!res.ok) throw new Error(`Groq error: ${res.status}`);
       const data = await res.json();

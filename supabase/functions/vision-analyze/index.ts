@@ -202,19 +202,21 @@ async function callAiWithFallback(
           ? { type: "image_url", image_url: { url: cloudinaryUrl } }
           : { type: "image_url", image_url: { url: dataUrl } };
 
-        const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${mistralKey}` },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemMessage },
-              { role: "user", content: [{ type: "text", text: prompt }, imageContent] },
-            ],
-            temperature: 0.2,
-            max_tokens: 4000,
-          }),
-        });
+        const res = await retryWithBackoff(async () => {
+          return await fetch("https://api.mistral.ai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${mistralKey}` },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: systemMessage },
+                { role: "user", content: [{ type: "text", text: prompt }, imageContent] },
+              ],
+              temperature: 0.2,
+              max_tokens: 4000,
+            }),
+          });
+        }, 'Mistral-Vision-' + model);
 
         if (!res.ok) throw new Error(`Mistral ${model} error: ${res.status}`);
         const data = await res.json();
@@ -231,25 +233,27 @@ async function callAiWithFallback(
   if (groqKey) {
     try {
       console.log(`[vision-analyze] Falling back to Groq (${GROQ_VISION_MODEL})...`);
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
-        body: JSON.stringify({
-          model: GROQ_VISION_MODEL,
-          messages: [
-            { role: "system", content: systemMessage },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: dataUrl } },
-              ],
-            },
-          ],
-          temperature: 0.2,
-          max_tokens: 4000,
-        }),
-      });
+      const res = await retryWithBackoff(async () => {
+        return await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({
+            model: GROQ_VISION_MODEL,
+            messages: [
+              { role: "system", content: systemMessage },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: dataUrl } },
+                ],
+              },
+            ],
+            temperature: 0.2,
+            max_tokens: 4000,
+          }),
+        });
+      }, 'Groq-Vision');
 
       if (!res.ok) throw new Error(`Groq error: ${res.status}`);
       const data = await res.json();
