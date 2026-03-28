@@ -21,30 +21,65 @@ function isEquationLine(line: string): boolean {
 export default function ReportRenderer({ text }: { text: string }) {
   // Enhanced renderer to catch mathematical expressions and wrap them in nice cards
   const renderContent = () => {
-    const lines = text.split('\n');
-    return lines.map((line, i) => {
-      // Check if line is a LaTeX formula (often starts with $ or contains \ or equations)
-      const isFormula = line.trim().startsWith('$') || line.includes('\\') || line.includes('=');
-      const isHeader = line.trim().match(/^\d+\./) || line.trim().startsWith('#');
+    // Split by sections if they exist (e.g., "1.", "2.", "3.")
+    const sections = text.split(/\n(?=\d+\.)/);
+    
+    return sections.map((section, sectionIdx) => {
+      const lines = section.split('\n');
+      const header = lines[0].match(/^\d+\./) ? lines[0] : null;
+      const contentLines = header ? lines.slice(1) : lines;
 
-      if (isFormula && !isHeader) {
-        return (
-          <div key={i} className="my-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm text-center font-mono text-sm overflow-x-auto scrollbar-hide">
-            <span className="text-primary/90">{line.replace(/\$/g, '')}</span>
+      return (
+        <div key={sectionIdx} className="mb-8 last:mb-0">
+          {header && (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                {header.split('.')[0]}
+              </div>
+              <h4 className="text-sm font-black text-foreground uppercase tracking-wider">
+                {header.split('.').slice(1).join('.').trim()}
+              </h4>
+            </div>
+          )}
+          
+          <div className="space-y-3 pl-2 border-l-2 border-slate-100 dark:border-slate-800 ml-4">
+            {contentLines.map((line, i) => {
+              if (!line.trim()) return null;
+
+              // Check if line is a formula
+              const isFormula = line.trim().startsWith('$') || 
+                               line.includes('\\') || 
+                               (line.includes('=') && !line.includes(':'));
+              
+              const isBullet = line.trim().startsWith('-') || line.trim().startsWith('•');
+
+              if (isFormula) {
+                return (
+                  <div key={i} className="my-4 p-5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl shadow-sm text-center font-mono text-sm overflow-x-auto scrollbar-hide">
+                    <span className="text-primary font-bold">{line.replace(/\$/g, '').trim()}</span>
+                  </div>
+                );
+              }
+
+              if (isBullet) {
+                return (
+                  <div key={i} className="flex gap-3 text-[13px] leading-relaxed text-muted-foreground">
+                    <span className="text-primary mt-1.5">•</span>
+                    <span>{line.trim().substring(1).trim()}</span>
+                  </div>
+                );
+              }
+
+              return <p key={i} className="text-[13px] leading-relaxed text-muted-foreground">{line.trim()}</p>;
+            })}
           </div>
-        );
-      }
-
-      if (isHeader) {
-        return <h4 key={i} className="text-sm font-black text-foreground mt-6 mb-3 uppercase tracking-wider">{line}</h4>;
-      }
-
-      return <p key={i} className="text-[13px] leading-relaxed text-muted-foreground mb-2">{line}</p>;
+        </div>
+      );
     });
   };
 
   return (
-    <div className="report-content animate-in fade-in duration-500">
+    <div className="report-content animate-in fade-in duration-500 max-w-full overflow-hidden">
       {renderContent()}
     </div>
   );

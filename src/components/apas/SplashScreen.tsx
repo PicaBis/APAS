@@ -304,11 +304,11 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
 
   return (
     <div
-      className={'fixed inset-0 flex items-center justify-center z-[99999] transition-all duration-700 ' + (isExiting ? 'opacity-0 scale-105' : 'opacity-100 scale-100')}
-      style={{ background: '#ffffff' }}
+      className={'fixed inset-0 flex items-center justify-center z-[99999] transition-all duration-700 overflow-hidden ' + (isExiting ? 'opacity-0 scale-105' : 'opacity-100 scale-100')}
+      style={{ background: '#ffffff', width: '100vw', height: '100vh' }}
     >
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
-      <div className="text-center flex flex-col items-center gap-0 relative z-10">
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover" />
+      <div className="text-center flex flex-col items-center gap-0 relative z-10 w-full max-w-4xl px-4">
 
         {/* APAS Title — professional with animations */}
         <div style={{
@@ -513,15 +513,38 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
         </div>
 
         {/* Designers / Credits */}
-        <div className="mt-10" style={{
+        <div className="mt-12 w-full max-w-md" style={{
           opacity: phase >= 2 ? 1 : 0,
           transition: 'opacity 1.2s ease 0.6s',
         }}>
-          <div className="text-[10px] font-mono tracking-wider font-medium" style={{ color: '#64748b' }}>
-            Medjahed Abdelhadi &middot; Moufook Ibrahim
-          </div>
-          <div className="text-[9px] font-mono mt-1" style={{ color: '#94a3b8' }}>
-            École Normale Supérieure de Laghouat
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center">
+              <div className="text-[11px] font-bold tracking-[0.2em] uppercase mb-2" style={{ color: '#475569' }}>
+                {lang === 'ar' ? 'تطوير وتصميم' : lang === 'fr' ? 'Développement & Design' : 'Development & Design'}
+              </div>
+              <div className="flex items-center justify-center gap-4 text-xs font-mono font-bold" style={{ color: '#1e293b' }}>
+                <span>Medjahed Abdelhadi</span>
+                <span className="w-1 h-1 rounded-full bg-blue-400" />
+                <span>Moufook Ibrahim</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-center gap-3 py-2 px-4 rounded-xl bg-slate-50/50 border border-slate-100 shadow-sm">
+              <img 
+                src="/lovable-uploads/60600004-6000-4000-8000-000000000000.png" 
+                alt="ENSL Logo" 
+                className="w-8 h-8 object-contain opacity-80"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+              <div className="flex flex-col items-center">
+                <div className="text-[10px] font-bold text-slate-600">
+                  {lang === 'ar' ? 'المدرسة العليا للأساتذة بالأغواط' : 'École Normale Supérieure de Laghouat'}
+                </div>
+                <div className="text-[9px] font-medium text-slate-400">
+                  ENS Laghouat &middot; 2025/2026
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -444,7 +444,10 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     // Support negative Y regions when trajectory goes below ground
     let domMinX = rawMinX - padX;
     let domMaxX = rawMaxX + padX;
-    let domMinY = rawMinY < -0.1 ? rawMinY - padY : -padY * 0.3;
+    
+    // IF height is negative, we MUST show the negative Y region
+    // Otherwise we show a bit of padding below ground
+    let domMinY = Math.min(rawMinY, height) < -0.1 ? Math.min(rawMinY, height) - padY : -padY * 0.3;
     let domMaxY = rawMaxY + padY;
 
     // When zooming out (zoom < 1), expand the domain to reveal more axes/values
@@ -468,14 +471,68 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     const sX = plotW / domW;
     const sY = plotH / domH;
 
-    // Transform from physics coords to canvas coords
+    // transform from physics coords to canvas coords
     const toX = (x: number) => ML + (x - domMinX) * sX;
     const toY = (y: number) => MT + plotH - (y - domMinY) * sY;
     const groundY = toY(0);
     const originX = toX(0);
 
+    // ── GROUND DEPTH FILL (Enhanced) ──
+    // If the ground is visible, fill the area below it with a subtle texture/color
+    if (groundY < MT + plotH && groundY > MT) {
+      ctx.save();
+      const groundDepthGrad = ctx.createLinearGradient(0, groundY, 0, MT + plotH);
+      if (nightMode) {
+        groundDepthGrad.addColorStop(0, 'rgba(30, 41, 59, 0.6)');
+        groundDepthGrad.addColorStop(1, 'rgba(15, 23, 42, 0.2)');
+      } else {
+        groundDepthGrad.addColorStop(0, 'rgba(203, 213, 225, 0.6)');
+        groundDepthGrad.addColorStop(1, 'rgba(241, 245, 249, 0.2)');
+      }
+      ctx.fillStyle = groundDepthGrad;
+      ctx.fillRect(ML, groundY, plotW, MT + plotH - groundY);
+      
+      // Add a "depth" pattern (subtle dashed lines)
+      ctx.strokeStyle = nightMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 8; i++) {
+        const py = groundY + (i * (MT + plotH - groundY) / 8);
+        ctx.beginPath();
+        ctx.setLineDash([5, 15]);
+        ctx.moveTo(ML, py);
+        ctx.lineTo(ML + plotW, py);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // ── FADED BOUNDARIES (Vignette) ──
+    ctx.save();
+    const vignetteGrd = ctx.createRadialGradient(W / 2, H / 2, plotW * 0.4, W / 2, H / 2, plotW * 0.6);
+    vignetteGrd.addColorStop(0, 'rgba(0,0,0,0)');
+    vignetteGrd.addColorStop(1, nightMode ? 'rgba(10,10,25,0.3)' : 'rgba(255,255,255,0.3)');
+    ctx.fillStyle = vignetteGrd;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
     // Background — dynamic environment
     drawEnvironmentBackground(ctx, W, H, environmentId, nightMode);
+
+    // ── PROJECTILE ORIGIN LINE (When height is negative) ──
+    if (height < 0) {
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = nightMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)';
+      ctx.lineWidth = 1;
+      const hY = toY(height);
+      ctx.beginPath();
+      ctx.moveTo(ML, hY);
+      ctx.lineTo(ML + plotW, hY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
 
     // ── Wind particles overlay (when air resistance is enabled) ──
     // Subtle animated streaks to suggest air movement — skipped for underwater/vacuum/moon
