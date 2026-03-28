@@ -157,6 +157,8 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
             type: 'voice',
             report: result.message || spokenText,
             params: result.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+            mediaSrc: undefined, // Voice has no media src
+            mediaType: undefined
           });
           toast.success(isAr ? 'تم تطبيق الأوامر الصوتية على المحاكاة' : 'Voice commands applied to simulation');
         } else if (result.missing.length > 0) {
@@ -180,6 +182,8 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
               type: 'voice',
               report: spokenText,
               params: directResult.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+              mediaSrc: undefined,
+              mediaType: undefined
             });
             toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
           } else {
@@ -210,10 +214,12 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
             applied: true,
           }, ...prev].slice(0, 20));
           onAnalysisComplete?.({
-            type: 'voice',
-            report: spokenText,
-            params: directResult.params as { velocity?: number; angle?: number; height?: number; mass?: number },
-          });
+              type: 'voice',
+              report: spokenText,
+              params: directResult.params as { velocity?: number; angle?: number; height?: number; mass?: number },
+              mediaSrc: undefined,
+              mediaType: undefined
+            });
           toast.success(isAr ? 'تم تطبيق القيم' : 'Values applied');
         } else {
           setHistory(prev => [{

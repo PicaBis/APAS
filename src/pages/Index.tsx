@@ -232,11 +232,15 @@ const Index = () => {
     params?: { velocity?: number; angle?: number; height?: number; mass?: number };
   }) => {
     setHasModelAnalysis(true);
+    const newId = Date.now();
     setAnalysisHistory(prev => [{
-      id: Date.now(),
+      id: newId,
       timestamp: new Date(),
       ...entry,
     }, ...prev].slice(0, 50));
+    
+    // Automatically set the most recent entry as active if needed
+    // or notify user. The history button badge already updates.
   }, []);
 
   const handleClearAnalysisHistory = useCallback(() => {

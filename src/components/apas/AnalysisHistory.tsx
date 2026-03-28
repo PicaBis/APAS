@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { History, X, Camera, Video, Eye, Trash2 } from 'lucide-react';
+import { History, X, Camera, Video, Eye, Trash2, FileText, Mic } from 'lucide-react';
 import ReportRenderer from './ReportRenderer';
 
 interface AnalysisEntry {
@@ -40,8 +40,8 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
     switch (type) {
       case 'vision': return <Camera className="w-4 h-4 text-violet-500" />;
       case 'video': return <Video className="w-4 h-4 text-blue-500" />;
-      case 'subject': return <Camera className="w-4 h-4 text-emerald-500" />;
-      case 'voice': return <Camera className="w-4 h-4 text-purple-500" />;
+      case 'subject': return <FileText className="w-4 h-4 text-emerald-500" />;
+      case 'voice': return <Mic className="w-4 h-4 text-purple-500" />;
     }
   };
 
@@ -59,6 +59,10 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
   };
 
   if (history.length === 0) return null;
+
+  // Split history into Subject (Lateral) and Others (Bottom)
+  const subjectHistory = history.filter(e => e.type === 'subject');
+  const otherHistory = history.filter(e => e.type !== 'subject');
 
   return (
     <>
@@ -78,7 +82,7 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
       {showModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { setShowModal(false); setSelectedEntry(null); }}>
           <div
-            className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+            className={`bg-card border border-border rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-500 ${selectedEntry ? 'max-w-4xl h-[90vh]' : 'max-w-lg max-h-[85vh]'}`}
             dir={isAr ? 'rtl' : 'ltr'}
             onClick={e => e.stopPropagation()}
           >
@@ -90,7 +94,7 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
                 <span className="text-xs text-muted-foreground">({history.length})</span>
               </div>
               <div className="flex items-center gap-1">
-                {onClearHistory && history.length > 0 && (
+                {onClearHistory && history.length > 0 && !selectedEntry && (
                   <button
                     onClick={onClearHistory}
                     className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors text-xs"
@@ -106,172 +110,213 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-hidden flex flex-col">
               {selectedEntry ? (
-                /* Detail View */
-                <div className="p-4 space-y-4">
-                  <button
-                    onClick={() => setSelectedEntry(null)}
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    ← {isAr ? 'رجوع للسجل' : 'Back to records'}
-                  </button>
-
-                  {/* Media Preview */}
-                  {selectedEntry.mediaSrc && (
-                    <div className="relative rounded-xl overflow-hidden border border-border/50 bg-muted/30">
-                      {selectedEntry.mediaType === 'video' ? (
-                        <div className="relative">
-                          <img
-                            src={selectedEntry.mediaSrc}
-                            alt="Video thumbnail"
-                            className="w-full max-h-48 object-contain cursor-pointer"
-                            onClick={() => setShowMediaViewer(true)}
-                          />
-                          <button
-                            onClick={() => setShowMediaViewer(true)}
-                            className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors"
-                          >
-                            <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                              <Eye className="w-6 h-6 text-foreground" />
-                            </div>
-                          </button>
-                        </div>
-                      ) : (
-                        <img
-                          src={selectedEntry.mediaSrc}
-                          alt="Analyzed image"
-                          className="w-full max-h-64 object-contain cursor-pointer"
-                          onClick={() => setShowMediaViewer(true)}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* Entry info */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${typeColor(selectedEntry.type)}`}>
-                      {typeLabel(selectedEntry.type)}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {formatTime(selectedEntry.timestamp)}
-                    </span>
-                  </div>
-
-                  {/* Extracted Params */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {selectedEntry.params.velocity !== undefined && (
-                        <div className="p-3.5 rounded-xl bg-gradient-to-br from-blue-500/15 to-blue-600/5 border border-blue-500/30 text-center transition-all duration-300 hover:shadow-lg">
-                          <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center mx-auto mb-2">
-                            <span className="text-base">🚀</span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold block">{isAr ? 'السرعة' : 'Velocity'}</span>
-                          <p className="text-lg font-bold font-mono text-blue-600 dark:text-blue-400 leading-none">{selectedEntry.params.velocity}</p>
-                          <span className="text-[10px] text-muted-foreground mt-1 block">m/s</span>
-                        </div>
-                      )}
-                      {selectedEntry.params.angle !== undefined && (
-                        <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-600/5 border border-emerald-500/30 text-center transition-all duration-300 hover:shadow-lg">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center mx-auto mb-2">
-                            <span className="text-base">📐</span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold block">{isAr ? 'الزاوية' : 'Angle'}</span>
-                          <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 leading-none">{selectedEntry.params.angle}°</p>
-                          <span className="text-[10px] text-muted-foreground mt-1 block">deg</span>
-                        </div>
-                      )}
-                      {selectedEntry.params.height !== undefined && (
-                        <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/30 text-center transition-all duration-300 hover:shadow-lg">
-                          <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center mx-auto mb-2">
-                            <span className="text-base">📏</span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold block">{isAr ? 'الارتفاع' : 'Height'}</span>
-                          <p className="text-lg font-bold font-mono text-amber-600 dark:text-amber-400 leading-none">{selectedEntry.params.height}</p>
-                          <span className="text-[10px] text-muted-foreground mt-1 block">m</span>
-                        </div>
-                      )}
-                      {selectedEntry.params.mass !== undefined && (
-                        <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-500/15 to-purple-600/5 border border-purple-500/30 text-center transition-all duration-300 hover:shadow-lg">
-                          <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center mx-auto mb-2">
-                            <span className="text-base">⚖️</span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 font-semibold block">{isAr ? 'الكتلة' : 'Mass'}</span>
-                          <p className="text-lg font-bold font-mono text-purple-600 dark:text-purple-400 leading-none">{selectedEntry.params.mass}</p>
-                          <span className="text-[10px] text-muted-foreground mt-1 block">kg</span>
-                        </div>
-                      )}
-                    </div>
-
-                  {/* Report */}
-                  <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
-                    <h4 className="text-xs font-semibold text-foreground mb-2">{isAr ? 'تقرير التحليل' : 'Analysis Report'}</h4>
-                    <ReportRenderer text={selectedEntry.report} />
-                  </div>
-                </div>
-              ) : (
-                /* List View */
-                <div className="p-3 space-y-2">
-                  {history.map(entry => (
-                    <div
-                      key={entry.id}
-                      className="group relative p-3 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 cursor-pointer"
-                      onClick={() => setSelectedEntry(entry)}
+                /* Unified Detail View - Matches Analysis Result UI */
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => setSelectedEntry(null)}
+                      className="text-xs font-semibold text-primary hover:text-primary/80 flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-lg transition-all"
                     >
-                      {/* Delete button */}
-                      {onDeleteEntry && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onDeleteEntry(entry.id); }}
-                          className="absolute top-2 end-2 p-1.5 rounded-md hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                          title={isAr ? 'حذف' : 'Delete'}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
+                      {isAr ? '← العودة للقائمة' : '← Back to List'}
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${typeColor(selectedEntry.type)}`}>
+                        {typeLabel(selectedEntry.type)}
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {formatTime(selectedEntry.timestamp)}
+                      </span>
+                    </div>
+                  </div>
 
-                      <div className="flex items-start gap-3">
-                        {/* Thumbnail / Icon */}
-                        <div className="shrink-0">
-                          {entry.mediaSrc ? (
-                            <div className="w-12 h-12 rounded-lg overflow-hidden border border-border/30 bg-muted/30">
-                              <img src={entry.mediaSrc} alt="" className="w-full h-full object-cover" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Left: Media & Report */}
+                    <div className="space-y-4">
+                      {selectedEntry.mediaSrc && (
+                        <div className="relative rounded-2xl overflow-hidden border border-border/50 bg-black/5 shadow-inner group">
+                          {selectedEntry.mediaType === 'video' ? (
+                            <div className="aspect-video bg-black flex items-center justify-center">
+                              <video
+                                src={selectedEntry.mediaSrc}
+                                controls
+                                className="w-full h-full object-contain"
+                                poster={selectedEntry.mediaSrc}
+                              />
                             </div>
                           ) : (
-                            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-secondary/50 border border-border/30">
-                              {typeIcon(entry.type)}
-                            </div>
+                            <img
+                              src={selectedEntry.mediaSrc}
+                              alt="Analysis preview"
+                              className="w-full max-h-[400px] object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+                            />
                           )}
                         </div>
+                      )}
 
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${typeColor(entry.type)}`}>
-                              {typeLabel(entry.type)}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">{formatTime(entry.timestamp)}</span>
-                          </div>
-
-                          {/* Show extracted params summary */}
-                          {entry.params && Object.keys(entry.params).length > 0 && (
-                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
-                              {entry.params.velocity !== undefined && <span>v={entry.params.velocity}</span>}
-                              {entry.params.angle !== undefined && <span>θ={entry.params.angle}°</span>}
-                              {entry.params.height !== undefined && <span>h={entry.params.height}</span>}
-                            </div>
-                          )}
-
-                          {/* Report preview */}
-                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                            {entry.report.replace(/```json[\s\S]*?```/g, '').replace(/[#*`]/g, '').trim().slice(0, 120)}...
-                          </p>
-                        </div>
-
-                        {/* View indicator - Removed eye icon overlap */}
-                        <div className="shrink-0 flex items-center">
+                      <div className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm">
+                        <h4 className="text-xs font-bold text-foreground mb-4 flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-primary" />
+                          {isAr ? 'تقرير الأستاذ الفيزيائي' : 'Physics Expert Report'}
+                        </h4>
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReportRenderer text={selectedEntry.report} />
                         </div>
                       </div>
                     </div>
-                  ))}
+
+                    {/* Right: Params & Physics */}
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-3">
+                        {selectedEntry.params?.velocity !== undefined && (
+                          <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 text-center shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center mx-auto mb-3">
+                              <span className="text-xl">🚀</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold block mb-1">{isAr ? 'السرعة' : 'Velocity'}</span>
+                            <p className="text-2xl font-black font-mono text-blue-600 dark:text-blue-400">{selectedEntry.params.velocity}</p>
+                            <span className="text-[10px] font-semibold text-blue-500/70 mt-1 block">m/s</span>
+                          </div>
+                        )}
+                        {selectedEntry.params?.angle !== undefined && (
+                          <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 text-center shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center mx-auto mb-3">
+                              <span className="text-xl">📐</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold block mb-1">{isAr ? 'الزاوية' : 'Angle'}</span>
+                            <p className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">{selectedEntry.params.angle}°</p>
+                            <span className="text-[10px] font-semibold text-emerald-500/70 mt-1 block">deg</span>
+                          </div>
+                        )}
+                        {selectedEntry.params?.height !== undefined && (
+                          <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 text-center shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center mx-auto mb-3">
+                              <span className="text-xl">📏</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold block mb-1">{isAr ? 'الارتفاع' : 'Height'}</span>
+                            <p className="text-2xl font-black font-mono text-amber-600 dark:text-amber-400">{selectedEntry.params.height}</p>
+                            <span className="text-[10px] font-semibold text-amber-500/70 mt-1 block">m</span>
+                          </div>
+                        )}
+                        {selectedEntry.params?.mass !== undefined && (
+                          <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 text-center shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center mx-auto mb-3">
+                              <span className="text-xl">⚖️</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold block mb-1">{isAr ? 'الكتلة' : 'Mass'}</span>
+                            <p className="text-2xl font-black font-mono text-purple-600 dark:text-purple-400">{selectedEntry.params.mass}</p>
+                            <span className="text-[10px] font-semibold text-purple-500/70 mt-1 block">kg</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Physics Tips / Logic */}
+                      <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                        <p className="text-xs text-primary/80 italic leading-relaxed text-center">
+                          {isAr ? '✦ تم تحليل هذا النموذج بدقة عالية وتطبيقه على المحرك الفيزيائي APAS Engine ✦' : '✦ Model analyzed with high precision and applied to APAS Physics Engine ✦'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Unified List View - Organized by Type */
+                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                  {/* Subject Records (Lateral) */}
+                  {subjectHistory.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5" />
+                        {isAr ? 'تمارين تم تحليلها' : 'Analyzed Exercises'}
+                      </h3>
+                      <div className="grid grid-cols-1 gap-2">
+                        {subjectHistory.map(entry => (
+                          <div
+                            key={entry.id}
+                            className="group relative p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-500/40 transition-all duration-300 cursor-pointer overflow-hidden"
+                            onClick={() => setSelectedEntry(entry)}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center text-xl">📝</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-bold text-foreground truncate">
+                                    {isAr ? 'تحليل تمرين فيزيائي' : 'Physics Exercise Analysis'}
+                                  </span>
+                                  <span className="text-[9px] font-mono text-muted-foreground">{formatTime(entry.timestamp)}</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground line-clamp-1 opacity-70">
+                                  {entry.report.replace(/#|\*|`/g, '').slice(0, 80)}...
+                                </p>
+                              </div>
+                              {onDeleteEntry && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onDeleteEntry(entry.id); }}
+                                  className="p-2 rounded-lg hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Other Records (Bottom) */}
+                  {otherHistory.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+                        <History className="w-3.5 h-3.5" />
+                        {isAr ? 'سجلات الوسائط والأوامر' : 'Media & Voice Records'}
+                      </h3>
+                      <div className="space-y-2">
+                        {otherHistory.map(entry => (
+                          <div
+                            key={entry.id}
+                            className={`group relative p-3 rounded-2xl border border-border/50 bg-card hover:bg-secondary/50 transition-all duration-300 cursor-pointer`}
+                            onClick={() => setSelectedEntry(entry)}
+                          >
+                            <div className="flex items-center gap-4">
+                              {entry.mediaSrc ? (
+                                <div className="w-14 h-14 rounded-xl overflow-hidden border border-border/30 bg-muted shrink-0">
+                                  <img src={entry.mediaSrc} alt="" className="w-full h-full object-cover" />
+                                </div>
+                              ) : (
+                                <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${typeColor(entry.type)}`}>
+                                  {typeIcon(entry.type)}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${typeColor(entry.type)}`}>
+                                    {typeLabel(entry.type)}
+                                  </span>
+                                  <span className="text-[9px] font-mono text-muted-foreground">{formatTime(entry.timestamp)}</span>
+                                </div>
+                                <p className="text-[11px] text-foreground font-medium truncate mb-1">
+                                  {entry.params ? `v=${entry.params.velocity} θ=${entry.params.angle}° h=${entry.params.height}` : entry.report.slice(0, 50)}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground line-clamp-1 opacity-60">
+                                  {entry.report.replace(/#|\*|`/g, '').slice(0, 100)}...
+                                </p>
+                              </div>
+                              {onDeleteEntry && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onDeleteEntry(entry.id); }}
+                                  className="p-2 rounded-lg hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -279,6 +324,9 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
         </div>,
         document.body,
       )}
+    </>
+  );
+}
 
       {/* Full-screen Media Viewer */}
       {showMediaViewer && selectedEntry?.mediaSrc && createPortal(
@@ -301,9 +349,10 @@ export default function AnalysisHistory({ lang, history, onClearHistory, onDelet
             />
           ) : (
             <div className="max-w-full max-h-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
-              <img
+              <video
                 src={selectedEntry.mediaSrc}
-                alt="Video thumbnail"
+                controls
+                autoPlay
                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
               />
             </div>

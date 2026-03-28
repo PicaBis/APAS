@@ -270,6 +270,7 @@ You MUST also provide a JSON block at the end:
   "solution": "Step-by-step mathematical solution if applicable"
 }`;
 
+    try {
       const resp = await fetch(EDGE_SUBJECT_URL, {
         method: 'POST',
         headers: {
@@ -328,6 +329,8 @@ You MUST also provide a JSON block at the end:
                   height: ed.height || 0,
                   mass: ed.mass || 1
                 },
+                mediaSrc: previewUrl || undefined,
+                mediaType: 'image'
               });
               toast.success(isAr ? 'تم استخراج بيانات التمرين وتطبيقها على المحاكاة' : 'Exercise data extracted and applied to simulation');
             }
@@ -345,7 +348,8 @@ You MUST also provide a JSON block at the end:
         setSubjectData({ recognized: false });
         toast.error(isAr ? 'تعذر التحليل' : 'Analysis failed');
       }
-    } catch {
+    } catch (err) {
+      console.error('Subject analysis error:', err);
       setProgress(100);
       setAnalysisStep('results');
       toast.error(isAr ? 'خطأ في الاتصال' : 'Connection error');
