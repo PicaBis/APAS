@@ -43,8 +43,6 @@ interface RightSidebarProps {
   onShowRestrictionOverlay: (name: string) => void;
   onMediaAnalyzed?: (thumbnailDataUrl: string) => void;
   onAutoRun?: () => void;
-  onTargetChallenge?: () => void;
-  targetChallengeActive?: boolean;
   onDetectedMedia?: (data: { source: 'video' | 'image'; detectedAngle?: number; detectedVelocity?: number; detectedHeight?: number; confidence?: number; objectType?: string }) => void;
   onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
   analysisHistory?: Array<{ id: number; timestamp: Date; type: 'vision' | 'video' | 'subject' | 'voice'; report: string; mediaSrc?: string; mediaType?: 'video' | 'image'; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }>;
@@ -59,7 +57,6 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   enableBounce, bounceCoefficient,
   setSelectedIntegrationMethod, setVelocity, setAngle, setHeight, setMass, setGravity,
   setActivePresetEmoji, onSessionLoad, onShowRestrictionOverlay, onMediaAnalyzed, onAutoRun, 
-  onTargetChallenge, targetChallengeActive,
   onDetectedMedia, onAnalysisComplete,
   analysisHistory, onClearAnalysisHistory, onDeleteAnalysisEntry,
 }) => {
@@ -207,12 +204,6 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 {lang === 'ar' ? p.name : p.nameEn}
               </button>
             ))}
-            <button 
-              onClick={() => onTargetChallenge?.()}
-              className={`text-xs font-bold py-2.5 px-2 rounded-lg border-2 transition-all duration-300 text-center hover:-translate-y-0.5 ${targetChallengeActive ? 'bg-red-500 text-white border-red-600 animate-pulse' : 'bg-secondary/50 text-red-500 border-red-500/30 hover:bg-red-500/10'}`}
-            >
-              {lang === 'ar' ? '🎯 تحدي الهدف' : '🎯 Target Challenge'}
-            </button>
           </div>
         </CollapsibleContent>
       </Collapsible>
