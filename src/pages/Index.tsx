@@ -1903,7 +1903,7 @@ const Index = () => {
                         </div>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="mt-3">
                       <ParamInputWithUnit
                         label={lang === 'ar' ? '\u0627\u0644\u0645\u0648\u0636\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a (x\u2080)' : lang === 'fr' ? 'Position initiale (x\u2080)' : 'Initial Position (x\u2080)'}
                         value={getDisplayValue('height', sim.initialX)}
@@ -1994,11 +1994,35 @@ const Index = () => {
                       </span>
                     </button>
                     <ToggleOption label={lang === 'ar' ? '\u0627\u0644\u0646\u0642\u0627\u0637 \u0627\u0644\u062d\u0631\u062c\u0629' : lang === 'fr' ? 'Points Critiques' : 'Critical Points'} active={sim.showCriticalPoints}
-                      onClick={() => { sim.setShowCriticalPoints(!sim.showCriticalPoints); playClick(sim.isMuted); }} icon={<Crosshair className="w-3.5 h-3.5" />} />
+                      onClick={() => {
+                        const newVal = !sim.showCriticalPoints;
+                        sim.setShowCriticalPoints(newVal);
+                        playClick(sim.isMuted);
+                        toast.info(
+                          lang === 'ar'
+                            ? newVal ? 'تم تفعيل النقاط الحرجة. ستظهر نقاط أقصى ارتفاع ونقطة الهبوط على المسار.' : 'تم تعطيل النقاط الحرجة.'
+                            : lang === 'fr'
+                              ? newVal ? 'Points critiques activés. Les points de hauteur max et d\'atterrissage seront affichés.' : 'Points critiques désactivés.'
+                              : newVal ? 'Critical Points enabled. Max height and landing points will be displayed on trajectory.' : 'Critical Points disabled.',
+                          { icon: <Crosshair className="w-4 h-4 text-primary" /> }
+                        );
+                      }} icon={<Crosshair className="w-3.5 h-3.5" />} />
                     <ForceVectorsSection
                       lang={lang}
                       showExternalForces={sim.showExternalForces}
-                      onToggle={() => { sim.setShowExternalForces(!sim.showExternalForces); playClick(sim.isMuted); }}
+                      onToggle={() => {
+                        const newVal = !sim.showExternalForces;
+                        sim.setShowExternalForces(newVal);
+                        playClick(sim.isMuted);
+                        toast.info(
+                          lang === 'ar'
+                            ? newVal ? 'تم تفعيل القوى الخارجية. ستظهر متجهات القوى على المسار.' : 'تم تعطيل القوى الخارجية.'
+                            : lang === 'fr'
+                              ? newVal ? 'Forces externes activées. Les vecteurs de force seront affichés.' : 'Forces externes désactivées.'
+                              : newVal ? 'External Forces enabled. Force vectors will be displayed on trajectory.' : 'External Forces disabled.',
+                          { icon: <Eye className="w-4 h-4 text-primary" /> }
+                        );
+                      }}
                       vectorVisibility={vectorVisibility}
                       onVectorToggle={(key) => { setVectorVisibility(prev => ({ ...prev, [key]: !prev[key] })); playClick(sim.isMuted); }}
                       isWaterEnvironment={currentEnvId === 'underwater'}
@@ -2015,7 +2039,19 @@ const Index = () => {
                       )}
                     </button>
                     <ToggleOption label={lang === 'ar' ? '\u0627\u0631\u062a\u062f\u0627\u062f \u0627\u0644\u0645\u0642\u0630\u0648\u0641' : lang === 'fr' ? 'Rebond du Projectile' : 'Bouncing'} active={sim.enableBounce}
-                      onClick={() => { sim.setEnableBounce(!sim.enableBounce); playToggle(sim.isMuted, !sim.enableBounce); }} icon={<ArrowDownUp className="w-3.5 h-3.5" />} />
+                      onClick={() => {
+                        const newVal = !sim.enableBounce;
+                        sim.setEnableBounce(newVal);
+                        playToggle(sim.isMuted, newVal);
+                        toast.info(
+                          lang === 'ar'
+                            ? newVal ? 'تم تفعيل ارتداد المقذوف. المقذوف سيرتد عند ملامسة الأرض.' : 'تم تعطيل ارتداد المقذوف.'
+                            : lang === 'fr'
+                              ? newVal ? 'Rebond activé. Le projectile rebondira au contact du sol.' : 'Rebond désactivé.'
+                              : newVal ? 'Bouncing enabled. Projectile will bounce on ground contact.' : 'Bouncing disabled.',
+                          { icon: <ArrowDownUp className="w-4 h-4 text-primary" /> }
+                        );
+                      }} icon={<ArrowDownUp className="w-3.5 h-3.5" />} />
                     {sim.enableBounce && (
                       <div className="px-1 pb-1">
                         <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
@@ -2070,11 +2106,31 @@ const Index = () => {
                             integrationMethod: sim.selectedIntegrationMethod,
                           });
                           playClick(sim.isMuted);
+                          toast.success(
+                            lang === 'ar'
+                              ? '\u062a\u0645 \u062d\u0641\u0638 \u0627\u0644\u0645\u0633\u0627\u0631 \u0644\u0644\u0645\u0642\u0627\u0631\u0646\u0629. \u063a\u064a\u0651\u0631 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062a \u0648\u0634\u063a\u0651\u0644 \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629 \u0644\u0631\u0624\u064a\u0629 \u0627\u0644\u0641\u0631\u0642.'
+                              : lang === 'fr'
+                                ? 'Trajectoire sauvegard\u00e9e pour comparaison. Modifiez les param\u00e8tres et simulez pour voir la diff\u00e9rence.'
+                                : 'Trajectory saved for comparison. Change parameters and simulate to see the difference.',
+                            { icon: <Save className="w-4 h-4 text-green-500" /> }
+                          );
                         }}
                           className="group w-full text-xs font-medium text-foreground py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5">
                           <Save className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {T.saveCompare}
                         </button>
-                        <button onClick={() => { sim.setShowAIComparison(!sim.showAIComparison); playClick(sim.isMuted); }}
+                        <button onClick={() => {
+                          const newVal = !sim.showAIComparison;
+                          sim.setShowAIComparison(newVal);
+                          playClick(sim.isMuted);
+                          toast.info(
+                            lang === 'ar'
+                              ? newVal ? '\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0645\u0642\u0627\u0631\u0646\u0629 \u0646\u0645\u0627\u0630\u062c AI. \u0633\u062a\u0638\u0647\u0631 \u0645\u0633\u0627\u0631\u0627\u062a Euler \u0648 RK4 \u0648 AI-APAS \u0645\u0639\u0627\u064b.' : '\u062a\u0645 \u062a\u0639\u0637\u064a\u0644 \u0645\u0642\u0627\u0631\u0646\u0629 \u0646\u0645\u0627\u0630\u062c AI.'
+                              : lang === 'fr'
+                                ? newVal ? 'Comparaison des mod\u00e8les IA activ\u00e9e. Les trajectoires Euler, RK4 et AI-APAS seront affich\u00e9es.' : 'Comparaison des mod\u00e8les IA d\u00e9sactiv\u00e9e.'
+                                : newVal ? 'AI Model Comparison enabled. Euler, RK4, and AI-APAS trajectories will be displayed together.' : 'AI Model Comparison disabled.',
+                            { icon: <GitBranch className="w-4 h-4 text-primary" /> }
+                          );
+                        }}
                           className={`group w-full text-xs font-medium py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-all duration-200 ${
                             sim.showAIComparison
                               ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md'

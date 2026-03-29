@@ -12,6 +12,7 @@ import type { UseRelativityReturn } from '@/hooks/useRelativity';
 import type { RelativityMeta } from '@/utils/relativityPhysics';
 import { SPEED_OF_LIGHT } from '@/utils/relativityPhysics';
 import { playSectionToggle, playToggle, playSliderChange } from '@/utils/sound';
+import { toast } from 'sonner';
 
 interface RelativityPanelProps {
   lang: string;
@@ -147,10 +148,31 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showEducational, setShowEducational] = useState(false);
 
-  const handleToggle = (setter: (value: boolean) => void, current: boolean) => {
-    setter(!current);
-    playToggle(muted, !current);
+  const handleToggle = (setter: (value: boolean) => void, current: boolean, featureKey?: string) => {
+    const newValue = !current;
+    setter(newValue);
+    playToggle(muted, newValue);
     onPhysicsChange?.();
+
+    if (featureKey === 'enableRelativity') {
+      toast.info(
+        lang === 'ar'
+          ? newValue ? '\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0648\u0636\u0639 \u0627\u0644\u0646\u0633\u0628\u064a\u0629. \u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u0645\u0642\u0627\u0631\u0646\u0629 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062a \u0628\u064a\u0646 \u0625\u0637\u0627\u0631\u0627\u062a \u0645\u0631\u062c\u0639\u064a\u0629 \u0645\u062e\u062a\u0644\u0641\u0629.' : '\u062a\u0645 \u062a\u0639\u0637\u064a\u0644 \u0648\u0636\u0639 \u0627\u0644\u0646\u0633\u0628\u064a\u0629.'
+          : lang === 'fr'
+            ? newValue ? 'Mode Relativit\u00e9 activ\u00e9. Vous pouvez comparer les trajectoires entre diff\u00e9rents r\u00e9f\u00e9rentiels.' : 'Mode Relativit\u00e9 d\u00e9sactiv\u00e9.'
+            : newValue ? 'Relativity Mode enabled. You can now compare trajectories between different reference frames.' : 'Relativity Mode disabled.',
+        { icon: <Zap className="w-4 h-4 text-purple-500" /> }
+      );
+    } else if (featureKey === 'showDual') {
+      toast.info(
+        lang === 'ar'
+          ? newValue ? '\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0639\u0631\u0636 \u0627\u0644\u0645\u0633\u0627\u0631\u064a\u0646 \u0645\u0639\u0627\u064b.' : '\u062a\u0645 \u062a\u0639\u0637\u064a\u0644 \u0639\u0631\u0636 \u0627\u0644\u0645\u0633\u0627\u0631\u064a\u0646.'
+          : lang === 'fr'
+            ? newValue ? 'Affichage des deux trajectoires activ\u00e9.' : 'Affichage des deux trajectoires d\u00e9sactiv\u00e9.'
+            : newValue ? 'Dual trajectory display enabled.' : 'Dual trajectory display disabled.',
+        { icon: <Eye className="w-4 h-4 text-blue-500" /> }
+      );
+    }
   };
 
   const handleParamChange = () => {
@@ -203,7 +225,7 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
             <span className="text-xs font-medium text-foreground">{T('enableRelativity', lang)}</span>
             <Switch
               checked={relativity.enabled}
-              onCheckedChange={() => handleToggle(relativity.setEnabled, relativity.enabled)}
+              onCheckedChange={() => handleToggle(relativity.setEnabled, relativity.enabled, 'enableRelativity')}
             />
           </div>
 
@@ -319,7 +341,7 @@ export const RelativityPanel: React.FC<RelativityPanelProps> = ({
                 <Switch
                   checked={relativity.showDualTrajectories}
                   onCheckedChange={() =>
-                    handleToggle(relativity.setShowDualTrajectories, relativity.showDualTrajectories)
+                    handleToggle(relativity.setShowDualTrajectories, relativity.showDualTrajectories, 'showDual')
                   }
                 />
               </div>
