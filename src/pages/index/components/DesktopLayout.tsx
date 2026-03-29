@@ -22,6 +22,8 @@ import VideoOverlay from '@/components/apas/VideoOverlay';
 import AcademicAmbient from '@/components/apas/AcademicAmbient';
 import FooterRobot from '@/components/apas/LightModeDecorations';
 import SensorLab from '@/components/apas/SensorLab';
+import { toast } from 'sonner';
+import { ArrowDownToLine } from 'lucide-react';
 import { UNIT_OPTIONS, axisVars, getRating } from '../constants';
 
 const SimulationCanvas3D = React.lazy(() => import('@/components/apas/SimulationCanvas3D'));
@@ -245,6 +247,55 @@ const DesktopLayout: React.FC<DesktopLayoutProps> = ({ state, handlers, derived 
                       label={lang === 'ar' ? '\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639' : lang === 'fr' ? 'Hauteur' : 'Height'}
                       value={getDisplayValue('height', sim.height)}
                       onChange={(v: number) => sim.setHeight(fromDisplayValue('height', v))}
+                      min={-5000} max={5000} step={0.5} isRTL={isRTL}
+                      unitKey="height" selectedUnit={selectedUnits.height}
+                      units={UNIT_OPTIONS.height.units} lang={lang}
+                      onUnitChange={(u: string) => setSelectedUnits((prev: any) => ({ ...prev, height: u }))}
+                    />
+                  </div>
+
+                  {/* Force Ground Detection toggle — shown when height < 0 */}
+                  {sim.height < 0 && (
+                    <div className="mt-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 animate-slideDown">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <ArrowDownToLine className="w-4 h-4 text-amber-500 shrink-0" />
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-foreground block">
+                              {lang === 'ar' ? 'فرض الجاذبية والأرض كمحور X' : lang === 'fr' ? 'Forcer le sol à y=0' : 'Force Ground at y=0'}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground block">
+                              {lang === 'ar' ? 'اصطدام المقذوف بالأرض عند العودة لـ y=0' : lang === 'fr' ? 'Le projectile touche le sol en revenant à y=0' : 'Projectile hits ground when returning to y=0'}
+                            </span>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={sim.forceGroundDetection}
+                          onCheckedChange={(checked) => {
+                            sim.setForceGroundDetection(checked);
+                            playToggle(sim.isMuted, checked);
+                            toast.info(
+                              lang === 'ar'
+                                ? checked
+                                  ? 'تم تفعيل اصطدام الأرض. المقذوف سيتوقف عند y=0 حتى لو بدأ من ارتفاع سالب.'
+                                  : 'تم تعطيل اصطدام الأرض. المقذوف سيستمر في الطيران دون قيود الأرض.'
+                                : checked
+                                  ? 'Ground detection enabled. Projectile will stop at y=0 even when starting from negative height.'
+                                  : 'Ground detection disabled. Projectile will continue flying without ground constraint.',
+                              { icon: <ArrowDownToLine className="w-4 h-4 text-amber-500" /> }
+                            );
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Initial Position X₀ */}
+                  <div className="mt-3">
+                    <ParamInputWithUnit
+                      label={lang === 'ar' ? 'الموضع الابتدائي (X₀)' : lang === 'fr' ? 'Position Initiale (X₀)' : 'Initial Position (X₀)'}
+                      value={getDisplayValue('height', sim.initialX)}
+                      onChange={(v: number) => sim.setInitialX(fromDisplayValue('height', v))}
                       min={-5000} max={5000} step={0.5} isRTL={isRTL}
                       unitKey="height" selectedUnit={selectedUnits.height}
                       units={UNIT_OPTIONS.height.units} lang={lang}
