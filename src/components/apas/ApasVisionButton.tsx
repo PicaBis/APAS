@@ -213,7 +213,13 @@ export default function ApasVisionButton({ lang, onUpdateParams, onMediaAnalyzed
         cloudFormData.append('file', base64);
         cloudFormData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
         cloudFormData.append('folder', 'apas-vision');
-        cloudFormData.append('public_id', publicId);
+        
+        // Disable Cloudinary caching by adding a random unique tag and buster
+        const cacheBuster = `cb_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        cloudFormData.append('tags', `new_upload,${cacheBuster}`);
+        cloudFormData.append('context', `buster=${cacheBuster}`);
+        // Ensure every upload is unique by appending buster to publicId
+        cloudFormData.append('public_id', `${publicId}_${cacheBuster}`);
 
         const cloudRes = await fetch(
           `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,

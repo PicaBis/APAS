@@ -96,6 +96,7 @@ export const objectTypeToEmoji = (objectType?: string): string | undefined => {
   if (lower.includes('golf') || lower.includes('غولف')) return '⛳';
   if (lower.includes('basketball') || lower.includes('كرة سلة')) return '🏀';
   if (lower.includes('football') || lower.includes('soccer') || lower.includes('كرة قدم')) return '⚽';
+  if (lower.includes('small ball') || lower.includes('كرة صغيرة') || lower.includes('tennis') || lower.includes('تنس')) return undefined;
   // Default to undefined to use the system's default black dot rendering
   return undefined;
 };

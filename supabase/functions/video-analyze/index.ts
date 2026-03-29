@@ -321,33 +321,7 @@ async function upsertAnalysis(
   analysisData: Record<string, unknown>,
 ): Promise<string | null> {
   try {
-    // Check if analysis already exists for this video file
-    const sourceFilename = analysisData.source_filename;
-    if (sourceFilename) {
-      const { data: existing } = await supabase
-        .from("analyses")
-        .select("id")
-        .eq("source_filename", sourceFilename)
-        .limit(1)
-        .maybeSingle();
-
-      if (existing) {
-        console.log("[video-analyze] Found existing analysis, updating instead of inserting...");
-        const { data, error } = await supabase
-          .from("analyses")
-          .update(analysisData)
-          .eq("id", existing.id)
-          .select("id")
-          .single();
-
-        if (error) {
-          console.warn("[video-analyze] DB update failed:", error.message);
-          return null;
-        }
-        return data?.id || null;
-      }
-    }
-
+    // ALWAYS force a new record for every upload to ensure fresh analysis
     const { data, error } = await supabase
       .from("analyses")
       .insert(analysisData)
@@ -361,7 +335,7 @@ async function upsertAnalysis(
 
     return data?.id || null;
   } catch (err) {
-    console.warn("[video-analyze] DB upsert error:", (err as Error).message);
+    console.warn("[video-analyze] DB insert error:", (err as Error).message);
     return null;
   }
 }

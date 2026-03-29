@@ -252,13 +252,15 @@ const Index = () => {
       
       if (entry.params.isOutdoor) {
         sim.setAirResistance(0.02); // Use a realistic air resistance coefficient for typical projectiles
+        sim.setWindSpeed(2.5); // Add a standard intuitive wind speed for outdoor environments
         sim.setShowExternalForces(true);
         // Force update vectors visibility for air resistance
-        setVectorVisibility(v => ({ ...v, drag: true }));
-        toast.info(lang === 'ar' ? 'تم تفعيل مقاومة الهواء تلقائياً للبيئة الخارجية' : 'Air resistance enabled automatically for outdoor environment');
+        setVectorVisibility(v => ({ ...v, drag: true, wind: true }));
+        toast.info(lang === 'ar' ? 'تم تفعيل مقاومة الهواء والرياح تلقائياً للبيئة الخارجية' : 'Air resistance and wind enabled automatically for outdoor environment');
       } else {
         sim.setAirResistance(0);
-        setVectorVisibility(v => ({ ...v, drag: false }));
+        sim.setWindSpeed(0);
+        setVectorVisibility(v => ({ ...v, drag: false, wind: false }));
       }
 
       // Update projectile icon
