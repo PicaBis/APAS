@@ -397,9 +397,9 @@ serve(async (req) => {
     const rawAngle = Number((visionData as { angle?: number }).angle) || 0;
     const rawH0 = Number((visionData as { height?: number }).height) || 0;
 
-    const v0 = rawV0 > 0 ? rawV0 : defaults.velocity;
-    const angle = rawAngle > 0 ? rawAngle : defaults.angle;
-    const h0 = rawH0 > 0 ? rawH0 : defaults.height;
+    const v0 = Math.max(0.1, rawV0 || defaults.velocity);
+    const angle = Math.max(0.1, rawAngle || defaults.angle);
+    const h0 = Math.max(0.1, rawH0 || defaults.height);
     const g = Number((visionData as { gravity?: number }).gravity) || 9.81;
     const mass = Number((visionData as { mass?: number }).mass) || defaults.mass;
     const confidence = Number((visionData as { confidence?: number }).confidence) || 70;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Video, Loader2, X, Upload, Sparkles, Play, Pause, RotateCcw, Scissors, SwitchCamera, FlipHorizontal, Circle, Aperture, ScanLine } from 'lucide-react';
+import { Video, Loader2, X, Upload, Sparkles, Play, Pause, RotateCcw, Scissors, SwitchCamera, FlipHorizontal, Circle, Aperture } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, getIssueMessage } from '@/utils/mediaQuality';
@@ -630,19 +630,6 @@ Output in JSON format inside a code block at the end:
 
               {!isRecording && (
                 <div className="flex flex-col gap-2 w-full">
-                  <button
-                    onClick={() => {
-                      toast.info(isAr ? "جاري تفعيل تتبع TensorFlow.js..." : "Activating TensorFlow.js tracking...", {
-                        icon: <ScanLine className="w-4 h-4 text-blue-500" />
-                      });
-                      // Implementation of TensorFlow.js would go here
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-blue-500/10 text-blue-600 border border-blue-500/20 hover:bg-blue-500/20 transition-all duration-300 font-medium text-xs"
-                  >
-                    <ScanLine className="w-3.5 h-3.5" />
-                    {isAr ? 'تتبع فوري (TensorFlow)' : 'Real-time Tracking (TensorFlow)'}
-                  </button>
-                  
                   <button
                     onClick={() => { setCameraOpen(false); stopCamera(); }}
                     className="w-full py-2 rounded-lg bg-muted/50 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
