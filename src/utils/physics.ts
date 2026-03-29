@@ -281,13 +281,15 @@ export const calculateTrajectory = (
 
   // Integration methods
   const getWindAtHeight = (h: number) => {
-    if (windSpeed === 0) return 0;
+    if (windSpeed === 0 || h <= 0) return 0;
+    // Clamp height to reasonable maximum to prevent mathematical errors
+    const safeH = Math.min(h, 1000);
     // Logarithmic wind profile: v(h) = v_ref * ln(h/z0) / ln(href/z0)
     // href = 10m (standard), z0 = surface roughness (typically 0.03m for open field)
     const h_ref = 10, z0 = 0.03;
     // If h is below z0, wind is effectively zero (viscous sublayer/roughness height)
-    if (h <= z0) return 0;
-    return windSpeed * Math.log(h / z0) / Math.log(h_ref / z0);
+    if (safeH <= z0) return 0;
+    return windSpeed * Math.log(safeH / z0) / Math.log(h_ref / z0);
   };
 
   const eulerStep = (x: number, y: number, vx: number, vy: number, dt: number) => {

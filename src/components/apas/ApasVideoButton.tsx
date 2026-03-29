@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Video, Loader2, X, Upload, Sparkles, Play, Pause, RotateCcw, Scissors, SwitchCamera, FlipHorizontal, Circle, Aperture } from 'lucide-react';
+import { Video, Loader2, X, Upload, Sparkles, Play, Pause, RotateCcw, Scissors, SwitchCamera, FlipHorizontal, Circle, Square, Aperture } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, getIssueMessage } from '@/utils/mediaQuality';
@@ -598,15 +598,7 @@ Output in JSON format inside a code block at the end:
                   </button>
                 )}
 
-                {isRecording ? (
-                  <button
-                    onClick={stopRecording}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-red-500 text-white font-bold animate-pulse shadow-lg shadow-red-500/30"
-                  >
-                    <div className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
-                    {isAr ? 'إيقاف التسجيل' : 'Stop Recording'}
-                  </button>
-                ) : (
+                {!isRecording ? (
                   <button
                     onClick={startRecording}
                     disabled={!cameraReady}
@@ -614,6 +606,14 @@ Output in JSON format inside a code block at the end:
                   >
                     <Circle className="w-4 h-4 fill-current" />
                     {isAr ? 'بدء التسجيل' : 'Start Recording'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={stopRecording}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-red-500 text-white font-bold animate-pulse shadow-lg shadow-red-500/30"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    {isAr ? 'إيقاف التسجيل' : 'Stop Recording'}
                   </button>
                 )}
 

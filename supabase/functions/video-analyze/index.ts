@@ -1,5 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { serve } from "https://deno.land/std/http/server.ts";
+// @deno-types="https://esm.sh/v135/@supabase/supabase-js@2.49.1/dist/module/index.d.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1?target=denonext";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
