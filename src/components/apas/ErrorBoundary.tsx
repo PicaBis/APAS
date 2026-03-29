@@ -5,6 +5,7 @@ interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   sectionName?: string;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
@@ -24,6 +25,9 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error(`ErrorBoundary caught error in ${this.props.sectionName || 'unknown section'}:`, error, errorInfo);
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
   }
 
   handleRetry = () => {

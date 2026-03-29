@@ -280,11 +280,26 @@ export const calculateTrajectory = (
   const magnusSign = spinRate >= 0 ? 1 : -1;
 
   // Integration methods
+  const getWindAtHeight = (h: number) => {
+    if (windSpeed === 0) return 0;
+    // Logarithmic wind profile: v(h) = v_ref * ln(h/z0) / ln(href/z0)
+    // href = 10m (standard), z0 = surface roughness (typically 0.03m for open field)
+    const h_ref = 10, z0 = 0.03;
+    // If h is below z0, wind is effectively zero (viscous sublayer/roughness height)
+    if (h <= z0) return 0;
+    return windSpeed * Math.log(h / z0) / Math.log(h_ref / z0);
+  };
+
   const eulerStep = (x: number, y: number, vx: number, vy: number, dt: number) => {
-    const vrx = vx - windSpeed;
+    const currentWind = getWindAtHeight(y);
+    const vrx = vx - currentWind;
     const vry = vy;
     const speedRel = Math.sqrt(vrx * vrx + vry * vry);
-    const drag = airResistance * speedRel * speedRel / mass;
+    
+    // Spin-dependent drag correction: rotating objects have slightly higher drag
+    const spinDragFactor = spinRate !== 0 ? 1 + 0.02 * Math.abs(spinRate * projectileRadius / (speedRel || 1)) : 1;
+    const drag = airResistance * spinDragFactor * speedRel * speedRel / mass;
+    
     let ax = speedRel > 0 ? -drag * vrx / speedRel : 0;
     let ay = -gravity - (speedRel > 0 ? drag * vry / speedRel : 0);
     // Magnus force
@@ -304,11 +319,13 @@ export const calculateTrajectory = (
   };
 
   const rk4Step = (x: number, y: number, vx: number, vy: number, dt: number) => {
-    const derivatives = (px: number, py: number, pvx: number, pvy: number) => {
-      const vrx = pvx - windSpeed;
+    const derivatives = (_px: number, py: number, pvx: number, pvy: number) => {
+      const currentWind = getWindAtHeight(py);
+      const vrx = pvx - currentWind;
       const vry = pvy;
       const speedRel = Math.sqrt(vrx * vrx + vry * vry);
-      const drag = airResistance * speedRel * speedRel / mass;
+      const spinDragFactor = spinRate !== 0 ? 1 + 0.02 * Math.abs(spinRate * projectileRadius / (speedRel || 1)) : 1;
+      const drag = airResistance * spinDragFactor * speedRel * speedRel / mass;
       let ax = speedRel > 0 ? -drag * vrx / speedRel : 0;
       let ay = -gravity - (speedRel > 0 ? drag * vry / speedRel : 0);
       if (magnusCoeff > 0) {
@@ -358,27 +375,28 @@ export const calculateTrajectory = (
   const aiApasStep = (x: number, y: number, vx: number, vy: number, dt: number, _t: number) => {
     // APAS Enhanced Integration: Velocity Verlet with Reynolds-dependent drag correction
     // Uses higher-order position update and physically-motivated drag model
-    const vrx = vx - windSpeed;
+    const currentWind = getWindAtHeight(y);
+    const vrx = vx - currentWind;
     const vry = vy;
     const speedRel = Math.sqrt(vrx * vrx + vry * vry);
     
     // Base physics with Reynolds-dependent drag coefficient correction
-    // Standard sphere drag: Cd varies with Re (Schiller-Naumann correlation)
     let effectiveDrag = airResistance;
     if (airResistance > 0 && speedRel > 0.01) {
-      // Estimate Reynolds number (assuming sphere with projectileRadius)
       const kinematicViscosity = AIR_KINEMATIC_VISCOSITY;
       const Re = Math.max(1, (speedRel * projectileRadius * 2) / kinematicViscosity);
-      // Schiller-Naumann correction for sphere drag
       let CdCorrection = 1.0;
       if (Re < 1000) {
         CdCorrection = (24 / Re) * (1 + 0.15 * Math.pow(Re, 0.687)) / 0.47;
       } else if (Re < 200000) {
-        CdCorrection = 1.0; // Standard Cd plateau
+        CdCorrection = 1.0;
       } else {
-        CdCorrection = 0.2 / 0.47; // Drag crisis (turbulent boundary layer)
+        CdCorrection = 0.2 / 0.47;
       }
-      effectiveDrag = airResistance * Math.max(0.1, Math.min(3.0, CdCorrection));
+      // Spin-dependent drag factor: F_drag_spin = F_drag * (1 + 0.02 * S) where S is spin parameter
+      const spinParameter = Math.abs(spinRate * projectileRadius / speedRel);
+      const spinDragFactor = 1 + 0.02 * spinParameter;
+      effectiveDrag = airResistance * Math.max(0.1, Math.min(3.0, CdCorrection)) * spinDragFactor;
     }
     
     const drag = effectiveDrag * speedRel * speedRel / mass;
@@ -391,18 +409,17 @@ export const calculateTrajectory = (
     }
     
     // Full Velocity Verlet integration (2nd order accurate for both position and velocity)
-    // Step 1: Update position using current velocity and acceleration
     const newX = x + vx * dt + 0.5 * ax * dt * dt;
     const newY = y + vy * dt + 0.5 * ay * dt * dt;
     
     // Step 2: Compute acceleration at the NEW position
-    const newVrx = (vx + ax * dt) - windSpeed;
+    const newWind = getWindAtHeight(newY);
+    const newVrx = (vx + ax * dt) - newWind;
     const newVry = (vy + ay * dt);
     const newSpeedRel = Math.sqrt(newVrx * newVrx + newVry * newVry);
     let newEffectiveDrag = airResistance;
     if (airResistance > 0 && newSpeedRel > 0.01) {
-      const kinematicViscosity2 = AIR_KINEMATIC_VISCOSITY;
-      const Re2 = Math.max(1, (newSpeedRel * projectileRadius * 2) / kinematicViscosity2);
+      const Re2 = Math.max(1, (newSpeedRel * projectileRadius * 2) / AIR_KINEMATIC_VISCOSITY);
       let CdCorrection2 = 1.0;
       if (Re2 < 1000) {
         CdCorrection2 = (24 / Re2) * (1 + 0.15 * Math.pow(Re2, 0.687)) / 0.47;
@@ -411,7 +428,9 @@ export const calculateTrajectory = (
       } else {
         CdCorrection2 = 0.2 / 0.47;
       }
-      newEffectiveDrag = airResistance * Math.max(0.1, Math.min(3.0, CdCorrection2));
+      const spinParameter2 = Math.abs(spinRate * projectileRadius / newSpeedRel);
+      const spinDragFactor2 = 1 + 0.02 * spinParameter2;
+      newEffectiveDrag = airResistance * Math.max(0.1, Math.min(3.0, CdCorrection2)) * spinDragFactor2;
     }
     const newDrag = newEffectiveDrag * newSpeedRel * newSpeedRel / mass;
     let ax_new = newSpeedRel > 0 ? -newDrag * newVrx / newSpeedRel : 0;
@@ -421,7 +440,6 @@ export const calculateTrajectory = (
       ay_new += magnusSign * magnusCoeff * newVrx;
     }
     
-    // Step 3: Average old and new accelerations for velocity update
     const newVx = vx + 0.5 * (ax + ax_new) * dt;
     const newVy = vy + 0.5 * (ay + ay_new) * dt;
     

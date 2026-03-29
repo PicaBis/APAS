@@ -3,14 +3,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three-stdlib';
 import type { TrajectoryPoint, PredictionResult } from '@/utils/physics';
 import type { VectorVisibility } from '@/simulation/types';
-import type { StroboscopicMark } from '@/components/apas/StroboscopicModal';
+import type { StroboscopicMark, StroboscopicSettings } from '@/components/apas/StroboscopicModal';
 import {
   computeBounds,
   buildAxes,
   buildGround,
   buildTrajectory,
   buildCriticalPoints,
-  buildProjectile,
   buildProjectile3D,
   project3D,
   getTheme3DConfig,
@@ -36,6 +35,7 @@ interface SimulationCanvas3DProps {
   phi?: number; // Azimuthal angle in degrees for 3D projection
   showLiveData?: boolean;
   stroboscopicMarks?: StroboscopicMark[];
+  stroboscopicSettings?: StroboscopicSettings; // Added to match props passed in Index.tsx
   showStroboscopicProjections?: boolean;
   environmentId?: string;
   activePresetEmoji?: string;
@@ -43,7 +43,11 @@ interface SimulationCanvas3DProps {
   showGrid?: boolean;
   enableMagnusSpin?: boolean;
   spinRate?: number;
-  theme3d?: Theme3DId;
+  theme?: Theme3DId; // Added to match theme prop passed in Index.tsx
+  velocity?: number; // Added to match props passed in Index.tsx
+  windSpeed?: number; // Added to match props passed in Index.tsx
+  angle?: number; // Added to match props passed in Index.tsx
+  enableBounce?: boolean; // Added to match props passed in Index.tsx
 }
 
 /** Linearly interpolate between two trajectory points */
@@ -311,7 +315,7 @@ function buildCloud(span: number, color: number, opacity: number): THREE.Group {
  * All celestial bodies / clouds are placed within this region so they are
  * immediately visible without dragging the camera.
  */
-function buildEnvironmentSky(scene: THREE.Scene, envId: string, span: number, nightMode: boolean): void {
+function buildEnvironmentSky(scene: THREE.Scene, envId: string, span: number, _nightMode: boolean): void {
   const skyR = span * 4;
 
   switch (envId) {
@@ -715,11 +719,13 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   trajectoryData, prediction, currentTime, height,
   showCriticalPoints, showExternalForces, vectorVisibility,
   mass, gravity, airResistance, lang, nightMode, isAnimating,
-  playbackSpeed, bounceCoefficient = 0.8, phi = 0, showLiveData = true,
+  playbackSpeed, bounceCoefficient: _bounceCoefficient = 0.8, phi = 0, showLiveData = true,
   stroboscopicMarks = [], showStroboscopicProjections = false,
   environmentId = 'earth', activePresetEmoji, showGrid = true, onWebglError,
   enableMagnusSpin = false, spinRate = 0,
   theme3d = 'refined-lab',
+  enableBounce = false, // Added
+  theme, // Added to match theme prop passed in Index.tsx
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -755,8 +761,9 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
   const environmentIdRef = useRef(environmentId);
   const enableMagnusSpinRef = useRef(enableMagnusSpin);
   const spinRateRef = useRef(spinRate);
-  const theme3dRef = useRef(theme3d);
-  theme3dRef.current = theme3d;
+  const theme3dRef = useRef(theme || theme3d);
+  const theme3dValue = theme || theme3d;
+  theme3dRef.current = theme3dValue;
   onWebglErrorRef.current = onWebglError;
   phiRef.current = phi;
   environmentIdRef.current = environmentId;
@@ -830,7 +837,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     renderer.setSize(w, h, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
     // Apply theme clear color override, or use environment default
-    const themeConfig = getTheme3DConfig(theme3d);
+    const themeConfig = getTheme3DConfig(theme3dValue);
     const clearColor = themeConfig.clearColorOverride ?? getSceneClearColor(environmentId, nightMode);
     renderer.setClearColor(clearColor);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -903,11 +910,11 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     }
 
     // Static scene elements
-    const groundGrid = buildGround(scene, bounds, nightMode, theme3d);
+    const groundGrid = buildGround(scene, bounds, nightMode, theme3dValue);
     groundGrid.visible = showGrid;
     gridRef.current = groundGrid;
-    buildAxes(scene, bounds, nightMode, theme3d);
-    const trajMeshes = buildTrajectory(scene, trajectoryData, nightMode, bounds, phiRad, theme3d);
+    buildAxes(scene, bounds, nightMode, theme3dValue);
+    const trajMeshes = buildTrajectory(scene, trajectoryData, nightMode, bounds, phiRad, theme3dValue);
     trajectoryMeshesRef.current = trajMeshes;
 
     if (showCriticalPoints && prediction) {
@@ -928,7 +935,7 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
     projectile.position.copy(initPos3D);
 
     // Persistent vector arrows (created once, updated in-place each frame)
-    const arrows = createPersistentArrows(scene, nightMode, theme3d);
+    const arrows = createPersistentArrows(scene, nightMode, theme3dValue);
     arrowsRef.current = arrows;
 
     // Controls -- smooth damping for stable camera
@@ -1035,7 +1042,6 @@ const SimulationCanvas3D: React.FC<SimulationCanvas3DProps> = ({
           const tangent = trajMeshes.curve.getTangentAt(curveParam);
           if (tangent.lengthSq() > 1e-9) {
             // Models are built along +X axis, so align +X with tangent
-            const up = new THREE.Vector3(0, 1, 0);
             const quat = new THREE.Quaternion().setFromUnitVectors(
               new THREE.Vector3(1, 0, 0),
               tangent.normalize()

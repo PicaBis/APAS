@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Video, Loader2, X, Upload, Sparkles, Play, Pause, RotateCcw, Scissors, SwitchCamera, FlipHorizontal, Circle, Square, Aperture, ScanLine } from 'lucide-react';
+import { Video, Loader2, X, Upload, Sparkles, Play, Pause, RotateCcw, Scissors, SwitchCamera, FlipHorizontal, Circle, Aperture, ScanLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { checkFileSize, getIssueMessage } from '@/utils/mediaQuality';
@@ -48,7 +48,7 @@ function extractFrames(video: HTMLVideoElement, count: number): Promise<Array<{ 
       canvas.width = Math.min(video.videoWidth, 640);
       canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
       frames.push({ data: dataUrl, timestamp: video.currentTime });
       idx++;
       captureNext();
@@ -136,7 +136,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
         setCameraReady(true);
       }
     } catch {
-      toast.error(isAr ? '\u062a\u0639\u0630\u0631 \u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0627\u0644\u0643\u0627\u0645\u064a\u0631\u0627' : 'Camera access denied');
+      toast.error(isAr ? 'تعذر الوصول إلى الكاميرا' : 'Camera access denied');
       setCameraOpen(false);
     }
   }, [facingMode, isAr]);
@@ -531,14 +531,14 @@ Output in JSON format inside a code block at the end:
                 className="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
               >
                 <Upload className="w-10 h-10 text-primary/50 mx-auto mb-3" />
-                <p className="text-sm font-medium text-foreground">{isAr ? '\u0627\u0633\u062d\u0628 \u0641\u064a\u062f\u064a\u0648 \u0647\u0646\u0627 \u0623\u0648 \u0627\u0646\u0642\u0631 \u0644\u0644\u0627\u062e\u062a\u064a\u0627\u0631' : 'Drop a video here or click to select'}</p>
-                <p className="text-xs text-muted-foreground mt-1">{isAr ? 'MP4, WebM, MOV (\u062d\u062a\u0649 100 \u0645\u064a\u062c\u0627)' : 'MP4, WebM, MOV (up to 100MB)'}</p>
+                <p className="text-sm font-medium text-foreground">{isAr ? 'اسحب فيديو هنا أو انقر للاختيار' : 'Drop a video here or click to select'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isAr ? 'MP4, WebM, MOV (حتى 100 ميجا)' : 'MP4, WebM, MOV (up to 100MB)'}</p>
               </div>
 
               {/* Divider */}
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-border/50" />
-                <span className="text-xs text-muted-foreground font-medium">{isAr ? '\u0623\u0648' : 'OR'}</span>
+                <span className="text-xs text-muted-foreground font-medium">{isAr ? 'أو' : 'OR'}</span>
                 <div className="flex-1 h-px bg-border/50" />
               </div>
 
@@ -551,8 +551,8 @@ Output in JSON format inside a code block at the end:
                   <Aperture className="w-5 h-5 text-red-500" />
                 </div>
                 <div className="text-start">
-                  <p className="font-semibold">{isAr ? '\u062a\u0635\u0648\u064a\u0631 \u0645\u0628\u0627\u0634\u0631 \u0628\u0627\u0644\u0643\u0627\u0645\u064a\u0631\u0627' : 'Direct Camera Recording'}</p>
-                  <p className="text-xs text-muted-foreground">{isAr ? '\u0633\u062c\u0644 \u0641\u064a\u062f\u064a\u0648 \u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0644\u062a\u062d\u0644\u064a\u0644' : 'Record video directly for analysis'}</p>
+                  <p className="font-semibold">{isAr ? 'تصوير مباشر بالكاميرا' : 'Direct Camera Recording'}</p>
+                  <p className="text-xs text-muted-foreground">{isAr ? 'سجل فيديو مباشرة للتحليل' : 'Record video directly for analysis'}</p>
                 </div>
               </button>
             </>
@@ -574,7 +574,7 @@ Output in JSON format inside a code block at the end:
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                     <div className="text-center text-white">
                       <Video className="w-8 h-8 mx-auto mb-2 animate-pulse" />
-                      <p className="text-sm">{isAr ? '\u062c\u0627\u0631\u064a \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0643\u0627\u0645\u064a\u0631\u0627...' : 'Starting camera...'}</p>
+                      <p className="text-sm">{isAr ? 'جاري تشغيل الكاميرا...' : 'Starting camera...'}</p>
                     </div>
                   </div>
                 )}
@@ -592,26 +592,28 @@ Output in JSON format inside a code block at the end:
                   <button
                     onClick={switchCamera}
                     className="p-2.5 rounded-xl border border-border hover:bg-muted transition-colors"
-                    title={isAr ? '\u062a\u0628\u062f\u064a\u0644 \u0627\u0644\u0643\u0627\u0645\u064a\u0631\u0627' : 'Switch camera'}
+                    title={isAr ? 'تبديل الكاميرا' : 'Switch camera'}
                   >
                     <SwitchCamera className="w-4 h-4 text-foreground" />
                   </button>
                 )}
 
-                {!isRecording ? (
+                {isRecording ? (
                   <button
-                    onClick={startRecording}
-                    disabled={!cameraReady}
-                    className="w-16 h-16 rounded-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white flex items-center justify-center shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={stopRecording}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-red-500 text-white font-bold animate-pulse shadow-lg shadow-red-500/30"
                   >
-                    <Circle className="w-7 h-7 fill-current" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+                    {isAr ? 'إيقاف التسجيل' : 'Stop Recording'}
                   </button>
                 ) : (
                   <button
-                    onClick={stopRecording}
-                    className="w-16 h-16 rounded-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white flex items-center justify-center shadow-lg shadow-red-500/30 animate-pulse transition-all duration-300"
+                    onClick={startRecording}
+                    disabled={!cameraReady}
+                    className="flex items-center gap-2 px-8 py-2.5 rounded-full bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/30 hover:scale-105 transition-transform disabled:opacity-50"
                   >
-                    <Square className="w-6 h-6 fill-current" />
+                    <Circle className="w-4 h-4 fill-current" />
+                    {isAr ? 'بدء التسجيل' : 'Start Recording'}
                   </button>
                 )}
 
@@ -619,7 +621,7 @@ Output in JSON format inside a code block at the end:
                   <button
                     onClick={() => setMirrorPreview(!mirrorPreview)}
                     className={`p-2.5 rounded-xl border transition-colors ${mirrorPreview ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border hover:bg-muted text-foreground'}`}
-                    title={isAr ? '\u0639\u0643\u0633 \u0627\u0644\u0645\u0639\u0627\u064a\u0646\u0629' : 'Mirror preview'}
+                    title={isAr ? 'عكس المعاينة' : 'Mirror preview'}
                   >
                     <FlipHorizontal className="w-4 h-4" />
                   </button>
@@ -645,7 +647,7 @@ Output in JSON format inside a code block at the end:
                     onClick={() => { setCameraOpen(false); stopCamera(); }}
                     className="w-full py-2 rounded-lg bg-muted/50 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
                   >
-                    {isAr ? '\u0625\u0644\u063a\u0627\u0621' : 'Cancel'}
+                    {isAr ? 'إلغاء' : 'Cancel'}
                   </button>
                 </div>
               )}
@@ -797,7 +799,7 @@ Output in JSON format inside a code block at the end:
           {loading && (
             <div className="space-y-3">
               {preview && <img src={preview} alt="Preview" className="w-full rounded-xl max-h-48 object-contain bg-muted/30" />}
-              <Progress value={progress} className="h-2 bg-blue-100 dark:bg-blue-900/30" indicatorClassName="bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
+              <Progress value={progress} className="h-2 bg-blue-100 dark:bg-blue-900/30" />
               <div className="flex flex-col items-center gap-2 justify-center py-2">
                 <div className="relative">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-600" />

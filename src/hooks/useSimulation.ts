@@ -3,6 +3,7 @@ import { calculateTrajectory, buildAIModels, type TrajectoryPoint, type Predicti
 import { playLaunch, playImpact, playClick, playBounce, startWhizz, stopWhizz, updateWhizz, vibrate } from '@/utils/sound';
 import { TRANSLATIONS, type Lang } from '@/constants/translations';
 import type { AdvancedPhysicsParams } from '@/utils/advancedPhysics';
+import { useToast } from './use-toast';
 
 export interface SimulationState {
   lang: Lang;
@@ -98,6 +99,7 @@ export function useSimulation() {
 
   const animationRef = useRef<number | null>(null);
   const T = TRANSLATIONS[lang];
+  const { toast } = useToast();
   const advancedParamsRef = useRef<AdvancedPhysicsParams | null>(null);
 
   // Set advanced physics params from external hook
@@ -332,5 +334,6 @@ export function useSimulation() {
     startAnimation, pauseAnimation, resetAnimation, seekTo,
     recalculate, toggleMultiTrajectory, setCurrentTime,
     setAdvancedParams,
+    toast,
   };
 }

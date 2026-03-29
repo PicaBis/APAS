@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import type { TrajectoryPoint, PredictionResult, ModelData } from '@/utils/physics';
-import { TRANSLATIONS } from '@/constants/translations';
-import type { StroboscopicMark } from '@/components/apas/StroboscopicModal';
+import type { StroboscopicMark, StroboscopicSettings } from '@/components/apas/StroboscopicModal';
 
 // ── Dynamic Environment Background Renderer ──
 function drawEnvironmentBackground(
@@ -246,11 +245,18 @@ interface SimulationCanvasProps {
   fluidDensity?: number;
   calibrationScale?: number | null;
   relativityTrajectory?: TrajectoryPoint[] | null;
+  dualTrajectory?: TrajectoryPoint[] | null;
   relativityEnabled?: boolean;
   relativityMode?: 'galilean' | 'lorentz';
   relativityActiveObserver?: 'S' | 'S_prime';
   relativityShowDual?: boolean;
   relativityFrameVelocity?: number;
+  velocity?: number; // Added to match props passed in Index.tsx
+  angle?: number; // Added to match props passed in Index.tsx
+  enableBounce?: boolean; // Added to match props passed in Index.tsx
+  bounceCoefficient?: number; // Added to match props passed in Index.tsx
+  stroboscopicSettings?: StroboscopicSettings; // Added to match props passed in Index.tsx
+  objectEmoji?: string; // Added to match Index.tsx
 }
 
 interface Particle {
@@ -270,7 +276,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   customColors, comparisonMode, savedTrajectory,
   multiTrajectoryMode, multiTrajectories,
   mass, gravity, airResistance, windSpeed, T, lang, countdown, nightMode, zoom, isAnimating, isFullscreen, showLiveData = true,
-  stroboscopicMarks = [], showStroboscopicProjections = false,
+  stroboscopicMarks = [],
+  stroboscopicSettings: _stroboscopicSettings, // Renamed to avoid unused warning
+  showStroboscopicProjections = false,
   environmentId = 'earth', activePresetEmoji,
   equationTrajectory = null,
   showGrid = true,
@@ -281,11 +289,15 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   fluidDensity = 1.225,
   calibrationScale = null,
   relativityTrajectory = null,
+  dualTrajectory: _dualTrajectory = null, // Renamed to avoid unused warning
   relativityEnabled = false,
   relativityMode = 'galilean',
   relativityActiveObserver = 'S',
   relativityShowDual = false,
   relativityFrameVelocity = 0,
+  enableBounce: _enableBounce = false, // Renamed to avoid unused warning
+  bounceCoefficient: _bounceCoefficient = 0.8, // Renamed to avoid unused warning
+  objectEmoji: _objectEmoji, // Renamed to avoid unused warning
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -299,7 +311,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   const dragStart = useRef({ x: 0, y: 0 });
   const panStart = useRef({ x: 0, y: 0 });
   
-  const [particles, setParticles] = useState<Particle[]>([]);
   const lastTimeRef = useRef(currentTime);
   const particlesRef = useRef<Particle[]>([]);
 
@@ -847,11 +858,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       const isObserverSPrime = relativityActiveObserver === 'S_prime';
 
       // ── Determine primary / secondary based on active observer ──
-      const primaryTraj = isObserverSPrime ? relativityTrajectory : trajectoryData;
       const secondaryTraj = isObserverSPrime ? trajectoryData : relativityTrajectory;
       const primaryColor = isObserverSPrime ? sPrimeColor : sColor;
       const secondaryColor = isObserverSPrime ? sColor : sPrimeColor;
-      const primaryLabel = isObserverSPrime ? "S'" : 'S';
       const secondaryLabel = isObserverSPrime ? 'S' : "S'";
 
       // ── Draw secondary trajectory as dashed line ──

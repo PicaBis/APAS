@@ -22,15 +22,26 @@ import {
 // 1. ROTATIONAL AND NON-INERTIAL EFFECTS
 // ═══════════════════════════════════════════════════════════════
 
-// ── Coriolis Effect ──
+// ── Coriolis Effect (including Eötvös effect for vertical component) ──
 export const calculateCoriolisAcceleration = (
   vx: number,
   vy: number,
   latitude: number
 ): { ax: number; ay: number } => {
   const latRad = (latitude * Math.PI) / 180;
-  const f = 2 * OMEGA_EARTH * Math.sin(latRad);
-  return { ax: f * vy, ay: -f * vx };
+  const cosLat = Math.cos(latRad);
+  const sinLat = Math.sin(latRad);
+  
+  // f = 2 * omega * sin(latitude)
+  const f = 2 * OMEGA_EARTH * sinLat;
+  
+  // Horizontal Coriolis: ax = f * vy, ay = -f * vx
+  // Vertical Coriolis (Eötvös Effect): ay_eotvos = 2 * omega * vx * cos(latitude)
+  // Proper Eötvös effect formula for vertical acceleration: 2 * OMEGA_EARTH * vx * cosLat
+  const ax = f * vy;
+  const ay = -f * vx + (2 * OMEGA_EARTH * vx * cosLat);
+  
+  return { ax, ay };
 };
 
 // ── Centrifugal Force ──
@@ -363,13 +374,14 @@ export interface AdvancedPhysicsParams {
   mass: number;
   diameter: number;
   dragCoefficient: number;
-  airDensity: number;
+  airResistance: number;
   windSpeed: number;
   latitude: number;
   spinRate: number;
   enableCoriolis: boolean;
   enableMagnus: boolean;
   enableAltitudeDensity: boolean;
+  airDensity: number;
   // Centrifugal & Relative Motion
   enableCentrifugal: boolean;
   enableRelativeMotion: boolean;
@@ -551,7 +563,7 @@ export const aiApasIntuitiveStep = (
   vy: number,
   dt: number,
   params: AdvancedPhysicsParams,
-  time: number
+  _time: number
 ): { x: number; y: number; vx: number; vy: number; ax: number; ay: number } => {
   // Instead of strict numerical iteration, we use a trajectory-aware intuition
   // that slightly adjusts the path based on the "intent" of the model.
