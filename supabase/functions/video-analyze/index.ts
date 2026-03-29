@@ -342,7 +342,7 @@ async function upsertAnalysis(
 
 // \u2500\u2500 Main Handler \u2500\u2500
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
