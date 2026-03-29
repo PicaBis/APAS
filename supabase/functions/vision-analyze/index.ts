@@ -53,13 +53,13 @@ function getSmartDefaults(objectType: string): PhysicsDefaults {
   if (t.includes("rocket") || t.includes("missile")) return { velocity: 200, angle: 55, height: 2.0, mass: 15 };
   if (t.includes("basketball")) return { velocity: 8, angle: 55, height: 2.2, mass: 0.62 };
   if (t.includes("football") || t.includes("soccer")) return { velocity: 25, angle: 38, height: 0.3, mass: 0.43 };
-  if (t.includes("tennis")) return { velocity: 30, angle: 15, height: 1.0, mass: 0.058 };
   if (t.includes("baseball")) return { velocity: 35, angle: 35, height: 1.8, mass: 0.145 };
   if (t.includes("javelin")) return { velocity: 28, angle: 38, height: 2.0, mass: 0.8 };
   if (t.includes("arrow")) return { velocity: 60, angle: 25, height: 1.5, mass: 0.025 };
   if (t.includes("stone") || t.includes("rock")) return { velocity: 15, angle: 45, height: 1.7, mass: 0.3 };
   if (t.includes("grenade")) return { velocity: 18, angle: 42, height: 1.8, mass: 0.4 };
   if (t.includes("bullet")) return { velocity: 400, angle: 5, height: 1.5, mass: 0.01 };
+  if (t.includes("tennis")) return { velocity: 25, angle: 20, height: 1.2, mass: 0.058 };
   if (t.includes("ball")) return { velocity: 15, angle: 45, height: 1.5, mass: 0.5 };
   return { velocity: 20, angle: 45, height: 1.5, mass: 0.5 };
 }

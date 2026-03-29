@@ -92,10 +92,11 @@ export const objectTypeToEmoji = (objectType?: string): string | undefined => {
   if (lower.includes('cannon') || lower.includes('قذيفة') || lower.includes('bomb') || lower.includes('قنبلة')) return '💣';
   if (lower.includes('arrow') || lower.includes('سهم') || lower.includes('bow')) return '🏹';
   if (lower.includes('rocket') || lower.includes('صاروخ') || lower.includes('missile')) return '🚀';
-  if (lower.includes('tennis') || lower.includes('تنس')) return '🎾';
   if (lower.includes('baseball') || lower.includes('بيسبول')) return '⚾';
   if (lower.includes('golf') || lower.includes('غولف')) return '⛳';
-  if (lower.includes('ball') || lower.includes('كرة')) return '⚽';
+  if (lower.includes('basketball') || lower.includes('كرة سلة')) return '🏀';
+  if (lower.includes('football') || lower.includes('soccer') || lower.includes('كرة قدم')) return '⚽';
+  // Default to undefined to use the system's default black dot rendering
   return undefined;
 };
 

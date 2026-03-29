@@ -232,7 +232,7 @@ const Index = () => {
     report: string;
     mediaSrc?: string;
     mediaType?: 'video' | 'image';
-    params?: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean };
+    params?: { velocity?: number; angle?: number; height?: number; mass?: number; isOutdoor?: boolean; objectType?: string };
   }) => {
     setHasModelAnalysis(true);
     const newId = Date.now();
@@ -251,9 +251,19 @@ const Index = () => {
       if (entry.params.mass !== undefined) sim.setMass(entry.params.mass);
       
       if (entry.params.isOutdoor) {
-        sim.setAirResistance(0.47);
+        sim.setAirResistance(0.02); // Use a realistic air resistance coefficient for typical projectiles
         sim.setShowExternalForces(true);
+        // Force update vectors visibility for air resistance
+        setVectorVisibility(v => ({ ...v, drag: true }));
+        toast.info(lang === 'ar' ? 'تم تفعيل مقاومة الهواء تلقائياً للبيئة الخارجية' : 'Air resistance enabled automatically for outdoor environment');
+      } else {
+        sim.setAirResistance(0);
+        setVectorVisibility(v => ({ ...v, drag: false }));
       }
+
+      // Update projectile icon
+      const detectedEmoji = objectTypeToEmoji(entry.params.objectType);
+      setActivePresetEmoji(detectedEmoji);
       
       // Enable live data and vectors automatically
       sim.setShowExternalForces(true);

@@ -279,7 +279,8 @@ You MUST also provide a JSON block at the end with the FINAL CALCULATED VALUES t
     "height": float, (The final solved h₀)
     "mass": float,
     "gravity": 9.81,
-    "range": float (The given or solved range R)
+    "range": float, (The given or solved range R)
+    "objectType": "string (e.g. ball, cannon, rocket)"
   },
   "explanation": "The full text report above",
   "solution": "Step-by-step mathematical solution"
@@ -343,7 +344,8 @@ You MUST also provide a JSON block at the end with the FINAL CALCULATED VALUES t
                   angle: ed.angle || 0,
                   height: ed.height || 0,
                   mass: ed.mass || 1,
-                  isOutdoor: false // Exercises are usually ideal/indoor logic unless specified
+                  isOutdoor: false, // Exercises are usually ideal/indoor logic unless specified
+                  objectType: ed.objectType || 'ball'
                 },
                 mediaSrc: previewUrl || undefined,
                 mediaType: 'image'

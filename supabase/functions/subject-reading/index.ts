@@ -72,7 +72,8 @@ Respond with:
     "height": <FINAL SOLVED initial height in m>,
     "mass": <extracted mass in kg or null>,
     "range": <extracted or solved horizontal range in m>,
-    "gravity": <extracted gravity in m/s² or default 9.81>
+    "gravity": <extracted gravity in m/s² or default 9.81>,
+    "objectType": "<detected object type like ball, cannon, rocket>"
   }
 }
 \`\`\`
