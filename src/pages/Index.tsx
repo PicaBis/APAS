@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense, lazy, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock, Activity, Play, Pause, RotateCcw, Turtle, FileDown, QrCode, FileText, Smartphone, Accessibility, AlertTriangle, BarChart3, Sparkles, Info } from 'lucide-react';
+import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock, Activity, Play, Pause, RotateCcw, Turtle, FileDown, QrCode, FileText, Smartphone, Accessibility, AlertTriangle, BarChart3, Sparkles, Info, ArrowDownToLine } from 'lucide-react';
+import { toast } from 'sonner';
 import { useSimulation } from '@/hooks/useSimulation';
 import { useAdvancedPhysics } from '@/hooks/useAdvancedPhysics';
 import { playClick, playUIClick, playToggle, playSectionToggle, playSliderChange, playSnapshotSound, playModeSwitch, playZoomSound, playNav } from '@/utils/sound';
@@ -1863,23 +1864,46 @@ const Index = () => {
                         units={UNIT_OPTIONS.height.units} lang={lang}
                         onUnitChange={(u) => setSelectedUnits(prev => ({ ...prev, height: u }))}
                       />
-                      {sim.height < 0 && (
-                        <div className="col-span-2 flex items-center justify-between mt-1 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-bold text-primary leading-tight">
-                              {lang === 'ar' ? 'فرض الجاذبية والأرض كمحور X' : 'Force Ground as X-axis'}
-                            </span>
-                            <span className="text-[9px] text-muted-foreground leading-tight">
-                              {lang === 'ar' ? 'اصطدام المقذوف بالأرض عند العودة لـ y=0' : 'Projectile hits ground at y=0'}
-                            </span>
+                    </div>
+                    {sim.height < 0 && (
+                      <div className="mt-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 animate-in fade-in slide-in-from-top-1 duration-300">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <ArrowDownToLine className="w-4 h-4 text-amber-500 shrink-0" />
+                            <div className="min-w-0">
+                              <span className="text-xs font-medium text-foreground block">
+                                {lang === 'ar' ? 'فرض الجاذبية والأرض كمحور X' : lang === 'fr' ? 'Forcer le sol à y=0' : 'Force Ground at y=0'}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground block">
+                                {lang === 'ar' ? 'اصطدام المقذوف بالأرض عند العودة لـ y=0' : lang === 'fr' ? 'Le projectile touche le sol en revenant à y=0' : 'Projectile hits ground when returning to y=0'}
+                              </span>
+                            </div>
                           </div>
                           <Switch
                             checked={sim.forceGroundDetection}
-                            onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); playToggle(sim.isMuted, checked); }}
-                            className="scale-75"
+                            onCheckedChange={(checked) => {
+                              sim.setForceGroundDetection(checked);
+                              playToggle(sim.isMuted, checked);
+                              toast.info(
+                                lang === 'ar'
+                                  ? checked
+                                    ? 'تم تفعيل اصطدام الأرض. المقذوف سيتوقف عند y=0 حتى لو بدأ من ارتفاع سالب.'
+                                    : 'تم تعطيل اصطدام الأرض. المقذوف سيستمر في الطيران دون قيود الأرض.'
+                                  : lang === 'fr'
+                                    ? checked
+                                      ? 'Détection du sol activée. Le projectile s\'arrêtera à y=0 même en partant d\'une hauteur négative.'
+                                      : 'Détection du sol désactivée. Le projectile continuera sans contrainte du sol.'
+                                    : checked
+                                      ? 'Ground detection enabled. Projectile will stop at y=0 even when starting from negative height.'
+                                      : 'Ground detection disabled. Projectile will continue flying without ground constraint.',
+                                { icon: <ArrowDownToLine className="w-4 h-4 text-amber-500" /> }
+                              );
+                            }}
                           />
                         </div>
-                      )}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3 mt-3">
                       <ParamInputWithUnit
                         label={lang === 'ar' ? '\u0627\u0644\u0645\u0648\u0636\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a (x\u2080)' : lang === 'fr' ? 'Position initiale (x\u2080)' : 'Initial Position (x\u2080)'}
                         value={getDisplayValue('height', sim.initialX)}
