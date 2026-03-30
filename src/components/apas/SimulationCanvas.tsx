@@ -521,15 +521,19 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     let domMinX = rawMinX - padX;
     let domMaxX = rawMaxX + padX;
     
-    // IF height is negative, we MUST show the negative Y region
-    // Otherwise we show a bit of padding below ground
-    // FIX: Ensure symmetry for negative height by using the same padding logic as positive height
-    let domMinY = Math.min(rawMinY, height) < -0.1 ? Math.min(rawMinY, height) - padY : -padY * 0.3;
+    // FIX: Ensure SYMMETRIC Y-axis scaling for both positive and negative heights
+    // The key issue: when height is negative, we need fine-grained ticks like positive heights
+    // Solution: Always use rawMinY and rawMaxY for domain calculation, with consistent padding
+    let domMinY = rawMinY - padY;
     let domMaxY = rawMaxY + padY;
     
-    // If height is very negative, ensure we see the launch point clearly
-    if (height < -100) {
-      domMinY = Math.min(domMinY, height - padY);
+    // Ensure we always see the launch point (height) clearly
+    // If height is outside the trajectory range, expand domain to include it
+    if (height < domMinY) {
+      domMinY = height - padY;
+    }
+    if (height > domMaxY) {
+      domMaxY = height + padY;
     }
 
     // When zooming out (zoom < 1), expand the domain to reveal more axes/values
