@@ -136,7 +136,7 @@ export default function SimulationRecorder({ lang, muted, canvasContainerRef, on
 
       {/* Video preview dropdown */}
       {showPreview && recordedURL && !recording && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl shadow-black/20 z-[100] animate-slideDown overflow-hidden">
+        <div className="absolute top-full right-0 mt-2 w-72 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl shadow-black/20 z-[9999] animate-slideDown overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border/30">
             <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-primary" />
