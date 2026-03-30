@@ -1708,7 +1708,7 @@ const Index = () => {
         <AcademicAmbient />
 
         {/* ── Top Nav Bar ── */}
-        <HeaderNav
+         <HeaderNav
           lang={lang}
           T={T}
           isMuted={sim.isMuted}
@@ -1727,6 +1727,11 @@ const Index = () => {
           hasExperimentalData={hasExperimentalData}
           onOpenSettings={() => setShowSettingsPanel(true)}
           onShowRestrictionOverlay={setShowRestrictionOverlay}
+          onApplySimChange={(params) => {
+            if (params.angle !== undefined) sim.setAngle(params.angle);
+            if (params.velocity !== undefined) sim.setVelocity(params.velocity);
+            if (params.environmentId !== undefined) setCurrentEnvId(params.environmentId);
+          }}
         />
 
         {/* ── Main Content ── */}

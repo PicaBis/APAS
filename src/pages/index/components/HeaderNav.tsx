@@ -29,13 +29,14 @@ interface HeaderNavProps {
   hasExperimentalData: boolean;
   onOpenSettings: () => void;
   onShowRestrictionOverlay: (name: string) => void;
+  onApplySimChange?: (params: { angle?: number; velocity?: number; environmentId?: string }) => void;
 }
 
 const HeaderNav: React.FC<HeaderNavProps> = ({
   lang, T, isMuted, velocity, angle, height, gravity, airResistance, mass,
   prediction, trajectoryData, selectedIntegrationMethod, currentEnvId,
   isFinished, hasExperimentalData,
-  onOpenSettings, onShowRestrictionOverlay,
+  onOpenSettings, onShowRestrictionOverlay, onApplySimChange,
 }) => {
   const navigate = useNavigate();
   const { isGuest, isApproved, isAdmin, isRestricted, user, signOut } = useAuth();
@@ -95,12 +96,13 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
                 isUnlocked={!!isFinished || hasExperimentalData}
                 simulationContext={{
                   velocity, angle, height, gravity, airResistance, mass,
-                  range: (prediction?.range ?? 0).toFixed(2),
-                  maxHeight: (prediction?.maxHeight ?? 0).toFixed(2),
-                  flightTime: (prediction?.timeOfFlight ?? 0).toFixed(2),
+                  range: prediction?.range ? prediction.range.toFixed(2) : undefined,
+                  maxHeight: prediction?.maxHeight ? prediction.maxHeight.toFixed(2) : undefined,
+                  flightTime: prediction?.timeOfFlight ? prediction.timeOfFlight.toFixed(2) : undefined,
                   environmentId: currentEnvId,
                   integrationMethod: selectedIntegrationMethod,
                 }}
+                onApplyChange={onApplySimChange}
               />
             </Suspense>
           ) : (
