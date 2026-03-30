@@ -190,19 +190,6 @@ const translations = {
     celsius: '°C',
     pa: 'Pa',
   },
-  ar: {
-    ...translations.ar,
-    crossSectionalArea: 'المساحة المقطعية (A)',
-  },
-  en: {
-    ...translations.en,
-    crossSectionalArea: 'Cross-Sectional Area (A)',
-  },
-  fr: {
-    ...translations.fr,
-    crossSectionalArea: 'Surface Frontale (A)',
-  }
-};
 };
 
 type TranslationKey = keyof typeof translations.en;
