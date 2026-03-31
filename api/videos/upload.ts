@@ -57,8 +57,14 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data, error } = await supabase.auth.getUser(token);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+    const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,

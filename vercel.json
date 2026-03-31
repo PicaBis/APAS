@@ -1,9 +1,23 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "pnpm run build",
+  "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist",
   "framework": "vite",
+  "nodeVersion": "20.x",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "env": [
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_ANON_KEY",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "VITE_CLOUDINARY_CLOUD_NAME",
+    "VITE_CLOUDINARY_API_KEY",
+    "VITE_CLOUDINARY_API_SECRET",
+    "VITE_CLOUDINARY_UPLOAD_PRESET",
+    "BLOB_READ_WRITE_TOKEN"
   ]
 }

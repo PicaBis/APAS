@@ -693,7 +693,13 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     };
 
     const tickSpaceX = getTickSpacing(domW, 12);
-    const tickSpaceY = getTickSpacing(domH, 8);
+    // FIX: For Y-axis, ensure consistent spacing starting from 10 (not -1000)
+    // This makes negative heights visible with the same granularity as positive heights
+    let tickSpaceY = getTickSpacing(domH, 8);
+    // Force minimum tick spacing of 10 for better visibility of small changes
+    if (tickSpaceY < 10) {
+      tickSpaceY = 10;
+    }
 
     // Grid lines — only draw when showGrid is enabled
     if (showGrid) {
