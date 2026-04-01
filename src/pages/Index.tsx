@@ -341,11 +341,8 @@ const Index = () => {
 
   useEffect(() => {
     if (!showSplash) {
-      if (sim.nightMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      // Win2k theme: always force light mode for correct silver colors
+      document.documentElement.classList.remove('dark');
       window.scrollTo(0, 0);
     }
   }, [showSplash, sim.nightMode]);
@@ -1669,17 +1666,15 @@ const Index = () => {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // ═══ DESKTOP LAYOUT (unchanged) ═══
+  // ═════════════════════════════════════��═════════
+  // ═══ DESKTOP LAYOUT (Windows 2000 Style) ═══
   // ═══════════════════════════════════════════════
   return (
     <PageTransition>
-      <div className={`min-h-screen bg-background relative overflow-hidden ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
-        {/* Ambient background gradient orbs */}
+      <div className={`win2k min-h-screen bg-background relative overflow-hidden ${isLangTransitioning ? 'lang-fade-out' : ''}`} dir={T.dir}>
+        {/* Win2k: no ambient gradient orbs */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse-slow" />
-          <div className="absolute top-1/2 -left-40 w-80 h-80 rounded-full bg-primary/3 blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
-          <div className="absolute -bottom-20 right-1/4 w-72 h-72 rounded-full bg-accent/5 blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
+          {/* removed orbs for Win2k flat style */}
         </div>
         <AcademicAmbient />
 

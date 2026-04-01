@@ -439,6 +439,372 @@ select:hover, input[type="number"]:hover, input[type="text"]:hover, textarea:hov
   border-color: hsl(var(--primary) / 0.3) !important;
 }
 
+/* ═══════════════════════════════════════════════════ */
+/* ═══  Windows 2000 / Luna Classic Theme           ═══ */
+/* ═══════════════════════════════════════════════════ */
+
+.win2k,
+.win2k * {
+  --win2k-silver: #d4d0c8;
+  --win2k-silver-light: #ece9d8;
+  --win2k-silver-dark: #808080;
+  --win2k-teal: #0078d7;
+  --win2k-btn-face: #d4d0c8;
+  --win2k-btn-shadow: #808080;
+  --win2k-btn-highlight: #ffffff;
+  --win2k-btn-dark: #404040;
+  --win2k-titlebar-from: #0a246a;
+  --win2k-titlebar-to: #a6caf0;
+}
+
+/* Token overrides for Win2k mode */
+.win2k {
+  --background: 40 13% 83%; /* #d4d0c8 silver */
+  --foreground: 0 0% 0%;
+  --card: 40 13% 92%; /* #ece9d8 */
+  --card-foreground: 0 0% 0%;
+  --popover: 40 13% 92%;
+  --popover-foreground: 0 0% 0%;
+  --primary: 212 96% 43%; /* classic Windows blue #0078d7 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 40 10% 78%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 40 10% 78%;
+  --muted-foreground: 0 0% 35%;
+  --accent: 40 10% 78%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 100% 40%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 50%;
+  --input: 40 13% 95%;
+  --ring: 212 96% 43%;
+  --radius: 0px;
+  font-family: 'Tahoma', 'MS Sans Serif', 'Arial', sans-serif !important;
+}
+
+/* Remove blurs and glows */
+.win2k .backdrop-blur-xl,
+.win2k .backdrop-blur-sm,
+.win2k .backdrop-blur-md,
+.win2k .backdrop-blur {
+  backdrop-filter: none !important;
+}
+
+/* Remove all rounded corners */
+.win2k *,
+.win2k .rounded-2xl,
+.win2k .rounded-xl,
+.win2k .rounded-lg,
+.win2k .rounded-md,
+.win2k .rounded-full,
+.win2k .rounded {
+  border-radius: 0 !important;
+}
+
+/* Remove gradient orbs and ambient effects */
+.win2k .blur-3xl { display: none !important; }
+.win2k .animate-pulse-slow { animation: none !important; }
+
+/* Classic Win2k raised button */
+.win2k button:not([class*="bg-primary"]):not([class*="bg-amber"]):not([class*="bg-blue"]):not([class*="bg-red"]):not([class*="bg-green"]):not([class*="text-primary-foreground"]) {
+  background: #d4d0c8 !important;
+  border: 1px solid !important;
+  border-color: #ffffff #808080 #808080 #ffffff !important;
+  box-shadow: 1px 1px 0 #404040, -1px -1px 0 #ffffff !important;
+  color: #000000 !important;
+  border-radius: 0 !important;
+  transition: none !important;
+}
+.win2k button:not([class*="bg-primary"]):not([class*="bg-amber"]):not([class*="bg-blue"]):not([class*="bg-red"]):not([class*="bg-green"]):not([class*="text-primary-foreground"]):active {
+  border-color: #808080 #ffffff #ffffff #808080 !important;
+  box-shadow: inset 1px 1px 1px #808080 !important;
+}
+
+/* Win2k primary / action buttons */
+.win2k button[class*="bg-primary"],
+.win2k button[class*="text-primary-foreground"] {
+  background: #0a5ead !important;
+  border: 1px solid !important;
+  border-color: #3a9de8 #003380 #003380 #3a9de8 !important;
+  color: #ffffff !important;
+  box-shadow: 1px 1px 0 #003380 !important;
+  border-radius: 0 !important;
+  transition: none !important;
+}
+
+/* Win2k panel / card surfaces */
+.win2k [class*="border-2"],
+.win2k [class*="border border-border"] {
+  border: 1px solid !important;
+  border-color: #808080 #ffffff #ffffff #808080 !important;
+  border-radius: 0 !important;
+  background: #d4d0c8 !important;
+  box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #808080 !important;
+}
+
+/* Win2k inset panel (content area) */
+.win2k [class*="bg-card"] {
+  background: #d4d0c8 !important;
+}
+
+.win2k [class*="bg-background"] {
+  background: #d4d0c8 !important;
+}
+
+/* Win2k classic header bar (like a window title bar) */
+.win2k header {
+  background: linear-gradient(to right, #0a246a 0%, #a6caf0 100%) !important;
+  border-bottom: 2px solid #808080 !important;
+  backdrop-filter: none !important;
+  box-shadow: 0 2px 0 #ffffff !important;
+  position: sticky !important;
+  top: 0;
+  z-index: 40;
+}
+.win2k header * {
+  color: #ffffff !important;
+  text-shadow: 1px 1px 0 #00005c !important;
+}
+.win2k header button {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+.win2k header button:hover {
+  background: rgba(255,255,255,0.2) !important;
+  border-color: #ffffff !important;
+}
+
+/* Win2k input fields */
+.win2k input,
+.win2k select,
+.win2k textarea {
+  background: #ffffff !important;
+  border: 1px solid !important;
+  border-color: #808080 #ffffff #ffffff #808080 !important;
+  border-radius: 0 !important;
+  box-shadow: inset 1px 1px 2px #808080 !important;
+  color: #000000 !important;
+  padding: 2px 4px !important;
+  font-family: 'Tahoma', 'MS Sans Serif', 'Arial', sans-serif !important;
+}
+
+/* Win2k slider track */
+.win2k [role="slider"] {
+  background: #0078d7 !important;
+  border-radius: 0 !important;
+}
+
+/* Win2k scrollbar */
+.win2k * {
+  scrollbar-width: auto !important;
+  scrollbar-color: #d4d0c8 #d4d0c8 !important;
+}
+.win2k *::-webkit-scrollbar { width: 16px !important; }
+.win2k *::-webkit-scrollbar-track {
+  background: #d4d0c8 !important;
+  border: 1px solid #808080 !important;
+}
+.win2k *::-webkit-scrollbar-thumb {
+  background: #d4d0c8 !important;
+  border: 1px solid !important;
+  border-color: #ffffff #808080 #808080 #ffffff !important;
+  border-radius: 0 !important;
+}
+
+/* Win2k collapsible section headers */
+.win2k h3 {
+  font-size: 11px !important;
+  font-weight: bold !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: #000000 !important;
+  font-family: 'Tahoma', sans-serif !important;
+}
+
+/* Win2k section divider */
+.win2k [class*="border-t border-border"] {
+  border-top: 1px solid #808080 !important;
+}
+
+/* Win2k canvas area */
+.win2k canvas {
+  border: 2px solid !important;
+  border-color: #808080 #ffffff #ffffff #808080 !important;
+  box-shadow: inset 2px 2px 4px #404040 !important;
+}
+
+/* Win2k switch → classic checkbox feel */
+.win2k [role="switch"] {
+  border-radius: 0 !important;
+  border: 1px solid #808080 !important;
+}
+
+/* Remove all hover effects / transforms */
+.win2k *:hover {
+  transform: none !important;
+}
+
+/* Win2k status bar at bottom */
+.win2k [class*="ProfessionalFooter"],
+.win2k footer {
+  background: #d4d0c8 !important;
+  border-top: 1px solid #808080 !important;
+}
+
+/* Win2k taskbar-style bottom bar */
+.win2k [class*="space-y"] {
+  gap: 2px !important;
+}
+
+/* Win2k text colors */
+.win2k [class*="text-muted-foreground"] {
+  color: #444444 !important;
+}
+.win2k [class*="text-primary"] {
+  color: #0000ff !important;
+}
+.win2k [class*="text-foreground"] {
+  color: #000000 !important;
+}
+
+/* Remove blur backgrounds from panels */
+.win2k [class*="bg-card/70"],
+.win2k [class*="bg-card/60"],
+.win2k [class*="bg-secondary/40"],
+.win2k [class*="bg-secondary/30"] {
+  background: #d4d0c8 !important;
+}
+
+/* Hover bg overrides */
+.win2k [class*="hover:bg-primary/5"]:hover,
+.win2k [class*="hover:bg-primary/10"]:hover {
+  background: #0a246a !important;
+  color: #ffffff !important;
+}
+
+/* Win2k classic title bar for collapsible panels */
+.win2k [data-tour="left-panel"] > div > button,
+.win2k aside > div > button:first-child {
+  background: linear-gradient(to right, #0a246a, #3a7fc8) !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #404040 !important;
+  padding: 3px 6px !important;
+  font-size: 11px !important;
+  font-weight: bold !important;
+}
+.win2k [data-tour="left-panel"] > div > button *,
+.win2k aside > div > button:first-child * {
+  color: #ffffff !important;
+  text-shadow: 1px 1px 0 #00004f !important;
+}
+
+/* Win2k window control buttons */
+.win2k .win2k-wincontrols {
+  display: flex !important;
+  position: absolute !important;
+  right: 4px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  gap: 2px !important;
+  z-index: 100 !important;
+}
+.win2k-winbtn {
+  width: 16px !important;
+  height: 14px !important;
+  background: #d4d0c8 !important;
+  border: 1px solid !important;
+  border-color: #ffffff #808080 #808080 #ffffff !important;
+  box-shadow: 1px 1px 0 #404040 !important;
+  color: #000000 !important;
+  font-size: 9px !important;
+  font-weight: bold !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  text-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+.win2k-winbtn:active {
+  border-color: #808080 #ffffff #ffffff #808080 !important;
+  box-shadow: inset 1px 1px 1px #808080 !important;
+}
+.win2k-winbtn-close {
+  background: #d4d0c8 !important;
+}
+.win2k-winbtn-close:hover {
+  background: #d4d0c8 !important;
+}
+
+/* Win2k taskbar at top showing "APAS - Physics Simulator" */
+.win2k header::before {
+  content: 'APAS Physics Simulator';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #00004f;
+  font-family: 'Tahoma', sans-serif;
+  pointer-events: none;
+  white-space: nowrap;
+  opacity: 0.6;
+}
+
+/* Win2k start-button bar at the very bottom */
+.win2k::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: linear-gradient(to right, #0a246a, #a6caf0);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+}
+
+/* Win2k desktop texture pattern on background */
+.win2k {
+  background-image: none !important;
+}
+
+/* Win2k flat shadows — remove modern shadows */
+.win2k [class*="shadow-"] {
+  box-shadow: none !important;
+}
+.win2k [class*="shadow-lg"],
+.win2k [class*="shadow-xl"],
+.win2k [class*="shadow-md"] {
+  box-shadow: 1px 1px 0 #ffffff, -1px -1px 0 #808080 !important;
+}
+
+/* Win2k panel borders (raised look) */
+.win2k [class*="border-2 border-border"] {
+  border: 2px solid !important;
+  border-color: #ffffff #404040 #404040 #ffffff !important;
+  background: #d4d0c8 !important;
+}
+
+/* Win2k AcademicAmbient: hide it */
+.win2k [class*="AcademicAmbient"] { display: none !important; }
+
+/* Win2k grid layout separator */
+.win2k .grid > * {
+  border-right: 1px solid #808080;
+}
+.win2k .grid > *:last-child {
+  border-right: none;
+}
+
+/* ═══ End Windows 2000 Theme ═══ */
+
 /* ═══ Accent Contrast Conflict Overrides ═══ */
 /* White accent in day mode: primary text becomes invisible on light bg → flip to dark */
 :root:not(.dark)[data-accent-conflict="white"] {
