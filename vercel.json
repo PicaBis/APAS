@@ -2,6 +2,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "env": {
+    "VITE_SUPABASE_URL": "https://zjdtvderwryjnwdimbbm.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqZHR2ZGVyd3J5am53ZGltYmJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMzU3NzgsImV4cCI6MjA4OTcxMTc3OH0.BmeA5eqF85lpOr7P57NJJOaNxNsG4f-UaQ2S-SwKjXg",
+    "VITE_CLOUDINARY_CLOUD_NAME": "dicpl6wjs",
+    "VITE_CLOUDINARY_UPLOAD_PRESET": "apas_unsigned"
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
