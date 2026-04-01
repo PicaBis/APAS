@@ -527,10 +527,14 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     let domMinY = rawMinY - padY;
     let domMaxY = rawMaxY + padY;
     
+    // LIMIT: Prevent canvas from going below -5000 (user requirement)
+    domMinY = Math.max(domMinY, -5000);
+    
     // Ensure we always see the launch point (height) clearly
     // If height is outside the trajectory range, expand domain to include it
+    // BUT respect the -5000 minimum limit
     if (height < domMinY) {
-      domMinY = height - padY;
+      domMinY = Math.max(height - padY, -5000);
     }
     if (height > domMaxY) {
       domMaxY = height + padY;
