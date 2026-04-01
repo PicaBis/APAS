@@ -548,7 +548,7 @@ const Index = () => {
   const mobileVariables = useMemo(() => [
     { key: 'velocity', label: lang === 'ar' ? 'السرعة' : lang === 'fr' ? 'Vitesse' : 'Velocity', value: sim.velocity, min: 0, max: 500, step: 1, unit: 'm/s', onChange: sim.setVelocity },
     { key: 'angle', label: lang === 'ar' ? 'الزاوية' : lang === 'fr' ? 'Angle' : 'Angle', value: sim.angle, min: -360, max: 360, step: 1, unit: '°', onChange: sim.setAngle },
-    { key: 'height', label: lang === 'ar' ? 'الارتفاع' : lang === 'fr' ? 'Hauteur' : 'Height', value: sim.height, min: 0, max: 5000, step: 0.5, unit: 'm', onChange: sim.setHeight },
+    { key: 'height', label: lang === 'ar' ? 'الارتفاع' : lang === 'fr' ? 'Hauteur' : 'Height', value: sim.height, min: -5000, max: 5000, step: 0.1, unit: 'm', onChange: sim.setHeight },
     { key: 'gravity', label: lang === 'ar' ? 'الجاذبية' : lang === 'fr' ? 'Gravité' : 'Gravity', value: sim.gravity, min: 0, max: 100, step: 0.01, unit: 'm/s²', onChange: (v: number) => sim.setGravity(Math.max(0, v)) },
     { key: 'mass', label: lang === 'ar' ? 'الكتلة' : lang === 'fr' ? 'Masse' : 'Mass', value: sim.mass, min: 0.01, max: 50000, step: 0.01, unit: 'kg', onChange: sim.setMass },
   ], [lang, sim.velocity, sim.angle, sim.height, sim.gravity, sim.mass, sim.setVelocity, sim.setAngle, sim.setHeight, sim.setGravity, sim.setMass]);
@@ -882,10 +882,10 @@ const Index = () => {
                         <label className="text-[11px] font-semibold text-foreground">{lang === 'ar' ? 'الارتفاع' : 'Height'} (m)</label>
                         <div className="flex items-center gap-2">
                           <input type="number" value={Number(sim.height.toFixed(2))} onChange={(e) => sim.setHeight(Number(e.target.value))}
-                            min={0} max={5000} step={0.5} dir="ltr"
+                            min={-5000} max={5000} step={0.1} dir="ltr"
                             className="flex-1 text-xs font-mono text-center bg-secondary/60 border border-border/40 rounded-lg px-1.5 py-1.5 text-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all min-w-0" />
                         </div>
-                        <Slider value={[sim.height]} min={0} max={5000} step={0.5} onValueChange={([val]) => sim.setHeight(val)} className="h-4 touch-manipulation" />
+                        <Slider value={[sim.height]} min={-5000} max={5000} step={0.1} onValueChange={([val]) => sim.setHeight(val)} className="h-4 touch-manipulation" />
                       </div>
                       {/* Gravity */}
                       <div className="p-2.5 rounded-xl bg-card/60 border border-border/30 space-y-2">
