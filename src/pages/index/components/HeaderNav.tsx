@@ -45,6 +45,12 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
     <header data-tour="header" className="border-b border-border/60 bg-background/95 backdrop-blur-xl sticky top-0 z-40 shadow-md shadow-black/[0.06] dark:shadow-black/25 dark:bg-background/85 dark:border-border/40 relative">
       <HeaderWave />
       <div className="max-w-[1600px] mx-auto px-2 sm:px-5 md:px-6 h-11 sm:h-14 flex items-center justify-between gap-1 sm:gap-2" dir="ltr">
+        {/* Win2k window control buttons (only visible in win2k theme via CSS) */}
+        <div className="win2k-wincontrols">
+          <button className="win2k-winbtn" title="Minimize">_</button>
+          <button className="win2k-winbtn" title="Maximize">&#9633;</button>
+          <button className="win2k-winbtn win2k-winbtn-close" title="Close">&#10005;</button>
+        </div>
         {/* Left side: Settings for non-Arabic, Home for Arabic */}
         <div className="flex items-center gap-0.5 sm:gap-2.5 shrink-0 relative flex-1">
           {lang !== 'ar' && (
