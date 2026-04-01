@@ -606,15 +606,6 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
               </div>
               {advanced.enableAltitudeDensity && (
                 <div className="pl-2 border-l-2 border-green-500 space-y-2">
-                  {/* Drag Coefficient */}
-                  <div>
-                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                      <span>{T('dragCoefficient', lang)}</span>
-                      <span className="font-mono">{advanced.dragCoefficient.toFixed(2)}</span>
-                    </div>
-                    <Slider value={[advanced.dragCoefficient]} min={0.1} max={2.0} step={0.01}
-                      onValueChange={([v]) => { advanced.setDragCoefficient(v); handleParamChange(); }} />
-                  </div>
                   {/* Cross-Sectional Area */}
                   <div>
                     <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
