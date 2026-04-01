@@ -615,16 +615,6 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                     <Slider value={[advanced.dragCoefficient]} min={0.1} max={2.0} step={0.01}
                       onValueChange={([v]) => { advanced.setDragCoefficient(v); handleParamChange(); }} />
                   </div>
-                  {/* Cross-Sectional Area */}
-                  <div>
-                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                      <span>{T('crossSectionalArea', lang)}</span>
-                      <span className="font-mono">{(advanced.diameter > 0 ? (Math.PI * (advanced.diameter / 2) ** 2) : 0).toFixed(4)} m²</span>
-                    </div>
-                    <Slider value={[Math.max(10, advanced.diameter * 1000)]} min={10} max={200} step={1}
-                      onValueChange={([v]) => { advanced.setDiameter(v / 1000); handleParamChange(); }} />
-                    <p className="text-[9px] text-muted-foreground mt-1">{lang === 'ar' ? 'يتم حسابها من قطر المقذوف' : lang === 'fr' ? 'Calculée à partir du diamètre du projectile' : 'Calculated from projectile diameter'}</p>
-                  </div>
                 </div>
               )}
 

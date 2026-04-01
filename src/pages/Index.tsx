@@ -927,6 +927,14 @@ const Index = () => {
                           </div>
                           <Slider value={[sim.windSpeed]} min={-100} max={100} step={1}
                             onValueChange={([v]) => sim.setWindSpeed(v)} />
+                          {/* Cross-Sectional Area */}
+                          <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
+                            <span>{lang === 'ar' ? 'المساحة المقطعية (A)' : 'Cross-Sectional Area (A)'} (m²)</span>
+                            <span className="font-mono">{(advancedPhysics.diameter > 0 ? (Math.PI * (advancedPhysics.diameter / 2) ** 2) : 0).toFixed(4)}</span>
+                          </div>
+                          <Slider value={[Math.max(10, advancedPhysics.diameter * 1000)]} min={10} max={200} step={1}
+                            onValueChange={([v]) => { advancedPhysics.setDiameter(v / 1000); }} />
+                          <p className="text-[9px] text-muted-foreground mt-1">{lang === 'ar' ? 'يتم حسابها من قطر المقذوف' : 'Calculated from projectile diameter'}</p>
                         </div>
                       )}
                     </div>
