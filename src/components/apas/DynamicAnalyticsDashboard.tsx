@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Activity, TrendingUp, Zap } from 'lucide-react';
 import type { TrajectoryPoint } from '@/utils/physics';
@@ -93,11 +93,13 @@ const DynamicAnalyticsDashboard: React.FC<DynamicAnalyticsDashboardProps> = ({
       setAiLoading(false);
     }
   };
-}) => {
+
   const isRTL = lang === 'ar';
 
   // Filter data up to current animation time
-  // ملخص إحصائي ذكي
+  return (
+    <>
+    // ملخص إحصائي ذكي
   <div className="mb-4 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-blue-500/5 border border-primary/20">
     <h3 className="text-base font-bold mb-2">{lang === 'ar' ? 'ملخص تجاربك' : lang === 'fr' ? 'Résumé de vos expériences' : 'Your Experiments Summary'}</h3>
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm mb-2">
@@ -319,6 +321,7 @@ const DynamicAnalyticsDashboard: React.FC<DynamicAnalyticsDashboardProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
 };
 
