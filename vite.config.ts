@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => ({
           'chart-vendor': ['recharts'],
           'pdf-vendor': ['jspdf'],
           'markdown-vendor': ['react-markdown'],
+          'math-vendor': ['katex'],
         },
       },
     },

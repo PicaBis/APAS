@@ -1,4 +1,5 @@
 import { put } from '@vercel/blob';
+import { createClient } from '@supabase/supabase-js';
 
 export const config = {
   api: {
@@ -11,7 +12,7 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB server-side limit
 /**
  * Vercel Serverless Function for video upload to Vercel Blob.
  * POST /api/videos/upload
- * 
+ *
  * Requires a valid Supabase JWT in the Authorization header.
  * Accepts multipart form data with a video file.
  * Returns the blob URL for the uploaded video.
@@ -44,38 +45,34 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const token = authHeader.replace('Bearer ', '');
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-  // Validate JWT token format (basic validation)
-  // A valid JWT has 3 parts separated by dots
-  const tokenParts = token.split('.');
-  if (tokenParts.length !== 3) {
-    return new Response(JSON.stringify({ error: 'Invalid token format' }), {
-      status: 401,
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Reject upload if Supabase is not configured — never allow unauthenticated uploads
+    return new Response(JSON.stringify({ error: 'Server authentication is not configured' }), {
+      status: 503,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
   try {
-    // Decode JWT to verify it's valid (without verification, just basic decode)
-    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-    
-    // Check if token has required claims
-    if (!payload.sub || !payload.aud) {
-      return new Response(JSON.stringify({ error: 'Invalid token claims' }), {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
-
-    // Check if token is expired
-    if (payload.exp && payload.exp * 1000 < Date.now()) {
-      return new Response(JSON.stringify({ error: 'Token expired' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
-    }
-  } catch (error) {
-    return new Response(JSON.stringify({ error: 'Invalid token: ' + (error instanceof Error ? error.message : 'Unknown error') }), {
+  } catch {
+    return new Response(JSON.stringify({ error: 'Authentication failed' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
