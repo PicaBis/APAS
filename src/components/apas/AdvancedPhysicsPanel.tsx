@@ -604,6 +604,29 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                   onCheckedChange={() => handleToggle(advanced.setEnableAltitudeDensity, advanced.enableAltitudeDensity, 'altitudeDensity')}
                 />
               </div>
+              {advanced.enableAltitudeDensity && (
+                <div className="pl-2 border-l-2 border-green-500 space-y-2">
+                  {/* Drag Coefficient */}
+                  <div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                      <span>{T('dragCoefficient', lang)}</span>
+                      <span className="font-mono">{advanced.dragCoefficient.toFixed(2)}</span>
+                    </div>
+                    <Slider value={[advanced.dragCoefficient]} min={0.1} max={2.0} step={0.01}
+                      onValueChange={([v]) => { advanced.setDragCoefficient(v); handleParamChange(); }} />
+                  </div>
+                  {/* Cross-Sectional Area */}
+                  <div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                      <span>{T('crossSectionalArea', lang)}</span>
+                      <span className="font-mono">{(advanced.diameter > 0 ? (Math.PI * (advanced.diameter / 2) ** 2) : 0).toFixed(4)} m²</span>
+                    </div>
+                    <Slider value={[advanced.diameter * 1000]} min={10} max={200} step={1}
+                      onValueChange={([v]) => { advanced.setDiameter(v / 1000); handleParamChange(); }} />
+                    <p className="text-[9px] text-muted-foreground mt-1">{lang === 'ar' ? 'يتم حسابها من قطر المقذوف' : lang === 'fr' ? 'Calculée à partir du diamètre du projectile' : 'Calculated from projectile diameter'}</p>
+                  </div>
+                </div>
+              )}
 
               {/* Environmental Physics Coupling */}
               <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-border/50 hover:bg-primary/5 hover:border-primary/20 transition-all duration-200">
@@ -687,27 +710,6 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
               )}
             </div>
           )}
-
-          {/* Drag Coefficient & Cross-Sectional Area (global) */}
-          <div className="pt-2 border-t border-border space-y-3">
-            <div>
-              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                <span>{T('dragCoefficient', lang)}</span>
-                <span className="font-mono">{advanced.dragCoefficient.toFixed(2)}</span>
-              </div>
-              <Slider value={[advanced.dragCoefficient]} min={0.1} max={2.0} step={0.01}
-                onValueChange={([v]) => { advanced.setDragCoefficient(v); handleParamChange(); }} />
-            </div>
-            <div>
-              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                <span>{T('crossSectionalArea', lang)}</span>
-                <span className="font-mono">{(advanced.diameter > 0 ? (Math.PI * (advanced.diameter / 2) ** 2) : 0).toFixed(4)} m²</span>
-              </div>
-              <Slider value={[advanced.diameter * 1000]} min={10} max={200} step={1}
-                onValueChange={([v]) => { advanced.setDiameter(v / 1000); handleParamChange(); }} />
-              <p className="text-[9px] text-muted-foreground mt-1">{lang === 'ar' ? 'يتم حسابها من قطر المقذوف' : lang === 'fr' ? 'Calculée à partir du diamètre du projectile' : 'Calculated from projectile diameter'}</p>
-            </div>
-          </div>
 
           {/* Relativity & Reference Frames (embedded) */}
           {relativity && (
