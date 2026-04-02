@@ -7,7 +7,9 @@ const corsHeaders = {
 };
 
 const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
-const MISTRAL_MODEL = "pixtral-large-latest";
+const MISTRAL_VISION_MODEL = "pixtral-large-latest";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -16,45 +18,47 @@ serve(async (req) => {
   try {
     const { imageBase64, mimeType, lang } = await req.json();
 
-    const MISTRAL_API_KEY = Deno.env.get("MISTRAL_API_KEY");
-    if (!MISTRAL_API_KEY) {
-      throw new Error("MISTRAL_API_KEY is not configured");
+    const mistralKey = Deno.env.get("MISTRAL_API_KEY");
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    if (!mistralKey && !groqKey) {
+      throw new Error("No AI provider configured (set MISTRAL_API_KEY and/or GROQ_API_KEY)");
     }
 
     const isAr = lang === "ar";
     const analysisId = crypto.randomUUID();
 
     const systemPrompt = `You are APAS Subject Reader — an expert physics professor from ENS Paris, specialized EXCLUSIVELY in projectile motion (المقذوفات).
-Your task is to analyze physics exercises from images, extract ALL data, SOLVE for unknowns, and return the FINAL CALCULATED values.
+Your task is to analyze physics exercises from images, extract ALL data, and solve them with absolute mathematical precision.
 
 ANALYSIS ID: ${analysisId}
 
 CRITICAL FORMATTING RULES (NO EXCEPTIONS):
 1. NO LATEX: NEVER use LaTeX syntax like \\frac, \\cdot, \\theta, \\sqrt, \\text, \\left, \\right, \\implies, \\circ, \\times, or $ signs.
 2. NO $ SIGNS: NEVER surround variables or equations with dollar signs.
-3. CLEAN TEXT EQUATIONS: Use standard symbols: V0, theta, h0, g, sin(theta), cos(theta), sqrt(), ^2.
-4. UNIFORM SYMBOLS: Always use V0 for initial velocity, theta for angle, h0 for initial height, g for gravity.
+3. CLEAN TEXT EQUATIONS: Use standard symbols: V₀, θ, h₀, g, sin(θ), cos(θ), sqrt(), ², ½, ·, ±, →, ≈, ≥, ≤.
+4. UNIFORM SYMBOLS: Always use V₀ for initial velocity, θ for angle, h₀ for initial height, g for gravity.
+5. NO x = f(t) or z = h(t): NEVER use functional notation like f(t) or h(t). Write the full equation instead.
+6. EXAMPLES OF CORRECT FORMAT:
+   * x(t) = V₀·cos(θ)·t
+   * y(t) = h₀ + V₀·sin(θ)·t − ½g·t²
+   * R = V₀²·sin(2θ) / g
+   * V₀ = sqrt(R·g / sin(2θ))
+7. EXAMPLES OF FORBIDDEN FORMAT (NEVER DO THIS):
+   * $x = f(t)$
+   * $z = h(t)$
+   * $v_{0x} = v_0 \cdot \cos(\theta)$
+   * \\frac{v_0^2}{2g}
 
-SOLVING STRATEGY (MANDATORY — THIS IS THE MOST IMPORTANT PART):
+SOLVING STRATEGY (MANDATORY):
 - READ THE ENTIRE EXERCISE: Extract "Given" data (معطيات) AND "Target" data (مطلوب).
-- SOLVE BEFORE RESPONDING: You MUST solve the physics problem to find ALL unknowns BEFORE generating the final JSON block.
-- THE JSON "extractedData" MUST CONTAIN FINAL SOLVED VALUES, NOT JUST GIVEN DATA.
-- CRITICAL RULE: If the problem gives Range (R) and Angle (θ) and Height (h0), you MUST calculate V0 using:
-  V0 = sqrt(R*g / sin(2*theta)) for h0=0, or solve the full quadratic for h0!=0.
-- CRITICAL RULE: If the problem gives Range (R) and V0, you MUST calculate the angle.
-- NEVER return 0 for velocity or angle if they can be calculated from other given data.
-- A REAL professor ALWAYS solves the exercise FIRST, THEN fills in the JSON with the SOLVED values.
-
-EXAMPLE OF CORRECT BEHAVIOR:
-Given: R = 21.51 m, theta = 45 deg, h0 = 2.00 m, g = 9.8 m/s^2
-Step 1: Use x(t) = V0*cos(theta)*t and y(t) = h0 + V0*sin(theta)*t - 0.5*g*t^2
-Step 2: At landing y=0: 0 = h0 + V0*sin(theta)*t - 0.5*g*t^2
-Step 3: At landing x=R: R = V0*cos(theta)*t => t = R/(V0*cos(theta))
-Step 4: Substitute and solve for V0
-Step 5: JSON must have "velocity": <calculated value like 14.2>, NOT 0
+- SOLVE BEFORE RESPONDING: You MUST solve the physics problem to find unknowns (like V₀ or θ) BEFORE generating the final JSON block.
+- UPDATE JSON WITH RESULTS: The "extractedData" in JSON must contain the FINAL SOLVED VALUES to be applied to the simulation.
+- EXAMPLE: If the problem gives Range=21.51m and Angle=45°, you calculate V₀ ≈ 14.5 m/s and put "velocity": 14.5 in the JSON. NEVER put 0.
+- A professor NEVER returns 0 for a moving projectile. If a value is calculated in your solution text, it MUST be the same value in the JSON block.
 
 LANGUAGE RULES:
 - Respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}.
+- ${isAr ? "اكتب كل شيء بالعربية الفصحى الواضحة." : "Write everything in clear English."}
 
 Respond with:
 \`\`\`json
@@ -63,13 +67,13 @@ Respond with:
   "type": "projectile motion",
   "isProjectileMotion": true,
   "extractedData": {
-    "velocity": <FINAL SOLVED initial velocity in m/s — NEVER 0 if calculable>,
-    "angle": <FINAL SOLVED launch angle in degrees — NEVER 0 if calculable>,
+    "velocity": <FINAL SOLVED initial velocity in m/s>,
+    "angle": <FINAL SOLVED launch angle in degrees>,
     "height": <FINAL SOLVED initial height in m>,
     "mass": <extracted mass in kg or null>,
     "range": <extracted or solved horizontal range in m>,
-    "gravity": <extracted gravity in m/s^2 or default 9.81>,
-    "objectType": "<detected object type like ball, shot-put, cannon>"
+    "gravity": <extracted gravity in m/s² or default 9.81>,
+    "objectType": "<detected object type like ball, cannon, rocket>"
   }
 }
 \`\`\`
@@ -80,70 +84,87 @@ Then provide in ${isAr ? "Arabic" : "English"}:
 (Transcribe the problem exactly)
 
 **${isAr ? "المعطيات" : "Given Data"}:**
-(List ALL values with symbols)
+(List ALL values with symbols: V₀, θ, h₀, g, R, m)
 
 **${isAr ? "المطلوب" : "Required"}:**
 (What needs to be found)
 
 **${isAr ? "الشرح" : "Explanation"}:**
-(Physics concepts)
+(Physics concepts using CLEAN symbols)
 
 ## ${isAr ? "الحل" : "Solution"}
-(Step-by-step mathematical solution showing ALL calculations)`;
+(Step-by-step mathematical solution. Show calculations for V₀ if it was derived from Range/Angle. Show ALL intermediate steps using the CLEAN format.)`;
+
+    // Build provider list with fallback — Groq is primary, Mistral is fallback for subject reading
+    const providers: Array<{ name: string; url: string; key: string; model: string; imageUrlFormat: 'object' | 'string' }> = [];
+    if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_VISION_MODEL, imageUrlFormat: 'object' });
+    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_VISION_MODEL, imageUrlFormat: 'string' });
 
     const userText = isAr
-      ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي الخاص بالمقذوفات وحله خطوة بخطوة. استخرج جميع المعطيات، احسب المجاهيل، واملأ JSON بالقيم المحسوبة النهائية وليس القيم المعطاة فقط.`
-      : `[Exercise Reading #${analysisId.slice(0, 8)}] Read this projectile motion physics exercise and solve it step by step. Extract all given data, calculate unknowns, and fill JSON with FINAL CALCULATED values not just given data.`;
+      ? `[قراءة تمرين #${analysisId.slice(0, 8)}] اقرأ هذا التمرين الفيزيائي الخاص بالمقذوفات وحله خطوة بخطوة. استخرج جميع المعطيات وطبقها.`
+      : `[Exercise Reading #${analysisId.slice(0, 8)}] Read this projectile motion physics exercise and solve it step by step. Extract all given data and apply it.`;
 
     const imageDataUri = `data:${mimeType};base64,${imageBase64}`;
 
-    console.log(`[subject-reading] Calling Mistral Pixtral...`);
+    let text = "";
+    let usedProvider = "";
+    for (const provider of providers) {
+      try {
+        console.log(`[subject-reading] Trying ${provider.name}...`);
 
-    const response = await fetch(MISTRAL_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${MISTRAL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MISTRAL_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userText },
-              { type: "image_url", image_url: { url: imageDataUri } },
-            ],
+        // OpenAI-compatible providers (Groq, Mistral)
+        const imageUrlValue = provider.imageUrlFormat === 'string' ? imageDataUri : { url: imageDataUri };
+
+        const response = await fetch(provider.url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.key}`,
+            "Content-Type": "application/json",
           },
-        ],
-        temperature: 0.2,
-        max_tokens: 8000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[subject-reading] Mistral error ${response.status}: ${errorText}`);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: provider.model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: userText },
+                  { type: "image_url", image_url: imageUrlValue },
+                ],
+              },
+            ],
+            temperature: 0.3,
+            max_tokens: 8000,
+            stream: false,
+          }),
         });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[subject-reading] ${provider.name} error ${response.status}: ${errorText}`);
+          continue;
+        }
+
+        const data = await response.json();
+        text = data?.choices?.[0]?.message?.content || "";
+        if (!text) {
+          console.warn(`[subject-reading] ${provider.name} returned empty response`);
+          continue;
+        }
+
+        usedProvider = provider.name;
+        break;
+      } catch (err) {
+        console.error(`[subject-reading] ${provider.name} request failed:`, err);
+        continue;
       }
-      
-      throw new Error(`Mistral API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    let text = data?.choices?.[0]?.message?.content || "";
-
-    if (!text) {
-      throw new Error("Mistral returned empty response");
+    if (!usedProvider) {
+      throw new Error("All AI providers failed for subject-reading");
     }
 
-    console.log(`[subject-reading] Completed via Mistral Pixtral`);
+    console.log(`subject-reading completed via ${usedProvider}`);
 
     // ── Physics Sanity Check: verify extracted values against kinematics equations ──
     let finalText = text;
@@ -159,63 +180,76 @@ Then provide in ${isAr ? "Arabic" : "English"}:
           const g = ed.gravity ?? 9.81;
           const givenRange = ed.range;
 
-          // If v0=0 but we have range and angle, calculate v0
-          if ((!v0 || v0 === 0) && givenRange != null && givenRange > 0 && angle != null && angle > 0) {
+          // If we have v0 and angle, compute derived values and cross-check with given range
+          // If we have v0 and angle, compute derived values and cross-check with given range
+          if (v0 != null && angle != null && v0 > 0) {
             const aRad = angle * Math.PI / 180;
-            const gVal = g || 9.81;
-            
-            if (h === 0) {
-              const sin2Theta = Math.sin(2 * aRad);
-              if (sin2Theta > 0) {
-                parsed.extractedData.velocity = Math.round(Math.sqrt((givenRange * gVal) / sin2Theta) * 100) / 100;
-              }
-            } else {
-              const cosTheta = Math.cos(aRad);
-              const tanTheta = Math.tan(aRad);
-              const denominator = 2 * cosTheta * cosTheta * (h + givenRange * tanTheta);
-              if (denominator > 0) {
-                const v0Squared = (gVal * givenRange * givenRange) / denominator;
-                if (v0Squared > 0) {
-                  parsed.extractedData.velocity = Math.round(Math.sqrt(v0Squared) * 100) / 100;
-                }
-              }
-            }
-            console.log(`[subject-reading] Fixed zero velocity: derived ${parsed.extractedData.velocity} m/s`);
-          }
-
-          // Deep text scan fallback for velocity
-          if (!parsed.extractedData.velocity || parsed.extractedData.velocity === 0) {
-            const textVelocityMatch = text.match(/(?:v0|V₀|V0|السرعة الابتدائية)\s*[:=≈]\s*(\d+\.?\d*)\s*(?:m\/s|م\/ث)?/i);
-            if (textVelocityMatch && textVelocityMatch[1]) {
-              const foundV0 = parseFloat(textVelocityMatch[1]);
-              if (foundV0 > 0) {
-                parsed.extractedData.velocity = foundV0;
-                console.log(`[subject-reading] Fallback: Found velocity ${foundV0} in text.`);
-              }
-            }
-          }
-
-          // Compute derived values for verification
-          if (parsed.extractedData.velocity > 0 && angle != null && angle > 0) {
-            const aRad = angle * Math.PI / 180;
-            const v0x = parsed.extractedData.velocity * Math.cos(aRad);
-            const v0y = parsed.extractedData.velocity * Math.sin(aRad);
-            const maxHeight = (h || 0) + (v0y * v0y) / (2 * g);
+            const v0x = v0 * Math.cos(aRad);
+            const v0y = v0 * Math.sin(aRad);
+            const maxHeight = h + (v0y * v0y) / (2 * g);
             const tApex = v0y / g;
             const tFall = Math.sqrt(2 * maxHeight / g);
             const totalTime = tApex + tFall;
             const computedRange = Math.round(v0x * totalTime * 100) / 100;
 
+            // Add computed values to extracted data
             parsed.extractedData.computedRange = computedRange;
             parsed.extractedData.computedMaxHeight = Math.round(maxHeight * 100) / 100;
             parsed.extractedData.computedTotalTime = Math.round(totalTime * 100) / 100;
-            parsed.sanityChecked = true;
-          }
 
-          // Rebuild text with updated JSON
-          const newJson = "```json\n" + JSON.stringify(parsed, null, 2) + "\n```";
-          const afterJson = text.replace(/```json[\s\S]*?```/, "").trim();
-          finalText = newJson + "\n\n" + afterJson;
+            // Sanity check: if given range exists, compare with computed range
+            if (givenRange != null && givenRange > 0) {
+              const rangeError = Math.abs(computedRange - givenRange) / givenRange;
+              parsed.extractedData.rangeConsistency = rangeError < 0.1 ? "consistent" : rangeError < 0.3 ? "approximate" : "inconsistent";
+              if (rangeError > 0.3) {
+                console.warn(`[subject-reading] Physics inconsistency: computed range ${computedRange} vs given range ${givenRange}`);
+                parsed.extractedData.sanityWarning = isAr 
+                  ? `\u0627\u0644\u0645\u062f\u0649 \u0627\u0644\u0645\u062d\u0633\u0648\u0628 (${computedRange} \u0645) \u064a\u062e\u062a\u0644\u0641 \u0639\u0646 \u0627\u0644\u0645\u062f\u0649 \u0627\u0644\u0645\u0639\u0637\u0649 (${givenRange} \u0645). \u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0642\u064a\u0645.`
+                  : `Computed range (${computedRange} m) differs significantly from given range (${givenRange} m). Check if values are correct.`;
+              }
+            }
+          } else if (v0 === 0 && givenRange != null && givenRange > 0 && angle != null && angle > 0) {
+              // Bugfix: if AI returns v0=0 but we have range and angle, calculate v0
+              const aRad = angle * Math.PI / 180;
+              const gVal = g || 9.81;
+              const sin2Theta = Math.sin(2 * aRad);
+              if (sin2Theta > 0) {
+                const derivedV0 = Math.sqrt((givenRange * gVal) / sin2Theta);
+                parsed.extractedData.velocity = Math.round(derivedV0 * 100) / 100;
+                console.log(`[subject-reading] Fixed zero velocity: derived ${parsed.extractedData.velocity} m/s from range ${givenRange} and angle ${angle}`);
+              }
+            }
+
+            // --- DEEP TEXT SCAN FALLBACK ---
+            // If velocity is still 0 or null, try to find a value in the text solution
+            if (!parsed.extractedData.velocity || parsed.extractedData.velocity === 0) {
+              const textVelocityMatch = text.match(/(?:v0|V₀|السرعة الابتدائية)\s*[:=≈]\s*(\d+\.?\d*)\s*(?:m\/s|م\/ث)/i);
+              if (textVelocityMatch && textVelocityMatch[1]) {
+                const foundV0 = parseFloat(textVelocityMatch[1]);
+                if (foundV0 > 0) {
+                  parsed.extractedData.velocity = foundV0;
+                  console.log(`[subject-reading] Fallback: Found velocity ${foundV0} in text solution.`);
+                }
+              }
+            }
+
+          // If we have a valid velocity (either extracted or derived), finalize results
+          if (parsed.extractedData.velocity != null && parsed.extractedData.velocity > 0) {
+            parsed.sanityChecked = true;
+
+            // Rebuild text with updated JSON
+            const newJson = "```json\n" + JSON.stringify(parsed, null, 2) + "\n```";
+            const afterJson = text.replace(/```json[\s\S]*?```/, "").trim();
+            
+            let warningHeader = "";
+            if (parsed.extractedData.sanityWarning) {
+              warningHeader = isAr 
+                ? `> \u26a0\ufe0f **\u062a\u0646\u0628\u064a\u0647 \u0641\u064a\u0632\u064a\u0627\u0626\u064a**: ${parsed.extractedData.sanityWarning}\n\n`
+                : `> \u26a0\ufe0f **Physics Warning**: ${parsed.extractedData.sanityWarning}\n\n`;
+            }
+
+            finalText = newJson + "\n\n" + warningHeader + afterJson;
+          }
         }
       }
     } catch {

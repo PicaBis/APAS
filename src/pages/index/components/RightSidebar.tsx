@@ -257,7 +257,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
       {/* Advanced Features */}
       <Suspense fallback={null}>
-        <LensDistortionCorrection lang={lang} open={false} onClose={() => {}} />
+        <LensDistortionCorrection lang={lang} muted={isMuted} />
       </Suspense>
 
       {/* Share Simulation */}

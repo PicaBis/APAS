@@ -18,7 +18,7 @@ interface Props {
   };
   autoOpen?: boolean;
   onDismiss?: () => void;
-  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; params?: { velocity?: number; angle?: number; height?: number; mass?: number }; mediaSrc?: string; mediaType?: 'video' | 'image' }) => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
 }
 
 interface ExtractedParams {
@@ -112,7 +112,7 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
     setMissingParams([]);
 
     // Guard: block when Supabase is not configured
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
       toast.error(isAr ? 'خدمة Supabase غير مهيأة. تحقق من إعدادات البيئة.' : 'Supabase is not configured. Check environment settings.');
       setIsProcessing(false);
       return;
@@ -123,8 +123,8 @@ export default function ApasVoiceButton({ lang, onUpdateParams, simulationContex
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
           transcript: spokenText,

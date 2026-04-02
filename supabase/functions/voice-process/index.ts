@@ -7,7 +7,9 @@ const corsHeaders = {
 };
 
 const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
-const MISTRAL_MODEL = "mistral-large-latest";
+const MISTRAL_CHAT_MODEL = "mistral-large-latest";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_CHAT_MODEL = "llama-3.3-70b-versatile";
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -16,9 +18,10 @@ serve(async (req) => {
   try {
     const { transcript, lang, simulationContext } = await req.json();
 
-    const MISTRAL_API_KEY = Deno.env.get("MISTRAL_API_KEY");
-    if (!MISTRAL_API_KEY) {
-      throw new Error("MISTRAL_API_KEY is not configured");
+    const mistralKey = Deno.env.get("MISTRAL_API_KEY");
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    if (!mistralKey && !groqKey) {
+      throw new Error("No AI provider configured (set MISTRAL_API_KEY and/or GROQ_API_KEY)");
     }
 
     if (!transcript || typeof transcript !== "string" || !transcript.trim()) {
@@ -34,7 +37,7 @@ serve(async (req) => {
 
 LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
 - You MUST respond ENTIRELY in ${isAr ? "Arabic (العربية)" : "English"}. Every single word must be in ${isAr ? "Arabic" : "English"}.
-- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language.
+- NEVER use Chinese, Russian, French, Spanish, Portuguese, or ANY other language. Not even a single word or character.
 - ${isAr ? "اكتب كل شيء بالعربية الفصحى الواضحة. لا تستخدم أي لغة أخرى مطلقاً." : "Write everything in clear English. Never use any other language."}
 
 The user speaks voice commands to set simulation parameters for projectile motion.
@@ -47,18 +50,23 @@ ${simulationContext ? `- Velocity: ${simulationContext.velocity} m/s
 - Gravity: ${simulationContext.gravity} m/s²
 - Mass: ${simulationContext.mass} kg` : "No current context available"}
 
-TRANSCRIPT CLEANING:
-- The spoken text may contain repeated words, stuttering, or noise artifacts
-- ALWAYS normalize repeated commands to a single clean command
+TRANSCRIPT CLEANING (CRITICAL — the transcript comes from speech recognition and may contain artifacts):
+- The spoken text may contain repeated words, stuttering, or noise artifacts (e.g., "Speed 30 Speed 30 Speed 30" or "حسنا حسنا السرعة 30 حسنا السرعة 30")
+- ALWAYS normalize repeated commands to a single clean command (e.g., "Speed 30 Speed 30" → "Speed 30")
 - Ignore filler words, hesitations, and environmental noise artifacts
-- Extract the FINAL clean intent from the transcript
+- Extract the FINAL clean intent from the transcript, not every repeated fragment
+- If Arabic text appears garbled or has stuck-together words, do your best to parse the intended meaning
 
 INSTRUCTIONS:
 1. Parse the user's spoken text for physics parameters related to projectile motion
 2. Extract any of these parameters if mentioned:
-   - velocity (m/s), angle (degrees), height (m), mass (kg), gravity (m/s²)
+   - velocity (m/s) — initial velocity / السرعة الابتدائية
+   - angle (degrees) — launch angle / زاوية الإطلاق / زاوية القذف
+   - height (m) — initial height / الارتفاع الابتدائي
+   - mass (kg) — mass of projectile / الكتلة
+   - gravity (m/s²) — gravitational acceleration / الجاذبية
 3. If the user says relative commands like "increase velocity" or "double the angle", calculate the new value based on the current simulation context
-4. Check if the spoken text contains enough physics data
+4. Check if the spoken text contains enough physics data. If key parameters are missing and the user seems to be describing a problem, tell them what's missing.
 
 RESPONSE FORMAT — You MUST always return a JSON block:
 \`\`\`json
@@ -75,50 +83,77 @@ RESPONSE FORMAT — You MUST always return a JSON block:
 
 After the JSON block, provide a brief response in ${isAr ? "Arabic" : "English"}:
 - If parameters were extracted: confirm what was understood and applied
-- If parameters are missing: tell the user specifically what they forgot
+- If parameters are missing: tell the user specifically what they forgot to mention
+  - Example (Arabic): "فهمت السرعة 20 م/ث، لكنك لم تذكر لي زاوية الإطلاق. ما هي الزاوية؟"
+  - Example (English): "I got velocity 20 m/s, but you didn't mention the launch angle. What is the angle?"
 - If nothing was understood: ask the user to repeat with specific physics values
 
 IMPORTANT:
 - Only include parameters that were explicitly mentioned or clearly implied
 - Use null for parameters that were NOT mentioned
+- The "missing" array should contain names of parameters the user seems to have forgotten
 - Keep the response brief and natural
-- NEVER use LaTeX notation
-- Write equations in simple ASCII: v0, theta, sin(), cos(), ^2`;
+- NEVER use LaTeX notation ($, \\frac, \\cdot, \\theta, etc.)
+- NEVER use Unicode subscripts/superscripts (v₀, θ, ², ·)
+- Write equations in simple ASCII: v0, theta, sin(), cos(), ^2
+- Write units in plain text: m/s, m/s^2, kg, m
+- LANGUAGE REMINDER: Every word must be in ${isAr ? "Arabic" : "English"}. No exceptions.`;
 
-    console.log(`[voice-process] Calling Mistral...`);
+    // Build provider list with fallback (Groq first as primary)
+    const providers: Array<{ name: string; url: string; key: string; model: string; type: "openai" }> = [];
+    if (groqKey) providers.push({ name: "Groq", url: GROQ_API_URL, key: groqKey, model: GROQ_CHAT_MODEL, type: "openai" });
+    if (mistralKey) providers.push({ name: "Mistral", url: MISTRAL_API_URL, key: mistralKey, model: MISTRAL_CHAT_MODEL, type: "openai" });
 
-    const response = await fetch(MISTRAL_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${MISTRAL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MISTRAL_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: transcript },
-        ],
-        temperature: 0.3,
-        max_tokens: 1000,
-        stream: false,
-      }),
-    });
+    let text = "";
+    let usedProvider = "";
+    for (const provider of providers) {
+      try {
+        console.log(`[voice-process] Trying ${provider.name}...`);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[voice-process] Mistral error ${response.status}: ${errorText}`);
-      throw new Error(`Mistral API error: ${response.status}`);
+        // OpenAI-compatible providers (Groq, Mistral)
+        const requestBody = {
+          model: provider.model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: transcript },
+          ],
+          temperature: 0.3,
+          max_tokens: 1000,
+          stream: false,
+        };
+        const response = await fetch(provider.url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[voice-process] ${provider.name} error ${response.status}: ${errorText}`);
+          continue;
+        }
+        const data = await response.json();
+        text = data?.choices?.[0]?.message?.content || "";
+
+        if (!text) {
+          console.warn(`[voice-process] ${provider.name} returned empty response`);
+          continue;
+        }
+        usedProvider = provider.name;
+        break;
+      } catch (err) {
+        console.error(`[voice-process] ${provider.name} request failed:`, err);
+        continue;
+      }
     }
 
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content || "";
-
-    if (!text) {
-      throw new Error("Mistral returned empty response");
+    if (!usedProvider) {
+      throw new Error("All AI providers failed for voice-process");
     }
 
-    console.log(`[voice-process] Completed via Mistral`);
+    console.log(`voice-process completed via ${usedProvider}`);
 
     return new Response(
       JSON.stringify({ text }),

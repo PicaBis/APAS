@@ -558,7 +558,7 @@ export const aiApasIntuitiveStep = (
   
   // 1. Core kinematics (Base intuition)
   const g = params.gravity;
-  const k = params.dragCoefficient || 0;
+  const k = params.airResistance || 0;
   const wind = params.windSpeed || 0;
   
   // 2. Apply intuitive "corrections" that mimic a high-level agent understanding

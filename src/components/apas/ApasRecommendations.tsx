@@ -10,7 +10,11 @@ import { toast } from 'sonner';
 import { playClick } from '@/utils/sound';
 import { cleanLatex } from '@/utils/cleanLatex';
 
-// AI calls go through edge functions which handle provider fallback internally
+// Gemini API configuration
+const GEMINI_API_KEY = 'AIzaSyCrf-CFjCQ3o6_HnQgZCpjQWVGqOhC6654';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+// Fallback to edge functions if Gemini fails
 const EDGE_TUTOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/physics-tutor`;
 
 async function consumeStream(
@@ -67,6 +71,7 @@ interface RecommendationCard {
   values: Record<string, string>;
   actionLabel?: string;
   whyText?: string;
+  actionPayload?: { angle?: number; velocity?: number; environmentId?: string };
 }
 
 interface Props {
@@ -74,6 +79,7 @@ interface Props {
   muted: boolean;
   isUnlocked: boolean;
   simulationContext: SimContext;
+  onApplyChange?: (params: { angle?: number; velocity?: number; environmentId?: string }) => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -152,6 +158,7 @@ function buildFallbackCards(ctx: SimContext, isAr: boolean): RecommendationCard[
       whyText: isAr
         ? '\u0639\u0646\u062f 45\u00b0 \u064a\u0643\u0648\u0646 sin(2\u03b8) = 1 \u0648\u0647\u0648 \u0623\u0639\u0644\u0649 \u0642\u064a\u0645\u0629 \u0645\u0645\u0643\u0646\u0629\u060c \u0645\u0645\u0627 \u064a\u0639\u0637\u064a \u0623\u0642\u0635\u0649 \u0645\u062f\u0649 \u0623\u0641\u0642\u064a.'
         : 'At 45\u00b0, sin(2\u03b8) = 1 which is the maximum possible value, giving the greatest horizontal range.',
+      actionPayload: { angle: 45 },
     },
     {
       id: 'improve_range',
@@ -178,6 +185,7 @@ function buildFallbackCards(ctx: SimContext, isAr: boolean): RecommendationCard[
       whyText: isAr
         ? '\u0644\u0623\u0646 \u0627\u0644\u0645\u062f\u0649 R = v\u00b2sin(2\u03b8)/g\u060c \u0641\u0625\u0646 \u0645\u0636\u0627\u0639\u0641\u0629 \u0627\u0644\u0633\u0631\u0639\u0629 \u062a\u0636\u0627\u0639\u0641 \u0627\u0644\u0645\u062f\u0649 4 \u0645\u0631\u0627\u062a.'
         : 'Since R = v\u00b2sin(2\u03b8)/g, doubling speed quadruples the range.',
+      actionPayload: { velocity: v + 5 },
     },
     {
       id: 'how_calculated',
@@ -230,6 +238,7 @@ function buildFallbackCards(ctx: SimContext, isAr: boolean): RecommendationCard[
       whyText: isAr
         ? '\u064a\u0648\u062c\u062f \u062f\u0627\u0626\u0645\u0627\u064b \u0632\u0627\u0648\u064a\u062a\u0627\u0646 \u062a\u0639\u0637\u064a\u0627\u0646 \u0646\u0641\u0633 \u0627\u0644\u0645\u062f\u0649 (\u0645\u062a\u0643\u0627\u0645\u0644\u062a\u0627\u0646 \u0644\u0640 90\u00b0) \u0645\u0627 \u0644\u0645 \u062a\u0643\u0646 \u0627\u0644\u0647\u062f\u0641 \u0639\u0646\u062f \u0623\u0642\u0635\u0649 \u0645\u062f\u0649.'
         : 'There are always two angles giving the same range (complementary to 90\u00b0) unless the target is at max range.',
+      actionPayload: { angle: Math.round(Math.asin(Math.min(1, 10 * g / (v ** 2))) * 90 / Math.PI) },
     },
     {
       id: 'performance',
@@ -304,6 +313,7 @@ function buildFallbackCards(ctx: SimContext, isAr: boolean): RecommendationCard[
       whyText: isAr
         ? '\u0627\u0644\u062a\u062c\u0631\u064a\u0628 \u064a\u0633\u0627\u0639\u062f \u0639\u0644\u0649 \u0641\u0647\u0645 \u0643\u064a\u0641 \u064a\u0624\u062b\u0631 \u0643\u0644 \u0645\u062a\u063a\u064a\u0631 \u0639\u0644\u0649 \u0627\u0644\u062d\u0631\u0643\u0629. \u0627\u0644\u0642\u0645\u0631 \u0644\u0647 \u062c\u0627\u0630\u0628\u064a\u0629 \u0623\u0642\u0644 6 \u0645\u0631\u0627\u062a \u0645\u0646 \u0627\u0644\u0623\u0631\u0636.'
         : "Experimentation helps understand how each variable affects motion. The Moon has 1/6th of Earth's gravity.",
+      actionPayload: { environmentId: ctx.environmentId === 'moon' ? 'earth' : 'moon' },
     },
   ];
 }
@@ -348,6 +358,7 @@ function RecCard({
   isAr,
   showWhy,
   onToggleWhy,
+  onApplyChange,
 }: {
   card: RecommendationCard;
   expanded: boolean;
@@ -355,6 +366,7 @@ function RecCard({
   isAr: boolean;
   showWhy: boolean;
   onToggleWhy: () => void;
+  onApplyChange?: (params: { angle?: number; velocity?: number; environmentId?: string }) => void;
 }) {
   const colorClass = CARD_COLORS[card.id] || CARD_COLORS.performance;
   const iconColor = CARD_ICON_COLORS[card.id] || CARD_ICON_COLORS.performance;
@@ -438,7 +450,20 @@ function RecCard({
 
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            {card.actionLabel && (
+            {card.actionLabel && card.actionPayload && onApplyChange && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onApplyChange(card.actionPayload!);
+                  toast.success(isAr ? 'تم تطبيق التعديل!' : 'Change applied!');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary text-xs font-medium transition-colors border border-primary/20"
+              >
+                <ArrowRight className="w-3 h-3" />
+                {card.actionLabel}
+              </button>
+            )}
+            {card.actionLabel && !card.actionPayload && (
               <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary text-xs font-medium transition-colors border border-primary/20">
                 <ArrowRight className="w-3 h-3" />
                 {card.actionLabel}
@@ -474,7 +499,7 @@ function RecCard({
 /*  Main Component                                                     */
 /* ------------------------------------------------------------------ */
 
-export default function ApasRecommendations({ lang, muted, isUnlocked, simulationContext }: Props) {
+export default function ApasRecommendations({ lang, muted, isUnlocked, simulationContext, onApplyChange }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cards, setCards] = useState<RecommendationCard[]>([]);
@@ -498,72 +523,113 @@ export default function ApasRecommendations({ lang, muted, isUnlocked, simulatio
     setExpandedId(null);
     setWhyId(null);
 
-    const systemPrompt = `You are APAS Recommendations Engine. Analyze the simulation and return a JSON array of recommendation objects.
+    const hasRealResults = simulationContext.range && parseFloat(simulationContext.range) > 0;
 
-${isAr ? 'All text fields must be in Arabic.' : 'All text fields must be in English.'}
+    const systemPrompt = `You are APAS (Advanced Projectile Analysis System) — an expert physics AI. Analyze the REAL simulation results below and provide 7 comprehensive, physics-based recommendations.
 
-Current simulation context:
-- Velocity: ${simulationContext.velocity} m/s
-- Angle: ${simulationContext.angle} degrees
-- Height: ${simulationContext.height} m
-- Gravity: ${simulationContext.gravity} m/s^2
-- Air resistance: ${simulationContext.airResistance}
-- Mass: ${simulationContext.mass} kg
+${isAr
+  ? 'جميع النصوص يجب أن تكون باللغة العربية. أنت تحلل نتائج محاكاة حقيقية — استخدم القيم الفعلية في توصياتك.'
+  : 'All text must be in English. You are analyzing REAL simulation results — use the actual values in your recommendations.'
+}
+
+=== REAL SIMULATION RESULTS ===
+- Initial velocity: ${simulationContext.velocity} m/s
+- Launch angle: ${simulationContext.angle}°
+- Initial height: ${simulationContext.height} m
+- Gravity: ${simulationContext.gravity} m/s²
+- Air resistance coefficient: ${simulationContext.airResistance}
+- Projectile mass: ${simulationContext.mass} kg
 - Environment: ${simulationContext.environmentId || 'earth'}
-- Integration method: ${simulationContext.integrationMethod || 'euler'}
-${simulationContext.range ? `- Range: ${simulationContext.range} m` : ''}
-${simulationContext.maxHeight ? `- Max height: ${simulationContext.maxHeight} m` : ''}
-${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime} s` : ''}
+- Numerical integration method: ${simulationContext.integrationMethod || 'euler'}
+${hasRealResults ? `- ACTUAL computed range: ${simulationContext.range} m` : '- Range: not yet computed (simulation not run)'}
+${simulationContext.maxHeight ? `- ACTUAL max height: ${simulationContext.maxHeight} m` : ''}
+${simulationContext.flightTime ? `- ACTUAL flight time: ${simulationContext.flightTime} s` : ''}
+=================================
 
-Return ONLY a valid JSON array with 7 objects. Each object must have:
+Based on these REAL values, give specific recommendations referencing the actual numbers. Compare with theoretical ideal values. Explain what the user should change and why.
+
+Return ONLY a valid JSON array with exactly 7 objects:
 {
   "type": "best_angle" | "improve_range" | "how_calculated" | "hit_target" | "performance" | "affects_results" | "experiment",
-  "title": "short title",
-  "summary": "1-line preview max 60 chars",
-  "explanation": "2-3 sentence explanation with specific values",
-  "equations": ["equation1", "equation2"],
+  "title": "short title (max 40 chars)",
+  "summary": "1-line preview referencing actual values (max 70 chars)",
+  "explanation": "3-4 sentences with specific numbers from the simulation and physics reasoning",
+  "equations": ["equation with actual values substituted"],
   "values": { "label": "value with units" },
   "actionLabel": "short action button text",
-  "whyText": "deeper explanation of the physics principle"
+  "whyText": "deeper physics principle explanation"
 }
 
 CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no extra text.`;
 
     const userMessage = isAr
-      ? '\u062d\u0644\u0644 \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629 \u0648\u0623\u0639\u0637\u0646\u064a 7 \u062a\u0648\u0635\u064a\u0627\u062a \u0630\u0643\u064a\u0629 \u0643\u0640 JSON.'
-      : 'Analyze the simulation and give me 7 smart recommendations as JSON.';
+      ? `أنت خبير فيزيائي. حلل هذه النتائج الحقيقية من المحاكاة وقدم 7 توصيات عميقة كـ JSON:\n\nالسرعة: ${simulationContext.velocity} م/ث | الزاوية: ${simulationContext.angle}° | الارتفاع: ${simulationContext.height} م\nمقاومة الهواء: ${simulationContext.airResistance} | الكتلة: ${simulationContext.mass} كغ\n${hasRealResults ? `المدى الفعلي: ${simulationContext.range} م | أقصى ارتفاع: ${simulationContext.maxHeight} م | زمن الطيران: ${simulationContext.flightTime} ث` : 'المحاكاة لم تشتغل بعد'}\n\nاستخدم القيم الحقيقية في كل توصية.`
+      : `You are a physics expert AI. Analyze these REAL simulation results and provide 7 deep recommendations as JSON:\n\nVelocity: ${simulationContext.velocity} m/s | Angle: ${simulationContext.angle}° | Height: ${simulationContext.height} m\nAir resistance: ${simulationContext.airResistance} | Mass: ${simulationContext.mass} kg\n${hasRealResults ? `ACTUAL range: ${simulationContext.range} m | Max height: ${simulationContext.maxHeight} m | Flight time: ${simulationContext.flightTime} s` : 'Simulation not yet run'}\n\nReference the real values in every recommendation.`;
 
     let accumulated = '';
     let didSetAi = false;
 
     try {
+      // Try Gemini API first for better AI recommendations
       try {
-        const edgeResp = await fetch(EDGE_TUTOR_URL, {
+        const geminiResp = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages: [{ role: 'user', content: userMessage }],
-            simulationContext,
-            systemPrompt,
+            contents: [
+              { role: 'user', parts: [{ text: systemPrompt }] },
+              { role: 'user', parts: [{ text: userMessage }] },
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 2048,
+            },
           }),
         });
-        if (edgeResp.ok && edgeResp.body) {
-          await consumeStream(edgeResp.body, (text) => {
-            accumulated += text;
-          });
-          const parsed = tryParseAICards(cleanLatex(accumulated));
-          if (parsed && parsed.length > 0) {
-            setCards(parsed);
-            setAiMode(true);
-            didSetAi = true;
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          const geminiText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (geminiText) {
+            accumulated = geminiText;
+            const parsed = tryParseAICards(cleanLatex(accumulated));
+            if (parsed && parsed.length > 0) {
+              setCards(parsed);
+              setAiMode(true);
+              didSetAi = true;
+            }
           }
         }
-      } catch {
-        // fall through to fallback
+      } catch (geminiErr) {
+        console.warn('Gemini API failed, falling back to edge function:', geminiErr);
+      }
+
+      // Fallback to edge function if Gemini fails
+      if (!didSetAi) {
+        try {
+          const edgeResp = await fetch(EDGE_TUTOR_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              messages: [{ role: 'user', content: userMessage }],
+              simulationContext,
+              systemPrompt,
+            }),
+          });
+          if (edgeResp.ok && edgeResp.body) {
+            await consumeStream(edgeResp.body, (text) => {
+              accumulated += text;
+            });
+          }
+        } catch {
+          // fall through to fallback
+        }
       }
 
       if (!didSetAi && accumulated) {
@@ -576,7 +642,7 @@ CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no extra text
         }
       }
     } catch {
-      setError(isAr ? '\u062a\u0639\u0630\u0631 \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u0644\u062a\u0648\u0635\u064a\u0627\u062a.' : 'Failed to get recommendations.');
+      setError(isAr ? 'تعذر الحصول على التوصيات.' : 'Failed to get recommendations.');
     }
     setLoading(false);
   }, [simulationContext, isAr]);
@@ -715,6 +781,7 @@ CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no extra text
                       isAr={isAr}
                       showWhy={whyId === card.id}
                       onToggleWhy={() => setWhyId(whyId === card.id ? null : card.id)}
+                      onApplyChange={onApplyChange}
                     />
                   ))}
                 </div>

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Download, Loader2, X } from 'lucide-react';
 import { playUIClick } from '@/utils/sound';
 
@@ -19,10 +20,23 @@ export default function SimulationRecorder({ lang, muted, canvasContainerRef, on
   const [processing, setProcessing] = useState(false);
   const [recordedURL, setRecordedURL] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const isAr = lang === 'ar';
   const isFr = lang === 'fr';
+
+  // Update dropdown position when preview opens
+  useEffect(() => {
+    if (showPreview && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [showPreview]);
 
   const t = (ar: string, en: string, fr?: string) => isAr ? ar : isFr ? (fr || en) : en;
 
@@ -113,6 +127,7 @@ export default function SimulationRecorder({ lang, muted, canvasContainerRef, on
     <div className="relative">
       {/* Compact Rec button */}
       <button
+        ref={buttonRef}
         onClick={handleClick}
         className={`group p-1.5 rounded-lg border transition-all duration-300 flex items-center gap-1 ${
           recording
@@ -134,9 +149,12 @@ export default function SimulationRecorder({ lang, muted, canvasContainerRef, on
         </span>
       </button>
 
-      {/* Video preview dropdown */}
-      {showPreview && recordedURL && !recording && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl shadow-black/20 z-[100] animate-slideDown overflow-hidden">
+      {/* Video preview dropdown — rendered via portal to escape overflow:hidden */}
+      {showPreview && recordedURL && !recording && dropdownPos && createPortal(
+        <div
+          className="fixed w-72 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl shadow-black/20 z-[99999] animate-slideDown overflow-hidden"
+          style={{ top: dropdownPos.top, right: dropdownPos.right }}
+        >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border/30">
             <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -177,15 +195,23 @@ export default function SimulationRecorder({ lang, muted, canvasContainerRef, on
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Processing indicator */}
-      {processing && (
-        <div className="absolute top-full right-0 mt-2 px-3 py-2 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl z-50 flex items-center gap-2">
+      {/* Processing indicator — also via portal */}
+      {processing && createPortal(
+        <div
+          className="fixed px-3 py-2 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl z-[99999] flex items-center gap-2"
+          style={buttonRef.current ? {
+            top: buttonRef.current.getBoundingClientRect().bottom + window.scrollY + 8,
+            right: window.innerWidth - buttonRef.current.getBoundingClientRect().right,
+          } : { top: 80, right: 16 }}
+        >
           <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
           <span className="text-[11px] text-muted-foreground">{t('جاري المعالجة...', 'Processing...', 'Traitement...')}</span>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
