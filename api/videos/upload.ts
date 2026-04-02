@@ -12,7 +12,7 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB server-side limit
 /**
  * Vercel Serverless Function for video upload to Vercel Blob.
  * POST /api/videos/upload
- *
+ * 
  * Requires a valid Supabase JWT in the Authorization header.
  * Accepts multipart form data with a video file.
  * Returns the blob URL for the uploaded video.
@@ -57,14 +57,8 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-    const { data, error } = await supabase.auth.getUser();
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) {
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,

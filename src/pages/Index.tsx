@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense, lazy, useMemo } from 'react';
+import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock, Activity, Play, Pause, RotateCcw, Turtle, FileDown, QrCode, FileText, Smartphone, Accessibility, AlertTriangle, BarChart3, Sparkles, Info, ArrowDownToLine } from 'lucide-react';
-import { toast } from 'sonner';
+import { ChevronDown, ZoomIn, ZoomOut, Maximize, Minimize, Camera, Box, Eye, EyeOff, Focus, Grid3x3, Crosshair, GitBranch, Layers, Save, X, Globe2, Clock, Gauge, Filter, ArrowDownUp, Calculator, Lock, Activity, Play, Pause, RotateCcw, Turtle, FileDown, QrCode, FileText, Smartphone, Accessibility, AlertTriangle, BarChart3, Sparkles, Info } from 'lucide-react';
 import { useSimulation } from '@/hooks/useSimulation';
 import { useAdvancedPhysics } from '@/hooks/useAdvancedPhysics';
 import { playClick, playUIClick, playToggle, playSectionToggle, playSliderChange, playSnapshotSound, playModeSwitch, playZoomSound, playNav } from '@/utils/sound';
@@ -548,7 +548,7 @@ const Index = () => {
   const mobileVariables = useMemo(() => [
     { key: 'velocity', label: lang === 'ar' ? 'السرعة' : lang === 'fr' ? 'Vitesse' : 'Velocity', value: sim.velocity, min: 0, max: 500, step: 1, unit: 'm/s', onChange: sim.setVelocity },
     { key: 'angle', label: lang === 'ar' ? 'الزاوية' : lang === 'fr' ? 'Angle' : 'Angle', value: sim.angle, min: -360, max: 360, step: 1, unit: '°', onChange: sim.setAngle },
-    { key: 'height', label: lang === 'ar' ? 'الارتفاع' : lang === 'fr' ? 'Hauteur' : 'Height', value: sim.height, min: -5000, max: 5000, step: 0.1, unit: 'm', onChange: sim.setHeight },
+    { key: 'height', label: lang === 'ar' ? 'الارتفاع' : lang === 'fr' ? 'Hauteur' : 'Height', value: sim.height, min: -5000, max: 5000, step: 0.5, unit: 'm', onChange: sim.setHeight },
     { key: 'gravity', label: lang === 'ar' ? 'الجاذبية' : lang === 'fr' ? 'Gravité' : 'Gravity', value: sim.gravity, min: 0, max: 100, step: 0.01, unit: 'm/s²', onChange: (v: number) => sim.setGravity(Math.max(0, v)) },
     { key: 'mass', label: lang === 'ar' ? 'الكتلة' : lang === 'fr' ? 'Masse' : 'Mass', value: sim.mass, min: 0.01, max: 50000, step: 0.01, unit: 'kg', onChange: sim.setMass },
   ], [lang, sim.velocity, sim.angle, sim.height, sim.gravity, sim.mass, sim.setVelocity, sim.setAngle, sim.setHeight, sim.setGravity, sim.setMass]);
@@ -882,10 +882,18 @@ const Index = () => {
                         <label className="text-[11px] font-semibold text-foreground">{lang === 'ar' ? 'الارتفاع' : 'Height'} (m)</label>
                         <div className="flex items-center gap-2">
                           <input type="number" value={Number(sim.height.toFixed(2))} onChange={(e) => sim.setHeight(Number(e.target.value))}
-                            min={-5000} max={5000} step={0.1} dir="ltr"
+                            min={-5000} max={5000} step={0.5} dir="ltr"
                             className="flex-1 text-xs font-mono text-center bg-secondary/60 border border-border/40 rounded-lg px-1.5 py-1.5 text-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all min-w-0" />
                         </div>
-                        <Slider value={[sim.height]} min={-5000} max={5000} step={0.1} onValueChange={([val]) => sim.setHeight(val)} className="h-4 touch-manipulation" />
+                        <Slider value={[sim.height]} min={-5000} max={5000} step={0.5} onValueChange={([val]) => sim.setHeight(val)} className="h-4 touch-manipulation" />
+                        {sim.height < 0 && (
+                          <div className="flex items-center justify-between p-2 bg-primary/5 rounded-lg border border-primary/20">
+                            <span className="text-[10px] font-bold text-primary">
+                              {lang === 'ar' ? 'فرض الأرض كمحور X' : 'Force Ground at y=0'}
+                            </span>
+                            <Switch checked={sim.forceGroundDetection} onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); }} className="scale-75" />
+                          </div>
+                        )}
                       </div>
                       {/* Gravity */}
                       <div className="p-2.5 rounded-xl bg-card/60 border border-border/30 space-y-2">
@@ -927,14 +935,6 @@ const Index = () => {
                           </div>
                           <Slider value={[sim.windSpeed]} min={-100} max={100} step={1}
                             onValueChange={([v]) => sim.setWindSpeed(v)} />
-                          {/* Cross-Sectional Area */}
-                          <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
-                            <span>{lang === 'ar' ? 'المساحة المقطعية (A)' : 'Cross-Sectional Area (A)'} (m²)</span>
-                            <span className="font-mono">{(advancedPhysics.diameter > 0 ? (Math.PI * (advancedPhysics.diameter / 2) ** 2) : 0).toFixed(4)}</span>
-                          </div>
-                          <Slider value={[Math.max(10, advancedPhysics.diameter * 1000)]} min={10} max={200} step={1}
-                            onValueChange={([v]) => { advancedPhysics.setDiameter(v / 1000); }} />
-                          <p className="text-[9px] text-muted-foreground mt-1">{lang === 'ar' ? 'يتم حسابها من قطر المقذوف' : 'Calculated from projectile diameter'}</p>
                         </div>
                       )}
                     </div>
@@ -1599,38 +1599,45 @@ const Index = () => {
               {/* Canvas takes full screen */}
               <div className="flex-1 relative">
                 {is3DMode ? (
-                  <ErrorBoundary onError={(err) => { setWebglError(err); setIs3DMode(false); }}>
+                  <ErrorBoundary sectionName="3D Canvas">
                     <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><AnimatedLoadingSpinner /></div>}>
                       <SimulationCanvas3D
-                        velocity={sim.velocity} angle={sim.angle} gravity={sim.gravity}
                         height={sim.height} trajectoryData={sim.trajectoryData}
+                        prediction={sim.prediction}
                         isAnimating={sim.isAnimating} currentTime={sim.currentTime}
-                        airResistance={sim.airResistance} mass={sim.mass} windSpeed={sim.windSpeed}
+                        airResistance={sim.airResistance} mass={sim.mass}
+                        gravity={sim.gravity}
                         showCriticalPoints={sim.showCriticalPoints} showExternalForces={sim.showExternalForces}
-                        enableBounce={sim.enableBounce}
+                        vectorVisibility={vectorVisibility}
+                        lang={lang} nightMode={sim.nightMode}
+                        playbackSpeed={sim.playbackSpeed}
                         bounceCoefficient={sim.bounceCoefficient} phi={sim.phi} showLiveData={showLiveData}
-                        stroboscopicSettings={stroboscopicSettings}
-                        theme={theme3d}
+                        stroboscopicMarks={stroboscopicMarks}
+                        theme3d={theme3d}
                       />
                     </Suspense>
                   </ErrorBoundary>
                 ) : (
                   <SimulationCanvas
-                    velocity={sim.velocity} angle={sim.angle} gravity={sim.gravity}
-                    trajectoryData={sim.trajectoryData} prediction={sim.prediction}
+                    trajectoryData={sim.trajectoryData}
+                    theoreticalData={[]}
+                    prediction={sim.prediction}
                     currentTime={sim.currentTime} height={sim.height} showCriticalPoints={sim.showCriticalPoints}
                     showExternalForces={sim.showExternalForces} vectorVisibility={vectorVisibility}
-                    airResistance={sim.airResistance} mass={sim.mass} windSpeed={sim.windSpeed}
+                    showAIComparison={false} aiModels={null}
+                    customColors={{trajectory: '#3b82f6', projectile: '#ef4444', velocity: '#22c55e'}}
                     comparisonMode={sim.comparisonMode} savedTrajectory={sim.savedTrajectory}
-                    enableBounce={sim.enableBounce} bounceCoefficient={sim.bounceCoefficient}
-                    isAnimating={sim.isAnimating} isFullscreen={true} showLiveData={showLiveData}
-                    zoom={1} showGrid={showGrid}
-                    stroboscopicSettings={stroboscopicSettings}
+                    multiTrajectoryMode={false} multiTrajectories={[]}
+                    mass={sim.mass} gravity={sim.gravity}
+                    airResistance={sim.airResistance} windSpeed={sim.windSpeed}
+                    T={{}} lang={lang} countdown={null} nightMode={sim.nightMode}
+                    zoom={1} isAnimating={sim.isAnimating} isFullscreen={true} showLiveData={showLiveData}
+                    showGrid={showGrid}
+                    stroboscopicMarks={stroboscopicMarks}
                     equationTrajectory={equationTrajectory}
-                    objectEmoji={activePresetEmoji}
+                    activePresetEmoji={activePresetEmoji}
                     calibrationScale={calibrationScale}
                     environmentId={currentEnvId}
-                    dualTrajectory={dualTrajectory ?? undefined}
                   />
                 )}
               </div>
@@ -1716,7 +1723,7 @@ const Index = () => {
         <AcademicAmbient />
 
         {/* ── Top Nav Bar ── */}
-         <HeaderNav
+        <HeaderNav
           lang={lang}
           T={T}
           isMuted={sim.isMuted}
@@ -1735,11 +1742,6 @@ const Index = () => {
           hasExperimentalData={hasExperimentalData}
           onOpenSettings={() => setShowSettingsPanel(true)}
           onShowRestrictionOverlay={setShowRestrictionOverlay}
-          onApplySimChange={(params) => {
-            if (params.angle !== undefined) sim.setAngle(params.angle);
-            if (params.velocity !== undefined) sim.setVelocity(params.velocity);
-            if (params.environmentId !== undefined) setCurrentEnvId(params.environmentId);
-          }}
         />
 
         {/* ── Main Content ── */}
@@ -1877,46 +1879,23 @@ const Index = () => {
                         units={UNIT_OPTIONS.height.units} lang={lang}
                         onUnitChange={(u) => setSelectedUnits(prev => ({ ...prev, height: u }))}
                       />
-                    </div>
-                    {sim.height < 0 && (
-                      <div className="mt-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 animate-in fade-in slide-in-from-top-1 duration-300">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <ArrowDownToLine className="w-4 h-4 text-amber-500 shrink-0" />
-                            <div className="min-w-0">
-                              <span className="text-xs font-medium text-foreground block">
-                                {lang === 'ar' ? 'فرض الجاذبية والأرض كمحور X' : lang === 'fr' ? 'Forcer le sol à y=0' : 'Force Ground at y=0'}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground block">
-                                {lang === 'ar' ? 'اصطدام المقذوف بالأرض عند العودة لـ y=0' : lang === 'fr' ? 'Le projectile touche le sol en revenant à y=0' : 'Projectile hits ground when returning to y=0'}
-                              </span>
-                            </div>
+                      {sim.height < 0 && (
+                        <div className="col-span-2 flex items-center justify-between mt-1 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-bold text-primary leading-tight">
+                              {lang === 'ar' ? 'فرض الجاذبية والأرض كمحور X' : 'Force Ground as X-axis'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground leading-tight">
+                              {lang === 'ar' ? 'اصطدام المقذوف بالأرض عند العودة لـ y=0' : 'Projectile hits ground at y=0'}
+                            </span>
                           </div>
                           <Switch
                             checked={sim.forceGroundDetection}
-                            onCheckedChange={(checked) => {
-                              sim.setForceGroundDetection(checked);
-                              playToggle(sim.isMuted, checked);
-                              toast.info(
-                                lang === 'ar'
-                                  ? checked
-                                    ? 'تم تفعيل اصطدام الأرض. المقذوف سيتوقف عند y=0 حتى لو بدأ من ارتفاع سالب.'
-                                    : 'تم تعطيل اصطدام الأرض. المقذوف سيستمر في الطيران دون قيود الأرض.'
-                                  : lang === 'fr'
-                                    ? checked
-                                      ? 'Détection du sol activée. Le projectile s\'arrêtera à y=0 même en partant d\'une hauteur négative.'
-                                      : 'Détection du sol désactivée. Le projectile continuera sans contrainte du sol.'
-                                    : checked
-                                      ? 'Ground detection enabled. Projectile will stop at y=0 even when starting from negative height.'
-                                      : 'Ground detection disabled. Projectile will continue flying without ground constraint.',
-                                { icon: <ArrowDownToLine className="w-4 h-4 text-amber-500" /> }
-                              );
-                            }}
+                            onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); playToggle(sim.isMuted, checked); }}
+                            className="scale-75"
                           />
                         </div>
-                      </div>
-                    )}
-                    <div className="mt-3">
+                      )}
                       <ParamInputWithUnit
                         label={lang === 'ar' ? '\u0627\u0644\u0645\u0648\u0636\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a (x\u2080)' : lang === 'fr' ? 'Position initiale (x\u2080)' : 'Initial Position (x\u2080)'}
                         value={getDisplayValue('height', sim.initialX)}
@@ -2007,35 +1986,11 @@ const Index = () => {
                       </span>
                     </button>
                     <ToggleOption label={lang === 'ar' ? '\u0627\u0644\u0646\u0642\u0627\u0637 \u0627\u0644\u062d\u0631\u062c\u0629' : lang === 'fr' ? 'Points Critiques' : 'Critical Points'} active={sim.showCriticalPoints}
-                      onClick={() => {
-                        const newVal = !sim.showCriticalPoints;
-                        sim.setShowCriticalPoints(newVal);
-                        playClick(sim.isMuted);
-                        toast.info(
-                          lang === 'ar'
-                            ? newVal ? 'تم تفعيل النقاط الحرجة. ستظهر نقاط أقصى ارتفاع ونقطة الهبوط على المسار.' : 'تم تعطيل النقاط الحرجة.'
-                            : lang === 'fr'
-                              ? newVal ? 'Points critiques activés. Les points de hauteur max et d\'atterrissage seront affichés.' : 'Points critiques désactivés.'
-                              : newVal ? 'Critical Points enabled. Max height and landing points will be displayed on trajectory.' : 'Critical Points disabled.',
-                          { icon: <Crosshair className="w-4 h-4 text-primary" /> }
-                        );
-                      }} icon={<Crosshair className="w-3.5 h-3.5" />} />
+                      onClick={() => { sim.setShowCriticalPoints(!sim.showCriticalPoints); playClick(sim.isMuted); }} icon={<Crosshair className="w-3.5 h-3.5" />} />
                     <ForceVectorsSection
                       lang={lang}
                       showExternalForces={sim.showExternalForces}
-                      onToggle={() => {
-                        const newVal = !sim.showExternalForces;
-                        sim.setShowExternalForces(newVal);
-                        playClick(sim.isMuted);
-                        toast.info(
-                          lang === 'ar'
-                            ? newVal ? 'تم تفعيل القوى الخارجية. ستظهر متجهات القوى على المسار.' : 'تم تعطيل القوى الخارجية.'
-                            : lang === 'fr'
-                              ? newVal ? 'Forces externes activées. Les vecteurs de force seront affichés.' : 'Forces externes désactivées.'
-                              : newVal ? 'External Forces enabled. Force vectors will be displayed on trajectory.' : 'External Forces disabled.',
-                          { icon: <Eye className="w-4 h-4 text-primary" /> }
-                        );
-                      }}
+                      onToggle={() => { sim.setShowExternalForces(!sim.showExternalForces); playClick(sim.isMuted); }}
                       vectorVisibility={vectorVisibility}
                       onVectorToggle={(key) => { setVectorVisibility(prev => ({ ...prev, [key]: !prev[key] })); playClick(sim.isMuted); }}
                       isWaterEnvironment={currentEnvId === 'underwater'}
@@ -2052,19 +2007,7 @@ const Index = () => {
                       )}
                     </button>
                     <ToggleOption label={lang === 'ar' ? '\u0627\u0631\u062a\u062f\u0627\u062f \u0627\u0644\u0645\u0642\u0630\u0648\u0641' : lang === 'fr' ? 'Rebond du Projectile' : 'Bouncing'} active={sim.enableBounce}
-                      onClick={() => {
-                        const newVal = !sim.enableBounce;
-                        sim.setEnableBounce(newVal);
-                        playToggle(sim.isMuted, newVal);
-                        toast.info(
-                          lang === 'ar'
-                            ? newVal ? 'تم تفعيل ارتداد المقذوف. المقذوف سيرتد عند ملامسة الأرض.' : 'تم تعطيل ارتداد المقذوف.'
-                            : lang === 'fr'
-                              ? newVal ? 'Rebond activé. Le projectile rebondira au contact du sol.' : 'Rebond désactivé.'
-                              : newVal ? 'Bouncing enabled. Projectile will bounce on ground contact.' : 'Bouncing disabled.',
-                          { icon: <ArrowDownUp className="w-4 h-4 text-primary" /> }
-                        );
-                      }} icon={<ArrowDownUp className="w-3.5 h-3.5" />} />
+                      onClick={() => { sim.setEnableBounce(!sim.enableBounce); playToggle(sim.isMuted, !sim.enableBounce); }} icon={<ArrowDownUp className="w-3.5 h-3.5" />} />
                     {sim.enableBounce && (
                       <div className="px-1 pb-1">
                         <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
@@ -2119,31 +2062,11 @@ const Index = () => {
                             integrationMethod: sim.selectedIntegrationMethod,
                           });
                           playClick(sim.isMuted);
-                          toast.success(
-                            lang === 'ar'
-                              ? '\u062a\u0645 \u062d\u0641\u0638 \u0627\u0644\u0645\u0633\u0627\u0631 \u0644\u0644\u0645\u0642\u0627\u0631\u0646\u0629. \u063a\u064a\u0651\u0631 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062a \u0648\u0634\u063a\u0651\u0644 \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629 \u0644\u0631\u0624\u064a\u0629 \u0627\u0644\u0641\u0631\u0642.'
-                              : lang === 'fr'
-                                ? 'Trajectoire sauvegard\u00e9e pour comparaison. Modifiez les param\u00e8tres et simulez pour voir la diff\u00e9rence.'
-                                : 'Trajectory saved for comparison. Change parameters and simulate to see the difference.',
-                            { icon: <Save className="w-4 h-4 text-green-500" /> }
-                          );
                         }}
                           className="group w-full text-xs font-medium text-foreground py-2 px-3 rounded border border-border hover:border-foreground/30 hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5">
                           <Save className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> {T.saveCompare}
                         </button>
-                        <button onClick={() => {
-                          const newVal = !sim.showAIComparison;
-                          sim.setShowAIComparison(newVal);
-                          playClick(sim.isMuted);
-                          toast.info(
-                            lang === 'ar'
-                              ? newVal ? '\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0645\u0642\u0627\u0631\u0646\u0629 \u0646\u0645\u0627\u0630\u062c AI. \u0633\u062a\u0638\u0647\u0631 \u0645\u0633\u0627\u0631\u0627\u062a Euler \u0648 RK4 \u0648 AI-APAS \u0645\u0639\u0627\u064b.' : '\u062a\u0645 \u062a\u0639\u0637\u064a\u0644 \u0645\u0642\u0627\u0631\u0646\u0629 \u0646\u0645\u0627\u0630\u062c AI.'
-                              : lang === 'fr'
-                                ? newVal ? 'Comparaison des mod\u00e8les IA activ\u00e9e. Les trajectoires Euler, RK4 et AI-APAS seront affich\u00e9es.' : 'Comparaison des mod\u00e8les IA d\u00e9sactiv\u00e9e.'
-                                : newVal ? 'AI Model Comparison enabled. Euler, RK4, and AI-APAS trajectories will be displayed together.' : 'AI Model Comparison disabled.',
-                            { icon: <GitBranch className="w-4 h-4 text-primary" /> }
-                          );
-                        }}
+                        <button onClick={() => { sim.setShowAIComparison(!sim.showAIComparison); playClick(sim.isMuted); }}
                           className={`group w-full text-xs font-medium py-2 px-3 rounded flex items-center justify-center gap-1.5 transition-all duration-200 ${
                             sim.showAIComparison
                               ? 'text-primary-foreground bg-primary border border-primary/50 shadow-md'

@@ -191,7 +191,7 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
           windSpeed={windSpeed}
           enableBounce={enableBounce}
           bounceCoefficient={bounceCoefficient}
-          selectedIntegrationMethod={selectedIntegrationMethod}
+          selectedIntegrationMethod={selectedIntegrationMethod as 'ai-apas' | 'euler' | 'rk4'}
           hasExperimentalData={hasExperimentalData}
           trajectoryData={trajectoryData}
         />

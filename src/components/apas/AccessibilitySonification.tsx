@@ -186,12 +186,12 @@ const AccessibilitySonification: React.FC<AccessibilitySonificationProps> = ({
   }, [trajectoryData, minFreq, maxFreq, duration, waveType, heightMapping, speedMapping, stopPlayback]);
 
   const waveTypeLabel = (type: OscillatorType) => {
-    const labels: Record<string, Record<OscillatorType, string>> = {
+    const labels: Record<string, Partial<Record<OscillatorType, string>>> = {
       ar: { sine: t.sine, triangle: t.triangle, square: t.square, sawtooth: t.sawtooth },
       en: { sine: t.sine, triangle: t.triangle, square: t.square, sawtooth: t.sawtooth },
       fr: { sine: t.sine, triangle: t.triangle, square: t.square, sawtooth: t.sawtooth },
     };
-    return (labels[lang] || labels.en)[type];
+    return (labels[lang] || labels.en)[type] || type;
   };
 
   return (

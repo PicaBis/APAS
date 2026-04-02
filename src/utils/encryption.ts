@@ -10,7 +10,7 @@ const IV_LENGTH = 12;
 const SALT_LENGTH = 16;
 
 // Derive a CryptoKey from a passphrase and salt
-async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKey(passphrase: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',

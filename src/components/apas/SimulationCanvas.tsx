@@ -521,24 +521,10 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     let domMinX = rawMinX - padX;
     let domMaxX = rawMaxX + padX;
     
-    // FIX: Ensure SYMMETRIC Y-axis scaling for both positive and negative heights
-    // The key issue: when height is negative, we need fine-grained ticks like positive heights
-    // Solution: Always use rawMinY and rawMaxY for domain calculation, with consistent padding
-    let domMinY = rawMinY - padY;
+    // IF height is negative, we MUST show the negative Y region
+    // Otherwise we show a bit of padding below ground
+    let domMinY = Math.min(rawMinY, height) < -0.1 ? Math.min(rawMinY, height) - padY : -padY * 0.3;
     let domMaxY = rawMaxY + padY;
-    
-    // LIMIT: Prevent canvas from going below -5000 (user requirement)
-    domMinY = Math.max(domMinY, -5000);
-    
-    // Ensure we always see the launch point (height) clearly
-    // If height is outside the trajectory range, expand domain to include it
-    // BUT respect the -5000 minimum limit
-    if (height < domMinY) {
-      domMinY = Math.max(height - padY, -5000);
-    }
-    if (height > domMaxY) {
-      domMaxY = height + padY;
-    }
 
     // When zooming out (zoom < 1), expand the domain to reveal more axes/values
     // The canvas stays full size but shows a wider coordinate range
@@ -697,13 +683,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     };
 
     const tickSpaceX = getTickSpacing(domW, 12);
-    // FIX: For Y-axis, ensure consistent spacing starting from 10 (not -1000)
-    // This makes negative heights visible with the same granularity as positive heights
-    let tickSpaceY = getTickSpacing(domH, 8);
-    // Force minimum tick spacing of 10 for better visibility of small changes
-    if (tickSpaceY < 10) {
-      tickSpaceY = 10;
-    }
+    const tickSpaceY = getTickSpacing(domH, 8);
 
     // Grid lines — only draw when showGrid is enabled
     if (showGrid) {

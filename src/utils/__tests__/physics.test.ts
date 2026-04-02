@@ -213,7 +213,7 @@ describe('getAirDensityAtAltitude', () => {
 
 describe('calculateBuoyancyAcceleration', () => {
   it('should return positive (upward) buoyancy for a light object in water', () => {
-    const result = calculateBuoyancyAcceleration(1, 0.045, 1000, 9.81);
+    const result = calculateBuoyancyAcceleration(1, 0.045, 1000);
     // For a ball with mass 1kg in water, buoyancy should act upward
     expect(result).toBeGreaterThan(0);
   });

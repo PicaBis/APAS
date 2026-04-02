@@ -284,7 +284,7 @@ const LandingPage: React.FC = () => {
   }, [nightMode]);
 
   if (showSplash) {
-    return <SplashScreen lang={lang} onComplete={() => setShowSplash(false)} />;
+    return <SplashScreen lang={lang} onComplete={() => {}} />;
   }
 
   return (
