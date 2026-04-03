@@ -22,7 +22,7 @@ interface Props {
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const MAX_FRAMES = 8;
 
@@ -92,6 +92,7 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const analyzeVideoRef = useRef<(file: File) => void>(() => {});
 
   const close = useCallback(() => {
     setOpen(false);
@@ -188,9 +189,9 @@ export default function ApasVideoButton({ lang, onUpdateParams, onMediaAnalyzed,
       setIsRecording(false);
       setRecordingTime(0);
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-      // Go to preview mode
+      // Auto-analyze the recorded video directly
       setVideoFile(file);
-      setVideoSrc(URL.createObjectURL(file));
+      analyzeVideoRef.current(file);
     };
     mediaRecorderRef.current = recorder;
     recorder.start(100);
@@ -479,6 +480,9 @@ Output in JSON format inside a code block at the end:
       setLoading(false);
     }
   }, [lang, isAr, onUpdateParams, onMediaAnalyzed, onAutoRun, onDetectedMedia, onAnalysisComplete, user?.id]);
+
+  // Keep ref in sync so recorder.onstop can call it
+  useEffect(() => { analyzeVideoRef.current = analyzeVideo; }, [analyzeVideo]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

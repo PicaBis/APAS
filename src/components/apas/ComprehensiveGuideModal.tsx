@@ -495,9 +495,9 @@ function ToolsSection({ lang }: { lang: string }) {
 
       <SubSection title={t('تسجيل المحاكاة', 'Simulation Recording', 'Enregistrement de Simulation')}>
         <p>{t(
-          'اضغط على زر التسجيل (Rec) في شريط أدوات الكانفاس لبدء تسجيل فيديو للمحاكاة. بعد الانتهاء من التسجيل يمكنك معاينة الفيديو وتحميله بصيغة WebM. يتم التسجيل بالقرارة العالية بسرعة 30 إطار بالثانية.',
-          'Click the Record (Rec) button in the canvas toolbar to start recording a video of the simulation. After recording completes, you can preview the video and download it as WebM format. Recording is done at high quality at 30 frames per second.',
-          'Cliquez sur le bouton Enregistrement (Rec) pour commencer l\'enregistrement. Aperçu et téléchargement en WebM. Qualité élevée à 30 fps.'
+          'تسجيل فيديو للمحاكاة وتصديره كملف MP4 أو WebM. يمكن ضبط جودة التسجيل ومدته.',
+          'Record simulation video and export as MP4 or WebM. Recording quality and duration are adjustable.',
+          'Enregistrer la simulation en vidéo et exporter en MP4 ou WebM.'
         )}</p>
       </SubSection>
     </div>
@@ -550,7 +550,7 @@ function SettingsSection({ lang }: { lang: string }) {
         )}</p>
       </SubSection>
 
-      <SubSection title={t('وضع الثلاثي الأبعاد', '3D Theme', 'Thème 3D')}>
+      <SubSection title={t('ثيم 3D', '3D Theme', 'Thème 3D')}>
         <GuideItem label={t('مختبر محسّن', 'Refined Lab', 'Labo Raffiné')} desc={t('المظهر الافتراضي مع إضاءة متوازنة وخلفية رمادية', 'Default appearance with balanced lighting and gray background', 'Apparence par défaut avec éclairage équilibré')} />
         <GuideItem label={t('أكاديمي أبيض', 'Academic White', 'Blanc Académique')} desc={t('خلفية بيضاء نظيفة مناسبة للنشر والطباعة الأكاديمية', 'Clean white background suitable for academic publishing and printing', 'Fond blanc propre pour la publication académique')} />
         <GuideItem label={t('تقني داكن', 'Technical Dark', 'Technique Sombre')} desc={t('وضع مظلم عالي التقنية مع إضاءة دراماتيكية', 'High-tech dark mode with dramatic lighting', 'Mode sombre haute technologie avec éclairage dramatique')} />

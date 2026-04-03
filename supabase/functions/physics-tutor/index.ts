@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { aiStream } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
+const MISTRAL_MODEL = "mistral-large-latest";
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -14,7 +16,13 @@ serve(async (req) => {
   try {
     const { messages, simulationContext, systemPrompt: clientSystemPrompt } = await req.json();
 
+    const MISTRAL_API_KEY = Deno.env.get("MISTRAL_API_KEY");
+    if (!MISTRAL_API_KEY) {
+      throw new Error("MISTRAL_API_KEY is not configured");
+    }
+
     const defaultSystemPrompt = `You are APAS Physics Tutor — an expert, passionate physics teacher specializing in projectile motion, kinematics, and classical mechanics.
+You are also a helpful general-purpose assistant: if the student asks about the app, its features, or any non-physics topic, answer helpfully and conversationally.
 
 LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
 - You MUST respond ONLY in the same language the student uses: Arabic or English.
@@ -24,19 +32,17 @@ LANGUAGE RULES (ABSOLUTELY CRITICAL — VIOLATION IS UNACCEPTABLE):
 - إذا كتب الطالب بالعربية، اكتب كل شيء بالعربية الفصحى الواضحة. لا تستخدم أي لغة أخرى مطلقاً.
 
 Your personality:
-- You are lively, enthusiastic, and interactive! Show genuine excitement about physics! 🚀
-- Use emojis generously to make responses engaging and fun (🎯 📐 🔬 💡 ⚡ 🌟 📊 🎓 ✨ 🔥 👏 etc.)
-- Start each response with a friendly greeting or encouraging reaction
-- Use analogies and real-world examples to explain concepts
-- Be warm and motivating — make the student feel excited about learning
-- Ask follow-up questions to keep the conversation going
-- Celebrate good questions with phrases like "سؤال ممتاز! 🌟" or "Great question! 🎯"
+- You are professional, knowledgeable, and approachable.
+- Use a maximum of 2 emojis per response. Do NOT overuse emojis.
+- Be warm but concise — no excessive enthusiasm or filler.
+- Use analogies and real-world examples to explain concepts.
+- Ask follow-up questions when helpful to keep the conversation going.
 
 FORMATTING RULES:
 - Use **bold** for key terms and important concepts
 - Use bullet points (- ) for lists, one idea per bullet
 - Add blank lines between sections for visual breathing room
-- Use ## for section headings with an emoji before each heading
+- Use ## for section headings
 - Keep each point concise (1-2 sentences max)
 - Make the text scannable — avoid long dense paragraphs
 - Use numbered lists (1. 2. 3.) for step-by-step explanations
@@ -74,19 +80,44 @@ ${simulationContext.flightTime ? `- Flight time: ${simulationContext.flightTime}
 
 Use these values to give contextual explanations when relevant.` : "No simulation is currently active."}`;
 
-    // Use client-provided systemPrompt if available (e.g. from ApasRecommendations),
-    // otherwise use the default physics tutor prompt
     const finalSystemPrompt = clientSystemPrompt || defaultSystemPrompt;
 
-    const { body } = await aiStream({
-      modelType: "chat",
-      messages: [
-        { role: "system", content: finalSystemPrompt },
-        ...messages,
-      ],
+    console.log("[physics-tutor] Calling Mistral API...");
+
+    const response = await fetch(MISTRAL_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${MISTRAL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MISTRAL_MODEL,
+        messages: [
+          { role: "system", content: finalSystemPrompt },
+          ...messages,
+        ],
+        temperature: 0.4,
+        max_tokens: 4000,
+        stream: true,
+      }),
     });
 
-    return new Response(body, {
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[physics-tutor] Mistral error ${response.status}: ${errText}`);
+      
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limited. Please try again." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`Mistral API error: ${response.status}`);
+    }
+
+    console.log("[physics-tutor] Mistral streaming connected");
+
+    return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {

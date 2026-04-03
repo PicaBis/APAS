@@ -28,12 +28,11 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes('three')) return 'three-vendor';
-          if (id.includes('recharts')) return 'chart-vendor';
-          if (id.includes('jspdf')) return 'pdf-vendor';
-          if (id.includes('react-markdown')) return 'markdown-vendor';
-          if (id.includes('katex')) return 'math-vendor';
+        manualChunks: {
+          'three-vendor': ['three', 'three-stdlib'],
+          'chart-vendor': ['recharts'],
+          'pdf-vendor': ['jspdf'],
+          'markdown-vendor': ['react-markdown'],
         },
       },
     },

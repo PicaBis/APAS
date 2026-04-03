@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, FolderOpen, Trash2, ChevronDown, Download, Upload, X } from 'lucide-react';
 import { playClick, playUIClick, playSectionToggle } from '@/utils/sound';
-import { toast } from 'sonner';
 
 export interface SessionData {
   name: string;
@@ -95,14 +94,6 @@ export default function SessionManager({
     setSessions(updated);
     setSessionName('');
     playUIClick(muted);
-    toast.success(
-      isAr
-        ? `\u062a\u0645 \u062d\u0641\u0638 \u0627\u0644\u062c\u0644\u0633\u0629 "${name}" \u0628\u0646\u062c\u0627\u062d.`
-        : lang === 'fr'
-          ? `Session "${name}" sauvegard\u00e9e avec succ\u00e8s.`
-          : `Session "${name}" saved successfully.`,
-      { icon: <Save className="w-4 h-4 text-green-500" /> }
-    );
   };
 
   const handleDelete = (index: number) => {

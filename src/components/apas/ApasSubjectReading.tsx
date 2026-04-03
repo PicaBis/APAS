@@ -8,7 +8,7 @@ import { checkFileSize, analyzeImageQuality, getIssueMessage } from '@/utils/med
 import { cleanLatex } from '@/utils/cleanLatex';
 
 const SUPABASE_EDGE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_EDGE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_EDGE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const EDGE_SUBJECT_URL = `${SUPABASE_EDGE_URL}/functions/v1/subject-reading`;
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
   onUpdateParams: (params: { velocity?: number; angle?: number; height?: number; mass?: number; objectType?: string }) => void;
   autoOpen?: boolean;
   onDismiss?: () => void;
-  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; params?: { velocity?: number; angle?: number; height?: number; mass?: number } }) => void;
+  onAnalysisComplete?: (entry: { type: 'vision' | 'video' | 'subject' | 'voice'; report: string; params?: { velocity?: number; angle?: number; height?: number; mass?: number }; mediaSrc?: string; mediaType?: 'video' | 'image' }) => void;
 }
 
 interface SubjectData {
@@ -344,11 +344,7 @@ You MUST also provide a JSON block at the end with the FINAL CALCULATED VALUES t
                   angle: ed.angle || 0,
                   height: ed.height || 0,
                   mass: ed.mass || 1,
-                  isOutdoor: false, // Exercises are usually ideal/indoor logic unless specified
-                  objectType: ed.objectType || 'ball'
                 },
-                mediaSrc: previewUrl || undefined,
-                mediaType: 'image'
               });
               toast.success(isAr ? 'تم استخراج بيانات التمرين وتطبيقها على المحاكاة' : 'Exercise data extracted and applied to simulation');
             }
