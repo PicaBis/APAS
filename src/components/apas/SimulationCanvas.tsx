@@ -703,7 +703,23 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       return niceNum(roughSpacing, true);
     };
 
-    const tickSpaceX = getTickSpacing(domW, 12);
+    // Calculate minimum pixel spacing needed for x-axis labels to prevent overlap
+    const getOptimalTickSpacingX = (range: number, plotWidth: number) => {
+      if (range <= 0 || plotWidth <= 0) return 1;
+      
+      // Estimate label width based on font size and typical number format
+      const estimatedLabelWidth = tickFontSize * 3.5; // Approximate width for numbers like "12.5"
+      const minPixelSpacing = estimatedLabelWidth + 8; // Add padding between labels
+      
+      // Calculate how many ticks we can fit without overlap
+      const maxPossibleTicks = Math.floor(plotWidth / minPixelSpacing);
+      const targetTicks = Math.min(12, Math.max(4, maxPossibleTicks)); // Between 4-12 ticks
+      
+      const roughSpacing = range / targetTicks;
+      return niceNum(roughSpacing, true);
+    };
+
+    const tickSpaceX = getOptimalTickSpacingX(domW, plotW);
     const tickSpaceY = getTickSpacing(domH, 8);
 
     // Grid lines — only draw when showGrid is enabled
