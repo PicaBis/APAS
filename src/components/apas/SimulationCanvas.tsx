@@ -703,6 +703,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       return niceNum(roughSpacing, true);
     };
 
+    // ── Tick labels ──
+    const tickFontSize = Math.round(12 * sf * labelScale);
+
     // Calculate minimum pixel spacing needed for x-axis labels to prevent overlap
     const getOptimalTickSpacingX = (range: number, plotWidth: number) => {
       if (range <= 0 || plotWidth <= 0) return 1;
@@ -814,9 +817,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       ctx.arc(originX, groundY, 4, 0, Math.PI * 2);
       ctx.fill();
     }
-
-    // ── Tick labels ──
-    const tickFontSize = Math.round(12 * sf * labelScale);
 
     ctx.fillStyle = axisLabelColor;
     ctx.font = `bold ${Math.max(9, tickFontSize)}px IBM Plex Mono, monospace`;
