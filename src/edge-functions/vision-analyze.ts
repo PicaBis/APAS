@@ -507,4 +507,4 @@ export async function visionAnalyzeHandler(req: Request): Promise<Response> {
       },
     );
   }
-});
+}
