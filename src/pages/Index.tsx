@@ -179,6 +179,7 @@ const Index = () => {
   const [showRestrictionOverlay, setShowRestrictionOverlay] = useState<string | null>(null);
   const [dragCd, setDragCd] = useState(0.47);
   const [airDensity, setAirDensity] = useState(1.225);
+  const [crossSectionA, setCrossSectionA] = useState(0.01);
   const [savedSnapshot, setSavedSnapshot] = useState<SavedSnapshotData | null>(null);
   const [methodChangePulse, setMethodChangePulse] = useState(false);
   const [vectorVisibility, setVectorVisibility] = useState<VectorVisibility>({
@@ -888,10 +889,10 @@ const Index = () => {
                         <Slider value={[sim.height]} min={-5000} max={5000} step={0.5} onValueChange={([val]) => sim.setHeight(val)} className="h-4 touch-manipulation" />
                         {sim.height < 0 && (
                           <div className="flex items-center justify-between p-2 bg-primary/5 rounded-lg border border-primary/20">
-                            <span className="text-[10px] font-bold text-primary">
+                            <span className="text-[10px] font-bold text-primary truncate flex-1">
                               {lang === 'ar' ? 'فرض الأرض كمحور X' : 'Force Ground at y=0'}
                             </span>
-                            <Switch checked={sim.forceGroundDetection} onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); }} className="scale-75" />
+                            <Switch checked={sim.forceGroundDetection} onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); }} className="scale-75 shrink-0 ml-2" />
                           </div>
                         )}
                       </div>
@@ -928,6 +929,12 @@ const Index = () => {
                           </div>
                           <Slider value={[sim.airResistance]} min={0} max={0.1} step={0.001}
                             onValueChange={([v]) => { sim.setAirResistance(v); playSliderChange(sim.isMuted); }} />
+                          <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
+                            <span>Cd ({lang === 'ar' ? 'معامل السحب' : 'Drag shape'})</span>
+                            <span className="font-mono">{dragCd.toFixed(2)}</span>
+                          </div>
+                          <Slider value={[dragCd]} min={0.1} max={2.0} step={0.01}
+                            onValueChange={([v]) => { setDragCd(v); playSliderChange(sim.isMuted); }} />
                           {/* Wind Speed */}
                           <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
                             <span>{lang === 'ar' ? 'سرعة الرياح' : 'Wind Speed'} (m/s)</span>
@@ -935,6 +942,12 @@ const Index = () => {
                           </div>
                           <Slider value={[sim.windSpeed]} min={-100} max={100} step={1}
                             onValueChange={([v]) => sim.setWindSpeed(v)} />
+                          <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
+                            <span>A ({lang === 'ar' ? 'المقطع العرضي' : 'Cross-section'}) m²</span>
+                            <span className="font-mono">{crossSectionA.toFixed(4)}</span>
+                          </div>
+                          <Slider value={[crossSectionA]} min={0.0001} max={1.0} step={0.0001}
+                            onValueChange={([v]) => { setCrossSectionA(v); playSliderChange(sim.isMuted); }} />
                         </div>
                       )}
                     </div>
@@ -1880,20 +1893,22 @@ const Index = () => {
                         onUnitChange={(u) => setSelectedUnits(prev => ({ ...prev, height: u }))}
                       />
                       {sim.height < 0 && (
-                        <div className="col-span-2 flex items-center justify-between mt-1 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-bold text-primary leading-tight">
-                              {lang === 'ar' ? 'فرض الجاذبية والأرض كمحور X' : 'Force Ground as X-axis'}
-                            </span>
-                            <span className="text-[9px] text-muted-foreground leading-tight">
-                              {lang === 'ar' ? 'اصطدام المقذوف بالأرض عند العودة لـ y=0' : 'Projectile hits ground at y=0'}
-                            </span>
+                        <div className="col-span-2 mt-1">
+                          <div className="flex items-center justify-between p-2 bg-primary/5 rounded-lg border border-primary/20">
+                            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                              <span className="text-[10px] font-bold text-primary leading-tight truncate">
+                                {lang === 'ar' ? 'فرض الأرض كمحور X' : 'Force Ground as X-axis'}
+                              </span>
+                              <span className="text-[9px] text-muted-foreground leading-tight truncate">
+                                {lang === 'ar' ? 'اصطدام المقذوف عند y=0' : 'Projectile hits ground at y=0'}
+                              </span>
+                            </div>
+                            <Switch
+                              checked={sim.forceGroundDetection}
+                              onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); playToggle(sim.isMuted, checked); }}
+                              className="scale-75 shrink-0 ml-2"
+                            />
                           </div>
-                          <Switch
-                            checked={sim.forceGroundDetection}
-                            onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); playToggle(sim.isMuted, checked); }}
-                            className="scale-75"
-                          />
                         </div>
                       )}
                       <ParamInputWithUnit
@@ -1949,6 +1964,14 @@ const Index = () => {
                           <Slider value={[airDensity]} min={0.5} max={2.0} step={0.001}
                             onValueChange={([v]) => { setAirDensity(v); playSliderChange(sim.isMuted); }} />
                         </div>
+                        <div>
+                          <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>A ({lang === 'ar' ? 'المقطع العرضي' : lang === 'fr' ? 'Section transversale' : 'Cross-section'}) m&sup2;</span>
+                            <span className="font-mono">{crossSectionA.toFixed(4)}</span>
+                          </div>
+                          <Slider value={[crossSectionA]} min={0.0001} max={1.0} step={0.0001}
+                            onValueChange={([v]) => { setCrossSectionA(v); playSliderChange(sim.isMuted); }} />
+                        </div>
                         <p className="text-[9px] text-muted-foreground text-center border-t border-border pt-1.5 mt-1">
                           F_d = &frac12; &middot; Cd &middot; &rho; &middot; A &middot; (v - v_wind)&sup2;
                         </p>
@@ -1986,11 +2009,11 @@ const Index = () => {
                       </span>
                     </button>
                     <ToggleOption label={lang === 'ar' ? '\u0627\u0644\u0646\u0642\u0627\u0637 \u0627\u0644\u062d\u0631\u062c\u0629' : lang === 'fr' ? 'Points Critiques' : 'Critical Points'} active={sim.showCriticalPoints}
-                      onClick={() => { sim.setShowCriticalPoints(!sim.showCriticalPoints); playClick(sim.isMuted); }} icon={<Crosshair className="w-3.5 h-3.5" />} />
+                      onClick={() => { sim.setShowCriticalPoints(!sim.showCriticalPoints); playClick(sim.isMuted); toast.info(!sim.showCriticalPoints ? (lang === 'ar' ? 'إظهار نقاط القمة والسقوط على المسار' : 'Showing apex and landing points on trajectory') : (lang === 'ar' ? 'تم إخفاء النقاط الحرجة' : 'Critical points hidden'), { duration: 2000 }); }} icon={<Crosshair className="w-3.5 h-3.5" />} />
                     <ForceVectorsSection
                       lang={lang}
                       showExternalForces={sim.showExternalForces}
-                      onToggle={() => { sim.setShowExternalForces(!sim.showExternalForces); playClick(sim.isMuted); }}
+                      onToggle={() => { sim.setShowExternalForces(!sim.showExternalForces); playClick(sim.isMuted); toast.info(!sim.showExternalForces ? (lang === 'ar' ? 'إظهار أشعة القوى المؤثرة على المقذوف' : 'Showing force vectors acting on projectile') : (lang === 'ar' ? 'تم إخفاء الأشعة' : 'Force vectors hidden'), { duration: 2000 }); }}
                       vectorVisibility={vectorVisibility}
                       onVectorToggle={(key) => { setVectorVisibility(prev => ({ ...prev, [key]: !prev[key] })); playClick(sim.isMuted); }}
                       isWaterEnvironment={currentEnvId === 'underwater'}
@@ -2007,7 +2030,7 @@ const Index = () => {
                       )}
                     </button>
                     <ToggleOption label={lang === 'ar' ? '\u0627\u0631\u062a\u062f\u0627\u062f \u0627\u0644\u0645\u0642\u0630\u0648\u0641' : lang === 'fr' ? 'Rebond du Projectile' : 'Bouncing'} active={sim.enableBounce}
-                      onClick={() => { sim.setEnableBounce(!sim.enableBounce); playToggle(sim.isMuted, !sim.enableBounce); }} icon={<ArrowDownUp className="w-3.5 h-3.5" />} />
+                      onClick={() => { sim.setEnableBounce(!sim.enableBounce); playToggle(sim.isMuted, !sim.enableBounce); toast.info(!sim.enableBounce ? (lang === 'ar' ? 'المقذوف سيرتد عن الأرض بمعامل ارتداد قابل للضبط' : 'Projectile will bounce with adjustable restitution') : (lang === 'ar' ? 'تم تعطيل الارتداد' : 'Bouncing disabled'), { duration: 2000 }); }} icon={<ArrowDownUp className="w-3.5 h-3.5" />} />
                     {sim.enableBounce && (
                       <div className="px-1 pb-1">
                         <div className="flex justify-between text-[10px] text-muted-foreground mb-1">

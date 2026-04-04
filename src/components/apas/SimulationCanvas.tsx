@@ -523,8 +523,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     
     // IF height is negative, we MUST show the negative Y region
     // Otherwise we show a bit of padding below ground
-    let domMinY = Math.min(rawMinY, height) < -0.1 ? Math.min(rawMinY, height) - padY : -padY * 0.3;
-    let domMaxY = rawMaxY + padY;
+    let domMinY = Math.min(rawMinY, height) < -0.1 ? Math.max(Math.min(rawMinY, height) - padY, -5000) : -padY * 0.3;
+    let domMaxY = Math.min(rawMaxY + padY, 5000);
 
     // When zooming out (zoom < 1), expand the domain to reveal more axes/values
     // The canvas stays full size but shows a wider coordinate range

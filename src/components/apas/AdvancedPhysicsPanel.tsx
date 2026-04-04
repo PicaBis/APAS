@@ -4,7 +4,7 @@
  */
 
 import React, { useState, Suspense, lazy } from 'react';
-import { ChevronDown, Cloud, Zap, Droplets, RotateCw, Thermometer } from 'lucide-react';
+import { ChevronDown, Cloud, Zap, Droplets, RotateCw, Thermometer, Lock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -229,10 +229,38 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
     }
   };
 
-  const handleToggle = (setter: (value: boolean) => void, current: boolean) => {
-    setter(!current);
-    playToggle(false, !current);
+  // Feedback descriptions for switches
+  const switchFeedback: Record<string, { ar: string; en: string; fr: string }> = {
+    coriolis: { ar: 'يحاكي انحراف المقذوف بسبب دوران الأرض — يؤثر على المسارات الطويلة', en: 'Simulates projectile deflection due to Earth rotation — affects long-range trajectories', fr: 'Simule la déviation due à la rotation terrestre — affecte les trajectoires longues' },
+    centrifugal: { ar: 'يضيف قوة طاردة مركزية بسبب الإطار الدوار — يعدل المسار قليلاً', en: 'Adds centrifugal force from rotating frame — slightly modifies trajectory', fr: 'Ajoute la force centrifuge du repère tournant — modifie légèrement la trajectoire' },
+    relativeMotion: { ar: 'يحسب الحركة من منصة متحركة — كالرمي من سيارة متحركة', en: 'Computes motion from a moving platform — like throwing from a moving car', fr: 'Calcule le mouvement depuis une plateforme mobile — comme un lancer depuis une voiture' },
+    magnus: { ar: 'يحاكي انحراف الكرة الدوارة — كالتأثير على كرة القدم', en: 'Simulates spinning ball deflection — like the curve on a soccer ball', fr: 'Simule la déviation d\'une balle en rotation — comme l\'effet sur un ballon' },
+    gyroscopic: { ar: 'يحسب تأثير البدارية والاستقرار الجيروسكوبي على المقذوف', en: 'Computes precession and gyroscopic stabilization of the projectile', fr: 'Calcule la précession et la stabilisation gyroscopique du projectile' },
+    ballisticStability: { ar: 'يعدل السحب حسب استقرار الدوران — يحسن دقة المقذوفات السريعة', en: 'Modifies drag based on spin stability — improves accuracy for fast projectiles', fr: 'Modifie la traînée selon la stabilité de rotation — améliore la précision' },
+    altitudeDensity: { ar: 'كثافة الهواء تتناقص مع الارتفاع — يؤثر على المقذوفات العالية', en: 'Air density decreases with altitude — affects high-altitude projectiles', fr: 'La densité de l\'air diminue avec l\'altitude — affecte les projectiles en hauteur' },
+    environmentCoupling: { ar: 'يربط درجة الحرارة والضغط والرطوبة بكثافة الهواء تلقائياً', en: 'Links temperature, pressure & humidity to air density automatically', fr: 'Lie température, pression & humidité à la densité de l\'air automatiquement' },
+    weatherIntegration: { ar: 'يجلب بيانات الطقس الحقيقية لموقعك لتحسين المحاكاة', en: 'Fetches real weather data for your location to improve simulation', fr: 'Récupère les données météo réelles pour améliorer la simulation' },
+    underwater: { ar: 'يحول البيئة إلى تحت الماء — كثافة مائع عالية وسحب قوي', en: 'Switches to underwater environment — high fluid density and strong drag', fr: 'Passe en environnement sous-marin — haute densité de fluide et forte traînée' },
+    buoyancy: { ar: 'يضيف قوة الطفو (أرخميدس) — تدفع المقذوف للأعلى في المائع', en: 'Adds buoyancy force (Archimedes) — pushes projectile up in fluid', fr: 'Ajoute la poussée d\'Archimède — pousse le projectile vers le haut dans le fluide' },
+    fluidPressure: { ar: 'يحسب تأثير ضغط المائع المتغير على المقذوف', en: 'Computes variable fluid pressure effects on the projectile', fr: 'Calcule les effets de pression variable du fluide sur le projectile' },
+    hydrodynamicDrag: { ar: 'يحاكي مقاومة السحب في الماء — أقوى بكثير من الهواء', en: 'Simulates water drag resistance — much stronger than air', fr: 'Simule la résistance de traînée dans l\'eau — beaucoup plus forte que l\'air' },
+  };
+
+  const handleToggle = (setter: (value: boolean) => void, current: boolean, feedbackKey?: string) => {
+    const newVal = !current;
+    setter(newVal);
+    playToggle(false, newVal);
     onPhysicsChange?.();
+    if (feedbackKey && switchFeedback[feedbackKey]) {
+      const fb = switchFeedback[feedbackKey];
+      const msg = lang === 'ar' ? fb.ar : lang === 'fr' ? fb.fr : fb.en;
+      if (newVal) {
+        toast.info(msg, { duration: 3000 });
+      } else {
+        const offMsg = lang === 'ar' ? 'تم التعطيل' : lang === 'fr' ? 'Désactivé' : 'Disabled';
+        toast.info(offMsg, { duration: 1500 });
+      }
+    }
   };
 
   const handleParamChange = () => {
@@ -276,7 +304,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('coriolis', lang)}</span>
                 <Switch
                   checked={advanced.enableCoriolis}
-                  onCheckedChange={() => handleToggle(advanced.setEnableCoriolis, advanced.enableCoriolis)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableCoriolis, advanced.enableCoriolis, "coriolis")}
                 />
               </div>
               {advanced.enableCoriolis && (
@@ -297,7 +325,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('centrifugal', lang)}</span>
                 <Switch
                   checked={advanced.enableCentrifugal}
-                  onCheckedChange={() => handleToggle(advanced.setEnableCentrifugal, advanced.enableCentrifugal)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableCentrifugal, advanced.enableCentrifugal, "centrifugal")}
                 />
               </div>
               {advanced.enableCentrifugal && (
@@ -311,7 +339,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('relativeMotion', lang)}</span>
                 <Switch
                   checked={advanced.enableRelativeMotion}
-                  onCheckedChange={() => handleToggle(advanced.setEnableRelativeMotion, advanced.enableRelativeMotion)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableRelativeMotion, advanced.enableRelativeMotion, "relativeMotion")}
                 />
               </div>
               {advanced.enableRelativeMotion && (
@@ -377,7 +405,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('underwater', lang)}</span>
                 <Switch
                   checked={advanced.isUnderwater}
-                  onCheckedChange={() => handleToggle(advanced.setIsUnderwater, advanced.isUnderwater)}
+                  onCheckedChange={() => handleToggle(advanced.setIsUnderwater, advanced.isUnderwater, "underwater")}
                 />
               </div>
               {advanced.isUnderwater && (
@@ -398,7 +426,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('buoyancy', lang)}</span>
                 <Switch
                   checked={advanced.enableBuoyancy}
-                  onCheckedChange={() => handleToggle(advanced.setEnableBuoyancy, advanced.enableBuoyancy)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableBuoyancy, advanced.enableBuoyancy, "buoyancy")}
                 />
               </div>
 
@@ -407,7 +435,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('fluidPressure', lang)}</span>
                 <Switch
                   checked={advanced.enableFluidPressure}
-                  onCheckedChange={() => handleToggle(advanced.setEnableFluidPressure, advanced.enableFluidPressure)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableFluidPressure, advanced.enableFluidPressure, "fluidPressure")}
                 />
               </div>
 
@@ -416,7 +444,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('hydrodynamicDrag', lang)}</span>
                 <Switch
                   checked={advanced.enableHydrodynamicDrag}
-                  onCheckedChange={() => handleToggle(advanced.setEnableHydrodynamicDrag, advanced.enableHydrodynamicDrag)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableHydrodynamicDrag, advanced.enableHydrodynamicDrag, "hydrodynamicDrag")}
                 />
               </div>
             </div>
@@ -438,7 +466,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('magnus', lang)}</span>
                 <Switch
                   checked={advanced.enableMagnus}
-                  onCheckedChange={() => handleToggle(advanced.setEnableMagnus, advanced.enableMagnus)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableMagnus, advanced.enableMagnus, "magnus")}
                 />
               </div>
               {advanced.enableMagnus && (
@@ -467,7 +495,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('gyroscopic', lang)}</span>
                 <Switch
                   checked={advanced.enableGyroscopic}
-                  onCheckedChange={() => handleToggle(advanced.setEnableGyroscopic, advanced.enableGyroscopic)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableGyroscopic, advanced.enableGyroscopic, "gyroscopic")}
                 />
               </div>
               {advanced.enableGyroscopic && (
@@ -481,7 +509,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('ballisticStability', lang)}</span>
                 <Switch
                   checked={advanced.enableBallisticStability}
-                  onCheckedChange={() => handleToggle(advanced.setEnableBallisticStability, advanced.enableBallisticStability)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableBallisticStability, advanced.enableBallisticStability, "ballisticStability")}
                 />
               </div>
               {advanced.enableBallisticStability && (
@@ -506,7 +534,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('altitudeDensity', lang)}</span>
                 <Switch
                   checked={advanced.enableAltitudeDensity}
-                  onCheckedChange={() => handleToggle(advanced.setEnableAltitudeDensity, advanced.enableAltitudeDensity)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableAltitudeDensity, advanced.enableAltitudeDensity, "altitudeDensity")}
                 />
               </div>
 
@@ -515,7 +543,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('environmentCoupling', lang)}</span>
                 <Switch
                   checked={advanced.enableEnvironmentalCoupling}
-                  onCheckedChange={() => handleToggle(advanced.setEnableEnvironmentalCoupling, advanced.enableEnvironmentalCoupling)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableEnvironmentalCoupling, advanced.enableEnvironmentalCoupling, "environmentCoupling")}
                 />
               </div>
               {advanced.enableEnvironmentalCoupling && (
@@ -552,7 +580,7 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
                 <span className="text-xs font-medium text-foreground">{T('weatherIntegration', lang)}</span>
                 <Switch
                   checked={advanced.enableWeatherIntegration}
-                  onCheckedChange={() => handleToggle(advanced.setEnableWeatherIntegration, advanced.enableWeatherIntegration)}
+                  onCheckedChange={() => handleToggle(advanced.setEnableWeatherIntegration, advanced.enableWeatherIntegration, "weatherIntegration")}
                 />
               </div>
               {advanced.enableWeatherIntegration && (
@@ -593,23 +621,25 @@ export const AdvancedPhysicsPanel: React.FC<AdvancedPhysicsPanelProps> = ({ lang
             </div>
           )}
 
-          {/* Drag Coefficient (global) */}
-          <div className="pt-2 border-t border-border">
-            <div>
-              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                <span>{T('dragCoefficient', lang)}</span>
-                <span className="font-mono">{advanced.dragCoefficient.toFixed(2)}</span>
-              </div>
-              <Slider value={[advanced.dragCoefficient]} min={0.1} max={2.0} step={0.01}
-                onValueChange={([v]) => { advanced.setDragCoefficient(v); handleParamChange(); }} />
-            </div>
-          </div>
-
-          {/* Relativity & Reference Frames (embedded) */}
+          {/* Relativity & Reference Frames — LOCKED / Under Development */}
           {relativity && (
-            <Suspense fallback={null}>
-              <RelativityPanel lang={lang} relativity={relativity} onPhysicsChange={onPhysicsChange} muted={muted} />
-            </Suspense>
+            <div className="pt-2 border-t border-border">
+              <div className="relative rounded-xl border border-border/50 bg-secondary/30 p-4 opacity-60 pointer-events-none select-none">
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-background/70 backdrop-blur-[2px] rounded-xl">
+                  <Lock className="w-6 h-6 text-muted-foreground mb-1.5" />
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {lang === 'ar' ? 'قيد التطوير' : lang === 'fr' ? 'En développement' : 'Under Development'}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground/70 mt-0.5">
+                    {lang === 'ar' ? 'ستتوفر قريباً' : lang === 'fr' ? 'Bientôt disponible' : 'Coming soon'}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-foreground flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-primary" />
+                  {lang === 'ar' ? 'النسبية والأطر المرجعية' : lang === 'fr' ? 'Relativité & Référentiels' : 'Relativity & Reference Frames'}
+                </p>
+              </div>
+            </div>
           )}
 
           {/* Info */}
