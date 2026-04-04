@@ -697,33 +697,35 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       return nice * Math.pow(10, exp);
     };
 
-    const getTickSpacing = (range: number, maxTicks: number) => {
-      if (range <= 0) return 1;
-      const roughSpacing = range / maxTicks;
-      return niceNum(roughSpacing, true);
+    // ── Tick Strategy Configuration ──
+    const tickStrategy = {
+      // Maximum number of ticks to display on each axis to prevent overlap
+      maxTicksX: 10, // Limit x-axis to maximum 10 labels for clarity
+      maxTicksY: 8,  // Y-axis already works well with 8 ticks
+      
+      // Minimum pixel spacing between labels to ensure readability
+      minPixelSpacing: tickFontSize * 4, // 4x font size for comfortable reading
+      
+      // Smart tick calculation that adapts to data range
+      calculateOptimalSpacing: (range: number, plotWidth: number, maxTicks: number) => {
+        if (range <= 0 || plotWidth <= 0) return 1;
+        
+        // Calculate how many ticks we can fit based on pixel spacing
+        const maxPossibleTicks = Math.floor(plotWidth / (tickFontSize * 4));
+        const targetTicks = Math.min(maxTicks, Math.max(3, maxPossibleTicks));
+        
+        // Use nice number algorithm for clean intervals
+        const roughSpacing = range / targetTicks;
+        return niceNum(roughSpacing, true);
+      }
     };
 
     // ── Tick labels ──
     const tickFontSize = Math.round(12 * sf * labelScale);
 
-    // Calculate minimum pixel spacing needed for x-axis labels to prevent overlap
-    const getOptimalTickSpacingX = (range: number, plotWidth: number) => {
-      if (range <= 0 || plotWidth <= 0) return 1;
-      
-      // Estimate label width based on font size and typical number format
-      const estimatedLabelWidth = tickFontSize * 3.5; // Approximate width for numbers like "12.5"
-      const minPixelSpacing = estimatedLabelWidth + 8; // Add padding between labels
-      
-      // Calculate how many ticks we can fit without overlap
-      const maxPossibleTicks = Math.floor(plotWidth / minPixelSpacing);
-      const targetTicks = Math.min(12, Math.max(4, maxPossibleTicks)); // Between 4-12 ticks
-      
-      const roughSpacing = range / targetTicks;
-      return niceNum(roughSpacing, true);
-    };
-
-    const tickSpaceX = getOptimalTickSpacingX(domW, plotW);
-    const tickSpaceY = getTickSpacing(domH, 8);
+    // Calculate optimal spacing using tick strategy
+    const tickSpaceX = tickStrategy.calculateOptimalSpacing(domW, plotW, tickStrategy.maxTicksX);
+    const tickSpaceY = tickStrategy.calculateOptimalSpacing(domH, plotH, tickStrategy.maxTicksY);
 
     // Grid lines — only draw when showGrid is enabled
     if (showGrid) {
