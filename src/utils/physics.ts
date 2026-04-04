@@ -195,6 +195,7 @@ export interface TrajectoryConfig {
   projectileRadius?: number;
   advancedParams?: AdvancedPhysicsParams | null;
   forceGroundDetection?: boolean;
+  crossSectionA?: number;
 }
 
 /** Convenience wrapper that accepts a single config object instead of 15 positional args. */
@@ -216,6 +217,7 @@ export const calculateTrajectoryFromConfig = (config: TrajectoryConfig) =>
     config.projectileRadius,
     config.advancedParams,
     config.forceGroundDetection,
+    config.crossSectionA,
   );
 
 // Check if any advanced physics effect is active
@@ -237,7 +239,8 @@ export const calculateTrajectory = (
   spinRate = 0, // rad/s — Magnus force spin rate
   projectileRadius = 0.05, // m — radius for Magnus force calculation
   advancedParams?: AdvancedPhysicsParams | null, // Optional advanced physics params
-  forceGroundDetection = false // If true, projectile hits y=0 ground even if starting from below
+  forceGroundDetection = false, // If true, projectile hits y=0 ground even if starting from below
+  crossSectionA = 0.01 // m² — cross-sectional area for drag calculation
 ) => {
   // Input validation: clamp to physically reasonable ranges
   velocity = Math.max(0, isFinite(velocity) ? velocity : 0);
@@ -246,6 +249,7 @@ export const calculateTrajectory = (
   gravity = isFinite(gravity) ? Math.max(0, gravity) : 9.81;
   airResistance = isFinite(airResistance) ? Math.max(0, airResistance) : 0;
   mass = isFinite(mass) ? Math.max(0.001, mass) : 1;
+  crossSectionA = isFinite(crossSectionA) ? Math.max(0.0001, Math.min(1.0, crossSectionA)) : 0.01;
   
   // Heuristic adjustment for "Indoor/Room" scale scenarios
   // If the initial parameters suggest a very small scale (e.g., height < 2m and velocity < 5m/s),
@@ -284,7 +288,12 @@ export const calculateTrajectory = (
     const vrx = vx - windSpeed;
     const vry = vy;
     const speedRel = Math.sqrt(vrx * vrx + vry * vry);
-    const drag = airResistance * speedRel * speedRel / mass;
+    // Use proper drag formula: F_d = 0.5 * Cd * ρ * A * v²
+    // airResistance parameter now represents Cd (drag coefficient)
+    // Assume standard air density at sea level: 1.225 kg/m³
+    const airDensity = 1.225; // kg/m³ - could be made parameter later
+    const dragForce = 0.5 * airResistance * airDensity * crossSectionA * speedRel * speedRel;
+    const drag = dragForce / mass;
     let ax = speedRel > 0 ? -drag * vrx / speedRel : 0;
     let ay = -gravity - (speedRel > 0 ? drag * vry / speedRel : 0);
     // Magnus force
@@ -308,7 +317,10 @@ export const calculateTrajectory = (
       const vrx = pvx - windSpeed;
       const vry = pvy;
       const speedRel = Math.sqrt(vrx * vrx + vry * vry);
-      const drag = airResistance * speedRel * speedRel / mass;
+      // Use proper drag formula: F_d = 0.5 * Cd * ρ * A * v²
+      const airDensity = 1.225; // kg/m³
+      const dragForce = 0.5 * airResistance * airDensity * crossSectionA * speedRel * speedRel;
+      const drag = dragForce / mass;
       let ax = speedRel > 0 ? -drag * vrx / speedRel : 0;
       let ay = -gravity - (speedRel > 0 ? drag * vry / speedRel : 0);
       if (magnusCoeff > 0) {
@@ -364,6 +376,7 @@ export const calculateTrajectory = (
     
     // Base physics with Reynolds-dependent drag coefficient correction
     // Standard sphere drag: Cd varies with Re (Schiller-Naumann correlation)
+    const airDensity = 1.225; // kg/m³
     let effectiveDrag = airResistance;
     if (airResistance > 0 && speedRel > 0.01) {
       // Estimate Reynolds number (assuming sphere with projectileRadius)
@@ -381,7 +394,9 @@ export const calculateTrajectory = (
       effectiveDrag = airResistance * Math.max(0.1, Math.min(3.0, CdCorrection));
     }
     
-    const drag = effectiveDrag * speedRel * speedRel / mass;
+    // Use proper drag formula: F_d = 0.5 * Cd * ρ * A * v²
+    const dragForce = 0.5 * effectiveDrag * airDensity * crossSectionA * speedRel * speedRel;
+    const drag = dragForce / mass;
     let ax = speedRel > 0 ? -drag * vrx / speedRel : 0;
     let ay = -gravity - (speedRel > 0 ? drag * vry / speedRel : 0);
     // Magnus force
@@ -413,7 +428,9 @@ export const calculateTrajectory = (
       }
       newEffectiveDrag = airResistance * Math.max(0.1, Math.min(3.0, CdCorrection2));
     }
-    const newDrag = newEffectiveDrag * newSpeedRel * newSpeedRel / mass;
+    // Use proper drag formula: F_d = 0.5 * Cd * ρ * A * v²
+    const newDragForce = 0.5 * newEffectiveDrag * airDensity * crossSectionA * newSpeedRel * newSpeedRel;
+    const newDrag = newDragForce / mass;
     let ax_new = newSpeedRel > 0 ? -newDrag * newVrx / newSpeedRel : 0;
     let ay_new = -gravity - (newSpeedRel > 0 ? newDrag * newVry / newSpeedRel : 0);
     if (magnusCoeff > 0) {
@@ -678,7 +695,7 @@ export const runMonteCarloSim = (
     const r = () => 1 + (Math.random() * 2 - 1) * uncertainty;
     const v = velocity * r(), a = angle * r(), h = Math.max(0, height * r());
     const g = gravity * r(), k = airResistance * r(), m = Math.max(0.01, mass * r());
-    const result = calculateTrajectory(v, a, h, g, k, m);
+    const result = calculateTrajectory(v, a, h, g, k, m, false, 0.6, 5, 0, 'ai-apas', 0, 0, 0.05, null, false, 0.01);
     ranges.push(result.prediction.range);
     heights.push(result.prediction.maxHeight);
     times.push(result.prediction.timeOfFlight);

@@ -69,8 +69,8 @@ export default function MultiSimulationModal({
     if (!activeMode) return null;
 
     if (activeMode === 'vacuum-vs-air') {
-      const withAir = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod);
-      const noAir = calculateTrajectory(velocity, angle, height, gravity, 0, mass, false, 0.6, 5, 0, selectedIntegrationMethod);
+      const withAir = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod, 0, 0, 0.05, null, false, 0.01);
+      const noAir = calculateTrajectory(velocity, angle, height, gravity, 0, mass, false, 0.6, 5, 0, selectedIntegrationMethod, 0, 0, 0.05, null, false, 0.01);
       // Merge into chart data
       const maxLen = Math.max(withAir.points.length, noAir.points.length);
       const data: ChartDataRow[] = [];
@@ -95,7 +95,7 @@ export default function MultiSimulationModal({
 
     if (activeMode === 'multi-angle') {
       const trajectories = customAngles.map((a, i) => {
-        const result = calculateTrajectory(velocity, a, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod);
+        const result = calculateTrajectory(velocity, a, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, selectedIntegrationMethod, 0, 0, 0.05, null, false, 0.01);
         return { angle: a, points: result.points, prediction: result.prediction, color: COLORS[i % COLORS.length] };
       });
       // Merge all into one dataset by x position
@@ -126,7 +126,7 @@ export default function MultiSimulationModal({
 
     if (activeMode === 'multi-env') {
       const trajectories = ENVIRONMENTS.map((env, i) => {
-        const result = calculateTrajectory(velocity, angle, height, env.gravity, airResistance > 0 ? airResistance : 0, mass, false, 0.6, 5, 0, selectedIntegrationMethod);
+        const result = calculateTrajectory(velocity, angle, height, env.gravity, airResistance > 0 ? airResistance : 0, mass, false, 0.6, 5, 0, selectedIntegrationMethod, 0, 0, 0.05, null, false, 0.01);
         return { env, points: result.points, prediction: result.prediction, color: COLORS[i % COLORS.length] };
       });
       const allPoints: ChartDataRow[] = [];
@@ -156,7 +156,7 @@ export default function MultiSimulationModal({
     }
 
     if (activeMode === 'ai-vs-exp') {
-      const aiResult = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, 'ai-apas');
+      const aiResult = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, 'ai-apas', 0, 0, 0.05, null, false, 0.01);
       const data: ChartDataRow[] = [];
       const step = Math.max(1, Math.floor(aiResult.points.length / 200));
       for (let i = 0; i < aiResult.points.length; i += step) {
@@ -182,9 +182,9 @@ export default function MultiSimulationModal({
     }
 
     if (activeMode === 'numerical-methods') {
-      const euler = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, 'euler');
-      const rk4 = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, 'rk4');
-      const aiApas = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, 'ai-apas');
+      const euler = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, 'euler', 0, 0, 0.05, null, false, 0.01);
+      const rk4 = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, 'rk4', 0, 0, 0.05, null, false, 0.01);
+      const aiApas = calculateTrajectory(velocity, angle, height, gravity, airResistance, mass, enableBounce, bounceCoefficient, 5, windSpeed, 'ai-apas', 0, 0, 0.05, null, false, 0.01);
       const maxLen = Math.max(euler.points.length, rk4.points.length, aiApas.points.length);
       const data: ChartDataRow[] = [];
       for (let i = 0; i < maxLen; i += Math.max(1, Math.floor(maxLen / 200))) {

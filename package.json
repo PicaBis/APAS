@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:edge": "deno run --allow-net --allow-env src/edge-functions/index.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",

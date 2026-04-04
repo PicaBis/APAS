@@ -81,8 +81,8 @@ export default function SplitScreenComparison({
         break;
     }
 
-    const resA = calculateTrajectory(paramsA.velocity, paramsA.angle, paramsA.height, paramsA.gravity, paramsA.airResistance, paramsA.mass, false, 0.6, 5, windSpeed, integrationMethod);
-    const resB = calculateTrajectory(paramsB.velocity, paramsB.angle, paramsB.height, paramsB.gravity, paramsB.airResistance, paramsB.mass, false, 0.6, 5, windSpeed, integrationMethod);
+    const resA = calculateTrajectory(paramsA.velocity, paramsA.angle, paramsA.height, paramsA.gravity, paramsA.airResistance, paramsA.mass, false, 0.6, 5, windSpeed, integrationMethod, 0, 0, 0.05, null, false, 0.01);
+    const resB = calculateTrajectory(paramsB.velocity, paramsB.angle, paramsB.height, paramsB.gravity, paramsB.airResistance, paramsB.mass, false, 0.6, 5, windSpeed, integrationMethod, 0, 0, 0.05, null, false, 0.01);
 
     return {
       trajA: resA.points,

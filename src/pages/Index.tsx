@@ -179,7 +179,6 @@ const Index = () => {
   const [showRestrictionOverlay, setShowRestrictionOverlay] = useState<string | null>(null);
   const [dragCd, setDragCd] = useState(0.47);
   const [airDensity, setAirDensity] = useState(1.225);
-  const [crossSectionA, setCrossSectionA] = useState(0.01);
   const [savedSnapshot, setSavedSnapshot] = useState<SavedSnapshotData | null>(null);
   const [methodChangePulse, setMethodChangePulse] = useState(false);
   const [vectorVisibility, setVectorVisibility] = useState<VectorVisibility>({
@@ -944,10 +943,10 @@ const Index = () => {
                             onValueChange={([v]) => sim.setWindSpeed(v)} />
                           <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
                             <span>A ({lang === 'ar' ? 'المقطع العرضي' : 'Cross-section'}) m²</span>
-                            <span className="font-mono">{crossSectionA.toFixed(4)}</span>
+                            <span className="font-mono">{sim.crossSectionA.toFixed(4)}</span>
                           </div>
-                          <Slider value={[crossSectionA]} min={0.0001} max={1.0} step={0.0001}
-                            onValueChange={([v]) => { setCrossSectionA(v); playSliderChange(sim.isMuted); }} />
+                          <Slider value={[sim.crossSectionA]} min={0.0001} max={1.0} step={0.0001}
+                            onValueChange={([v]) => { sim.setCrossSectionA(v); playSliderChange(sim.isMuted); }} />
                         </div>
                       )}
                     </div>
@@ -1967,10 +1966,10 @@ const Index = () => {
                         <div>
                           <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                             <span>A ({lang === 'ar' ? 'المقطع العرضي' : lang === 'fr' ? 'Section transversale' : 'Cross-section'}) m&sup2;</span>
-                            <span className="font-mono">{crossSectionA.toFixed(4)}</span>
+                            <span className="font-mono">{sim.crossSectionA.toFixed(4)}</span>
                           </div>
-                          <Slider value={[crossSectionA]} min={0.0001} max={1.0} step={0.0001}
-                            onValueChange={([v]) => { setCrossSectionA(v); playSliderChange(sim.isMuted); }} />
+                          <Slider value={[sim.crossSectionA]} min={0.0001} max={1.0} step={0.0001}
+                            onValueChange={([v]) => { sim.setCrossSectionA(v); playSliderChange(sim.isMuted); }} />
                         </div>
                         <p className="text-[9px] text-muted-foreground text-center border-t border-border pt-1.5 mt-1">
                           F_d = &frac12; &middot; Cd &middot; &rho; &middot; A &middot; (v - v_wind)&sup2;
