@@ -166,32 +166,50 @@ serve(async (req) => {
       });
     }
 
+    // Handle both raw base64 and data URL formats
+    let cleanBase64 = imageBase64;
+    let cleanMimeType = mimeType || "image/jpeg";
+    
+    if (imageBase64.includes(",")) {
+      const [header, data] = imageBase64.split(",");
+      cleanBase64 = data;
+      const mimeMatch = header.match(/data:([^;]+)/);
+      if (mimeMatch) cleanMimeType = mimeMatch[1];
+    }
+
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      throw new Error("GEMINI_API_KEY is not configured - add it to Supabase secrets");
     }
+
+    console.log("[vision-analyze] API Key configured:", GEMINI_API_KEY.substring(0, 10) + "...");
 
     const isAr = lang === "ar";
     const prompt = buildVisionPrompt(lang);
 
     console.log("[vision-analyze] Calling Gemini Flash 2.5 API...");
+    console.log("[vision-analyze] Image size:", cleanBase64.length, "bytes");
+    console.log("[vision-analyze] MIME type:", cleanMimeType);
 
-    const response = await fetch(GEMINI_API_URL, {
+    // API Key in URL is more reliable than header
+    const apiUrl = GEMINI_API_URL + `?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY,
       },
       body: JSON.stringify({
+        system: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Follow all instructions precisely. Respond with ONLY valid JSON.",
         contents: [
           {
             role: "user",
             parts: [
               { text: prompt },
               {
-                inline_data: {
-                  mime_type: mimeType || "image/jpeg",
-                  data: imageBase64,
+                inlineData: {
+                  mimeType: cleanMimeType,
+                  data: cleanBase64,
                 },
               },
             ],
@@ -200,31 +218,37 @@ serve(async (req) => {
         generationConfig: {
           temperature: 0.2,
           maxOutputTokens: 6000,
+          responseMimeType: "application/json",
         },
-        system: [
-          {
-            text: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Follow all instructions precisely. Respond with ONLY valid JSON.",
-          },
-        ],
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[vision-analyze] Gemini API error ${response.status}: ${errorText}`);
+      console.error(`[vision-analyze] Gemini API error ${response.status}:`, errorText);
+      
+      if (response.status === 400) {
+        console.error("[vision-analyze] 400 Bad Request - Check request format:", {
+          hasImageBase64: !!imageBase64,
+          imageBase64Length: imageBase64?.length,
+          mimeType,
+          promptLength: prompt.length,
+        });
+      }
+      
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402 || response.status === 403) {
-        return new Response(JSON.stringify({ error: "API authentication failed or quota exceeded." }), {
+      if (response.status === 401 || response.status === 403) {
+        return new Response(JSON.stringify({ error: "API authentication failed. Check GEMINI_API_KEY." }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`Gemini API request failed: ${response.status}`);
+      throw new Error(`Gemini API request failed: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
