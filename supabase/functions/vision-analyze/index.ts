@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 // ── Smart Defaults Based on Object Type ──
 
@@ -158,6 +158,7 @@ serve(async (req) => {
 
   try {
     const { imageBase64, mimeType, lang } = await req.json();
+    
     if (!imageBase64) {
       return new Response(JSON.stringify({ error: "No image provided" }), {
         status: 400,
@@ -165,59 +166,74 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const isAr = lang === "ar";
     const prompt = buildVisionPrompt(lang);
-    const dataUrl = `data:${mimeType || "image/jpeg"};base64,${imageBase64}`;
 
-    console.log("[vision-analyze] Calling Lovable AI (Gemini 2.5 Flash)...");
+    console.log("[vision-analyze] Calling Gemini Flash 2.5 API...");
 
-    const response = await fetch(LOVABLE_AI_URL, {
+    const response = await fetch(GEMINI_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Follow all instructions precisely. Respond with ONLY valid JSON." },
+        contents: [
           {
             role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: dataUrl } },
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: mimeType || "image/jpeg",
+                  data: imageBase64,
+                },
+              },
             ],
           },
         ],
-        temperature: 0.2,
-        max_tokens: 6000,
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 6000,
+        },
+        system: [
+          {
+            text: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Follow all instructions precisely. Respond with ONLY valid JSON.",
+          },
+        ],
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[vision-analyze] Lovable AI error ${response.status}: ${errorText}`);
+      console.error(`[vision-analyze] Gemini API error ${response.status}: ${errorText}`);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (response.status === 402 || response.status === 403) {
+        return new Response(JSON.stringify({ error: "API authentication failed or quota exceeded." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI request failed: ${response.status}`);
+      throw new Error(`Gemini API request failed: ${response.status}`);
     }
 
     const data = await response.json();
-    const rawResponse = data?.choices?.[0]?.message?.content || "";
-    if (!rawResponse) throw new Error("AI returned empty response");
+    const rawResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    
+    if (!rawResponse) {
+      console.error("[vision-analyze] Gemini returned empty response:", JSON.stringify(data));
+      throw new Error("AI returned empty response");
+    }
 
     console.log(`[vision-analyze] AI response length: ${rawResponse.length}`);
     const parsed = parseJsonFromText(rawResponse);
@@ -278,7 +294,12 @@ serve(async (req) => {
 
     // Energy verification
     const verification = verifyWithEnergy({
-      velocity: v0, angle, height: h0, gravity: g, maxHeight, impactVelocity,
+      velocity: v0,
+      angle,
+      height: h0,
+      gravity: g,
+      maxHeight,
+      impactVelocity,
     });
 
     let consistencyNote = "";
@@ -291,44 +312,72 @@ serve(async (req) => {
     const processingTime = Date.now() - startTime;
 
     const finalJson: Record<string, unknown> = {
-      detected: true, confidence, angle, velocity: v0, mass, height: h0,
-      objectType, gravity: g, v0x, v0y, maxHeight, maxRange, totalTime,
-      impactVelocity, kineticEnergy, potentialEnergy, dragEffect,
-      motionType: "projectile", calibrationRef, analysisSummaryAr,
-      scientificExplanation, imageDescription,
+      detected: true,
+      confidence,
+      angle,
+      velocity: v0,
+      mass,
+      height: h0,
+      objectType,
+      gravity: g,
+      v0x,
+      v0y,
+      maxHeight,
+      maxRange,
+      totalTime,
+      impactVelocity,
+      kineticEnergy,
+      potentialEnergy,
+      dragEffect,
+      motionType: "projectile",
+      calibrationRef,
+      analysisSummaryAr,
+      scientificExplanation,
+      imageDescription,
       verified: verification.verified,
       energyError: Math.round(verification.energyError * 10000) / 100,
-      providers: { extraction: "Lovable AI (Gemini)", solving: "Lovable AI (Gemini)" },
+      providers: { extraction: "Gemini 2.5 Flash", solving: "Gemini 2.5 Flash" },
       processingTimeMs: processingTime,
       consistencyNote,
     };
 
     // Build rich report
     const report = [
-      "```json", JSON.stringify(finalJson, null, 2), "```", "",
-      isAr ? "# APAS AI تقرير تحليل المقذوف" : "# APAS AI Projectile Analysis Report", "",
+      "```json",
+      JSON.stringify(finalJson, null, 2),
+      "```",
+      "",
+      isAr ? "# APAS AI تقرير تحليل المقذوف" : "# APAS AI Projectile Analysis Report",
+      "",
       isAr ? "## الكائن المكتشف" : "## Detected Object",
       (isAr ? "النوع: " : "Type: ") + "**" + objectType + "**",
       (isAr ? "الكتلة: " : "Mass: ") + "**" + mass + "** kg",
-      (isAr ? "نسبة الثقة: " : "Confidence: ") + "**" + confidence + "%**", "",
+      (isAr ? "نسبة الثقة: " : "Confidence: ") + "**" + confidence + "%**",
+      "",
       isAr ? "## المعطيات المستخرجة" : "## Extracted Data",
       (isAr ? "السرعة الابتدائية: " : "Initial velocity: ") + "**V₀ = " + v0 + "** m/s",
       (isAr ? "زاوية الإطلاق: " : "Launch angle: ") + "**θ = " + angle + " deg**",
       (isAr ? "الارتفاع الابتدائي: " : "Initial height: ") + "**h₀ = " + h0 + "** m",
-      (isAr ? "الجاذبية: " : "Gravity: ") + "**g = " + g + "** m/s²", "",
+      (isAr ? "الجاذبية: " : "Gravity: ") + "**g = " + g + "** m/s²",
+      "",
       isAr ? "## النتائج المحسوبة" : "## Computed Results",
-      "V₀x = " + v0x + " m/s", "V₀y = " + v0y + " m/s",
+      "V₀x = " + v0x + " m/s",
+      "V₀y = " + v0y + " m/s",
       (isAr ? "أقصى ارتفاع = " : "Max height = ") + maxHeight + " m",
       (isAr ? "المدى = " : "Range = ") + maxRange + " m",
       (isAr ? "زمن الطيران = " : "Time of flight = ") + totalTime + " s",
-      (isAr ? "سرعة الاصطدام = " : "Impact velocity = ") + impactVelocity + " m/s", "",
+      (isAr ? "سرعة الاصطدام = " : "Impact velocity = ") + impactVelocity + " m/s",
+      "",
       isAr ? "## الطاقة" : "## Energy",
       (isAr ? "الطاقة الحركية = " : "Kinetic energy = ") + kineticEnergy + " J",
-      (isAr ? "الطاقة الكامنة = " : "Potential energy = ") + potentialEnergy + " J", "",
+      (isAr ? "الطاقة الكامنة = " : "Potential energy = ") + potentialEnergy + " J",
+      "",
       isAr ? "## التفسير العلمي" : "## Scientific Explanation",
-      scientificExplanation, "",
+      scientificExplanation,
+      "",
       isAr ? "## التحقق من حفظ الطاقة" : "## Energy Conservation Check",
-      (verification.verified ? "✅ " : "⚠️ ") + verification.note, "",
+      (verification.verified ? "✅ " : "⚠️ ") + verification.note,
+      "",
       consistencyNote ? consistencyNote + "\n" : "",
       (isAr ? "زمن المعالجة: " : "Processing time: ") + processingTime + " ms",
     ];
@@ -340,8 +389,13 @@ serve(async (req) => {
   } catch (e) {
     console.error("vision-analyze error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({
+        error: e instanceof Error ? e.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });
