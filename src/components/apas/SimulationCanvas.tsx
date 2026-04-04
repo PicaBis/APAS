@@ -697,6 +697,9 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       return nice * Math.pow(10, exp);
     };
 
+    // ── Tick labels ──
+    const tickFontSize = Math.round(12 * sf * labelScale);
+
     // ── Tick Strategy Configuration ──
     const tickStrategy = {
       // Maximum number of ticks to display on each axis to prevent overlap
@@ -719,9 +722,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         return niceNum(roughSpacing, true);
       }
     };
-
-    // ── Tick labels ──
-    const tickFontSize = Math.round(12 * sf * labelScale);
 
     // Calculate optimal spacing using tick strategy
     const tickSpaceX = tickStrategy.calculateOptimalSpacing(domW, plotW, tickStrategy.maxTicksX);
