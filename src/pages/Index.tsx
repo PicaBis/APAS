@@ -1810,7 +1810,7 @@ const Index = () => {
 
                 {showPhysicsPanel && (
                   <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border pt-3 animate-slideDown">
-                    <div className="grid grid-cols-2 sm:grid-cols-1 gap-x-3 gap-y-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-1 gap-x-3 gap-y-3">
                       <ParamInputWithUnit
                         label={lang === 'ar' ? '\u0627\u0644\u0633\u0631\u0639\u0629' : lang === 'fr' ? 'Vitesse' : 'Velocity'}
                         value={getDisplayValue('velocity', sim.velocity)}
@@ -1891,25 +1891,6 @@ const Index = () => {
                         units={UNIT_OPTIONS.height.units} lang={lang}
                         onUnitChange={(u) => setSelectedUnits(prev => ({ ...prev, height: u }))}
                       />
-                      {sim.height < 0 && (
-                        <div className="col-span-2 mt-1">
-                          <div className="flex items-center justify-between p-2 bg-primary/5 rounded-lg border border-primary/20">
-                            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                              <span className="text-[10px] font-bold text-primary leading-tight truncate">
-                                {lang === 'ar' ? 'فرض الأرض كمحور X' : 'Force Ground as X-axis'}
-                              </span>
-                              <span className="text-[9px] text-muted-foreground leading-tight truncate">
-                                {lang === 'ar' ? 'اصطدام المقذوف عند y=0' : 'Projectile hits ground at y=0'}
-                              </span>
-                            </div>
-                            <Switch
-                              checked={sim.forceGroundDetection}
-                              onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); playToggle(sim.isMuted, checked); }}
-                              className="scale-75 shrink-0 ml-2"
-                            />
-                          </div>
-                        </div>
-                      )}
                       <ParamInputWithUnit
                         label={lang === 'ar' ? '\u0627\u0644\u0645\u0648\u0636\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a (x\u2080)' : lang === 'fr' ? 'Position initiale (x\u2080)' : 'Initial Position (x\u2080)'}
                         value={getDisplayValue('height', sim.initialX)}
@@ -1920,6 +1901,25 @@ const Index = () => {
                         onUnitChange={(u) => setSelectedUnits(prev => ({ ...prev, height: u }))}
                       />
                     </div>
+                    {sim.height < 0 && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between p-2 bg-primary/5 rounded-lg border border-primary/20">
+                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                            <span className="text-[10px] font-bold text-primary leading-tight truncate">
+                              {lang === 'ar' ? 'فرض الأرض كمحور X' : 'Force Ground as X-axis'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground leading-tight truncate">
+                              {lang === 'ar' ? 'اصطدام المقذوف عند y=0' : 'Projectile hits ground at y=0'}
+                            </span>
+                          </div>
+                          <Switch
+                            checked={sim.forceGroundDetection}
+                            onCheckedChange={(checked) => { sim.setForceGroundDetection(checked); playToggle(sim.isMuted, checked); }}
+                            className="scale-75 shrink-0 ml-2"
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
                       <span className="text-xs font-medium text-foreground">{lang === 'ar' ? '\u0645\u0642\u0627\u0648\u0645\u0629 \u0627\u0644\u0647\u0648\u0627\u0621' : lang === 'fr' ? "R\u00e9sistance de l'Air" : 'Air Resistance'}</span>

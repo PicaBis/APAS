@@ -34,13 +34,13 @@ const ParamInputWithUnit: React.FC<ParamInputWithUnitProps> = ({
           value={Number((value ?? 0).toFixed(4))}
           onChange={(e) => onChange(Number(e.target.value))}
           min={min} max={max} step={step}
-          className="flex-1 min-w-0 w-28 max-w-[120px] text-right text-sm font-mono !py-1 rounded border border-border bg-background px-2"
+          className="flex-1 min-w-0 w-full text-right text-sm font-mono !py-1 rounded border border-border bg-background px-2 max-w-[220px]"
           dir="ltr"
         />
         <select
           value={selectedUnit}
           onChange={(e) => { onUnitChange(e.target.value); playClick(muted); }}
-          className="text-[10px] font-mono bg-secondary/50 border border-border rounded text-muted-foreground cursor-pointer hover:text-foreground transition-colors px-2 py-1 min-w-[60px]"
+          className="text-[10px] font-mono bg-secondary/50 border border-border rounded text-muted-foreground cursor-pointer hover:text-foreground transition-colors px-2 py-1 w-[72px] min-w-[56px]"
           dir="ltr"
           title={lang === 'ar' ? 'تغيير الوحدة' : 'Change unit'}
         >
