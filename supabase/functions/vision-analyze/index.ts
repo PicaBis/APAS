@@ -200,7 +200,13 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        system: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Follow all instructions precisely. Respond with ONLY valid JSON.",
+        systemInstruction: {
+          parts: [
+            {
+              text: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Follow all instructions precisely. Respond with ONLY valid JSON.",
+            },
+          ],
+        },
         contents: [
           {
             role: "user",
