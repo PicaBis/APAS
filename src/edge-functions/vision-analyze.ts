@@ -2,9 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS, GET, HEAD, PUT",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin"
 };
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
@@ -195,6 +196,9 @@ export async function visionAnalyzeHandler(req: Request): Promise<Response> {
 
     console.log("[vision-analyze] Calling Gemini 2.0 Flash API...");
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch(GEMINI_API_URL, {
       method: "POST",
       headers: {
@@ -205,11 +209,11 @@ export async function visionAnalyzeHandler(req: Request): Promise<Response> {
         contents: [
           {
             parts: [
-              { text: prompt },
+              { text: prompt.substring(0, 2000) }, // Limit prompt for speed
               { 
                 inline_data: {
                   mime_type: mimeType || "image/jpeg",
-                  data: imageBase64
+                  data: imageBase64.substring(0, 500000) // Limit image size
                 }
               }
             ]
@@ -217,7 +221,7 @@ export async function visionAnalyzeHandler(req: Request): Promise<Response> {
         ],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 8000,
+          maxOutputTokens: 4000, // Reduced for speed
           topP: 0.95,
           topK: 40,
         },
@@ -240,21 +244,42 @@ export async function visionAnalyzeHandler(req: Request): Promise<Response> {
           }
         ]
       }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[vision-analyze] Gemini API error ${response.status}: ${errorText}`);
+      
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
+        return new Response(JSON.stringify({ 
+          error: "Rate limited. Please try again in a moment.",
+          retry_after: 5000 
+        }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 403) {
-        return new Response(JSON.stringify({ error: "API quota exceeded. Please try again later." }), {
+        return new Response(JSON.stringify({ 
+          error: "API quota exceeded. Please try again later.",
+          retry_after: 60000 
+        }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      
+      // Handle connection errors
+      if (response.status === 0 || !response.status) {
+        return new Response(JSON.stringify({ 
+          error: "Connection timeout. Please check your internet connection.",
+          retry_after: 3000 
+        }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
       throw new Error(`Gemini API request failed: ${response.status}`);
     }
 
@@ -450,9 +475,36 @@ export async function visionAnalyzeHandler(req: Request): Promise<Response> {
     );
   } catch (e) {
     console.error("vision-analyze error:", e);
+    
+    // Handle specific error types
+    let errorMessage = "Unknown error occurred";
+    let statusCode = 500;
+    
+    if (e instanceof Error) {
+      if (e.message.includes("aborted")) {
+        errorMessage = "Request timeout. Please try again.";
+        statusCode = 408;
+      } else if (e.message.includes("network") || e.message.includes("fetch")) {
+        errorMessage = "Network error. Please check your connection.";
+        statusCode = 503;
+      } else if (e.message.includes("JSON")) {
+        errorMessage = "Invalid response format. Please try again.";
+        statusCode = 422;
+      } else {
+        errorMessage = e.message;
+      }
+    }
+    
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ 
+        error: errorMessage,
+        error_type: e instanceof Error ? e.constructor.name : "Unknown",
+        retry_after: 3000
+      }),
+      { 
+        status: statusCode, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      },
     );
   }
 });

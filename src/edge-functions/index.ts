@@ -1,13 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Import vision analysis function
+// Import vision analysis functions
 import { visionAnalyzeHandler } from './vision-analyze.ts';
+import { visionAnalyzeFastHandler } from './vision-analyze-fast.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS, GET, HEAD, PUT",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin"
 };
 
 // Main edge function handler
@@ -20,6 +22,11 @@ async function handler(req: Request): Promise<Response> {
   // Route to vision analysis
   if (req.url.includes('/vision-analyze')) {
     return visionAnalyzeHandler(req);
+  }
+
+  // Route to fast vision analysis
+  if (req.url.includes('/vision-analyze-fast')) {
+    return visionAnalyzeFastHandler(req);
   }
 
   // Health check endpoint
@@ -43,7 +50,7 @@ async function handler(req: Request): Promise<Response> {
   // Default response
   return new Response(
     JSON.stringify({ 
-      error: "Endpoint not found. Available endpoints: /vision-analyze, /health" 
+      error: "Endpoint not found. Available endpoints: /vision-analyze, /vision-analyze-fast, /health" 
     }), 
     { 
       status: 404, 
