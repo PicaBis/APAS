@@ -543,9 +543,30 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
     const domW = domMaxX - domMinX;
     const domH = domMaxY - domMinY;
 
+    // Adjust domain to match canvas aspect ratio for realistic angle display
+    const aspectRatio = plotW / plotH;
+    const currentAspect = domW / domH;
+    if (currentAspect > aspectRatio) {
+      // Domain is wider than canvas, expand height to match aspect
+      const newDomH = domW / aspectRatio;
+      const centerY = (domMinY + domMaxY) / 2;
+      domMinY = centerY - newDomH / 2;
+      domMaxY = centerY + newDomH / 2;
+    } else if (currentAspect < aspectRatio) {
+      // Domain is taller than canvas, expand width to match aspect
+      const newDomW = domH * aspectRatio;
+      const centerX = (domMinX + domMaxX) / 2;
+      domMinX = centerX - newDomW / 2;
+      domMaxX = centerX + newDomW / 2;
+    }
+
+    // Recalculate after adjustment
+    const adjustedDomW = domMaxX - domMinX;
+    const adjustedDomH = domMaxY - domMinY;
+
     // Scale: pixels per unit
-    const sX = plotW / domW;
-    const sY = plotH / domH;
+    const sX = plotW / adjustedDomW;
+    const sY = plotH / adjustedDomH;
 
     // transform from physics coords to canvas coords
     const toX = (x: number) => ML + (x - domMinX) * sX;

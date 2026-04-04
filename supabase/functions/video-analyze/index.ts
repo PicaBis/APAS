@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 // ── Smart Defaults ──
 
@@ -163,9 +163,9 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured - add it to Supabase secrets");
     }
 
     const isAr = lang === "ar";
@@ -174,56 +174,88 @@ serve(async (req) => {
     const limitedFrames = limitFrames(frames);
     console.log("[video-analyze] Using " + limitedFrames.length + " frames (from " + frames.length + ")");
 
-    // Build content with frames
+    // Build content with frames for Gemini
     const visionPrompt = buildVideoPrompt(lang);
-    const contentParts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
-      { type: "text", text: visionPrompt },
+    const frameParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
+      { text: visionPrompt },
     ];
+
     limitedFrames.forEach((f, i) => {
-      contentParts.push({ type: "text", text: `Frame ${i + 1} (t=${f.timestamp.toFixed(2)}s)` });
-      // Strip existing data URI prefix if present to avoid double-prefix
       const rawBase64 = f.data.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
-      contentParts.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${rawBase64}` } });
+      frameParts.push({ text: `Frame ${i + 1} (t=${f.timestamp.toFixed(2)}s)` });
+      frameParts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: rawBase64,
+        },
+      });
     });
 
-    console.log("[video-analyze] Calling Lovable AI (Gemini 2.5 Flash)...");
+    console.log("[video-analyze] Calling Gemini Flash 2.5 API...");
+    console.log("[video-analyze] Frames payload size:", frameParts.length, "parts");
 
-    const response = await fetch(LOVABLE_AI_URL, {
+    const apiUrl = GEMINI_API_URL + `?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Analyze video frames for projectile motion. Respond with ONLY valid JSON." },
-          { role: "user", content: contentParts },
+        systemInstruction: {
+          parts: [
+            {
+              text: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Analyze video frames for projectile motion. Respond with ONLY valid JSON.",
+            },
+          ],
+        },
+        contents: [
+          {
+            role: "user",
+            parts: frameParts,
+          },
         ],
-        temperature: 0.2,
-        max_tokens: 6000,
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 6000,
+          responseMimeType: "application/json",
+        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[video-analyze] Lovable AI error ${response.status}: ${errorText}`);
+      console.error(`[video-analyze] Gemini API error ${response.status}:`, errorText);
+      if (response.status === 400) {
+        console.error("[video-analyze] 400 Bad Request - Check request payload and systemInstruction format", {
+          frames: limitedFrames.length,
+          promptLength: visionPrompt.length,
+        });
+      }
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited. Please try again." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (response.status === 401 || response.status === 403) {
+        return new Response(JSON.stringify({ error: "API authentication failed. Check GEMINI_API_KEY." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI request failed: ${response.status}`);
+      throw new Error(`Gemini API request failed: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
-    const rawResponse = data?.choices?.[0]?.message?.content || "";
-    if (!rawResponse) throw new Error("AI returned empty response");
+    const rawResponse =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      data?.choices?.[0]?.message?.content ||
+      "";
+
+    if (!rawResponse) {
+      console.error("[video-analyze] Gemini returned empty response:", JSON.stringify(data));
+      throw new Error("AI returned empty response");
+    }
 
     console.log(`[video-analyze] AI response length: ${rawResponse.length}`);
     const visionData = parseJsonFromText(rawResponse);
@@ -289,15 +321,29 @@ serve(async (req) => {
     const processingTime = Date.now() - startTime;
 
     const finalJson: Record<string, unknown> = {
-      detected: true, confidence, angle, velocity: v0,
-      mass, height: h0, objectType, gravity: g,
-      v0x, v0y, maxHeight, maxRange, totalTime, impactVelocity,
-      kineticEnergy, potentialEnergy,
+      detected: true,
+      confidence,
+      angle,
+      velocity: v0,
+      mass,
+      height: h0,
+      objectType,
+      gravity: g,
+      v0x,
+      v0y,
+      maxHeight,
+      maxRange,
+      totalTime,
+      impactVelocity,
+      kineticEnergy,
+      potentialEnergy,
       verified: verification.verified,
       energyError: Math.round(verification.energyError * 10000) / 100,
-      framesUsed: limitedFrames.length, framesReceived: frames.length,
-      analysisSummaryAr, motionDescription,
-      providers: { extraction: "Lovable AI (Gemini)", solving: "Lovable AI (Gemini)" },
+      framesUsed: limitedFrames.length,
+      framesReceived: frames.length,
+      analysisSummaryAr,
+      motionDescription,
+      providers: { extraction: "Gemini 2.5 Flash", solving: "Gemini 2.5 Flash" },
       processingTimeMs: processingTime,
       consistencyNote,
     };

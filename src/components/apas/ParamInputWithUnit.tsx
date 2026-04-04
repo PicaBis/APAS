@@ -28,19 +28,19 @@ const ParamInputWithUnit: React.FC<ParamInputWithUnitProps> = ({
         {label}
         {tooltip && <span className="ml-1 text-[10px] text-muted-foreground/60 cursor-help" title={tooltip}>(?)</span>}
       </label>
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="flex items-center gap-2 mb-2 min-w-0">
         <input
           type="number"
           value={Number((value ?? 0).toFixed(4))}
           onChange={(e) => onChange(Number(e.target.value))}
           min={min} max={max} step={step}
-          className="flex-1 text-sm font-mono min-w-0 !py-1"
+          className="flex-1 min-w-0 w-28 max-w-[120px] text-right text-sm font-mono !py-1 rounded border border-border bg-background px-2"
           dir="ltr"
         />
         <select
           value={selectedUnit}
           onChange={(e) => { onUnitChange(e.target.value); playClick(muted); }}
-          className="text-[10px] font-mono bg-secondary/50 border border-border rounded text-muted-foreground cursor-pointer hover:text-foreground transition-colors px-1 py-1 w-auto min-w-[48px]"
+          className="text-[10px] font-mono bg-secondary/50 border border-border rounded text-muted-foreground cursor-pointer hover:text-foreground transition-colors px-2 py-1 min-w-[60px]"
           dir="ltr"
           title={lang === 'ar' ? 'تغيير الوحدة' : 'Change unit'}
         >
