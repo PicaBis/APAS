@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
 
 // ── Smart Defaults Based on Object Type ──
 
@@ -48,6 +49,94 @@ function parseJsonFromText(text: string): Record<string, unknown> {
     try { return JSON.parse(raw[0]); } catch { /* fallback */ }
   }
   return {};
+}
+
+// ── Mistral Fallback Functions ──
+
+async function callMistral(prompt: string, imageBase64: string, mimeType: string): Promise<string> {
+  try {
+    const response = await fetch(MISTRAL_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('MISTRAL2_API_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mistral-large-latest',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: prompt
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${imageBase64}`
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 6000,
+        response_format: { type: 'json_object' }
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Mistral API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data.choices[0]?.message?.content || ''
+  } catch (error) {
+    console.error('Mistral API call failed:', error)
+    throw error
+  }
+}
+
+function detectGeminiFailure(response: string, statusCode: number): boolean {
+  // HTTP errors
+  if (statusCode !== 200) return true
+  
+  // Rate limits and server errors
+  if (statusCode === 429 || statusCode >= 500) return true
+  
+  // Empty or too short response
+  if (!response || response.length < 50) return true
+  
+  // Error keywords
+  const errorKeywords = ['error', 'undefined', 'null', 'failed', 'cannot', 'unable']
+  if (errorKeywords.some(keyword => response.toLowerCase().includes(keyword))) return true
+  
+  try {
+    const parsed = JSON.parse(response)
+    
+    // Missing critical fields
+    if (!parsed.initial_velocity || !parsed.launch_angle) return true
+    
+    // Invalid values
+    if (parsed.initial_velocity <= 0 || parsed.launch_angle < 0 || parsed.launch_angle > 90) return true
+    
+  } catch (e) {
+    // Invalid JSON
+    return true
+  }
+  
+  return false
+}
+
+function validatePhysicsData(data: any): boolean {
+  return (
+    data.initial_velocity > 0 &&
+    data.launch_angle >= 0 &&
+    data.launch_angle <= 90 &&
+    !isNaN(data.initial_velocity) &&
+    !isNaN(data.launch_angle)
+  )
 }
 
 // ── Energy Conservation Verification ──
@@ -178,94 +267,143 @@ serve(async (req) => {
     }
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const MISTRAL_API_KEY = Deno.env.get("MISTRAL2_API_KEY");
+    
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured - add it to Supabase secrets");
+      console.log("[vision-analyze] GEMINI_API_KEY not configured, will use Mistral only");
+    } else {
+      console.log("[vision-analyze] Gemini API Key configured:", GEMINI_API_KEY.substring(0, 10) + "...");
     }
-
-    console.log("[vision-analyze] API Key configured:", GEMINI_API_KEY.substring(0, 10) + "...");
+    
+    if (!MISTRAL_API_KEY) {
+      console.log("[vision-analyze] MISTRAL2_API_KEY not configured - fallback will not work");
+    } else {
+      console.log("[vision-analyze] Mistral API Key configured:", MISTRAL_API_KEY.substring(0, 10) + "...");
+    }
 
     const isAr = lang === "ar";
     const prompt = buildVisionPrompt(lang);
 
-    console.log("[vision-analyze] Calling Gemini Flash 2.5 API...");
+    console.log("[vision-analyze] Starting analysis with fallback system...");
     console.log("[vision-analyze] Image size:", cleanBase64.length, "bytes");
     console.log("[vision-analyze] MIME type:", cleanMimeType);
 
-    // API Key in URL is more reliable than header
-    const apiUrl = GEMINI_API_URL + `?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    let rawResponse = '';
+    let geminiStatusCode = 200;
+    let modelUsed = 'Gemini 2.5 Flash';
+    let fallbackTriggered = false;
+    let extractionModel = 'Gemini 2.5 Flash';
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [
-            {
-              text: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Follow all instructions precisely. Respond with ONLY valid JSON.",
-            },
-          ],
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: cleanMimeType,
-                  data: cleanBase64,
+    // Try Gemini first
+    try {
+      if (GEMINI_API_KEY) {
+        console.log("[vision-analyze] Calling Gemini Flash 2.5 API...");
+        const apiUrl = GEMINI_API_URL + `?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+        
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [
+                {
+                  text: "You are Professor APAS, Elite Physics Analyzer from ENS Paris. Follow all instructions precisely. Respond with ONLY valid JSON.",
                 },
+              ],
+            },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: prompt },
+                  {
+                    inlineData: {
+                      mimeType: cleanMimeType,
+                      data: cleanBase64,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 6000,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[vision-analyze] Gemini API error ${response.status}:`, errorText);
-      
-      if (response.status === 400) {
-        console.error("[vision-analyze] 400 Bad Request - Check request format:", {
-          hasImageBase64: !!imageBase64,
-          imageBase64Length: imageBase64?.length,
-          mimeType,
-          promptLength: prompt.length,
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 6000,
+              responseMimeType: "application/json",
+            },
+          }),
         });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[vision-analyze] Gemini API error ${response.status}:`, errorText);
+          geminiStatusCode = response.status;
+          
+          if (response.status === 400) {
+            console.error("[vision-analyze] 400 Bad Request - Check request format:", {
+              hasImageBase64: !!imageBase64,
+              imageBase64Length: imageBase64?.length,
+              mimeType,
+              promptLength: prompt.length,
+            });
+          }
+          
+          if (response.status === 401 || response.status === 403) {
+            return new Response(JSON.stringify({ error: "API authentication failed. Check GEMINI_API_KEY." }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          
+          throw new Error(`Gemini API request failed: ${response.status} - ${errorText.substring(0, 200)}`);
+        }
+
+        const data = await response.json();
+        rawResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        
+        if (!rawResponse) {
+          console.error("[vision-analyze] Gemini returned empty response:", JSON.stringify(data));
+          geminiStatusCode = 500;
+        }
+      } else {
+        console.log("[vision-analyze] No Gemini API key, skipping to Mistral");
+        geminiStatusCode = 500;
       }
+    } catch (error) {
+      console.error('[vision-analyze] Gemini call failed:', error);
+      geminiStatusCode = 500;
+    }
+
+    // Check if Gemini failed and fallback is needed
+    if (detectGeminiFailure(rawResponse, geminiStatusCode)) {
+      console.warn('[vision-analyze] Switching to Mistral fallback - Gemini failed or returned invalid response');
       
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
-          status: 429,
+      if (!MISTRAL_API_KEY) {
+        return new Response(JSON.stringify({ error: "Both Gemini and Mistral API keys are not configured" }), {
+          status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 401 || response.status === 403) {
-        return new Response(JSON.stringify({ error: "API authentication failed. Check GEMINI_API_KEY." }), {
-          status: 403,
+      
+      fallbackTriggered = true;
+      modelUsed = 'Mistral Large';
+      extractionModel = 'Mistral Large';
+      
+      try {
+        console.log('[vision-analyze] Calling Mistral Large API...');
+        rawResponse = await callMistral(prompt, cleanBase64, cleanMimeType);
+        console.log('[vision-analyze] Mistral response received successfully');
+      } catch (mistralError) {
+        console.error('[vision-analyze] Mistral also failed:', mistralError);
+        return new Response(JSON.stringify({ error: "Both Gemini and Mistral APIs failed. Please try again later." }), {
+          status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`Gemini API request failed: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
-    const data = await response.json();
-    const rawResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    
-    if (!rawResponse) {
-      console.error("[vision-analyze] Gemini returned empty response:", JSON.stringify(data));
-      throw new Error("AI returned empty response");
-    }
-
-    console.log(`[vision-analyze] AI response length: ${rawResponse.length}`);
+    console.log(`[vision-analyze] Final AI response length: ${rawResponse.length}`);
     const parsed = parseJsonFromText(rawResponse);
 
     // Check if projectile was detected
@@ -366,8 +504,10 @@ serve(async (req) => {
       imageDescription,
       verified: verification.verified,
       energyError: Math.round(verification.energyError * 10000) / 100,
-      providers: { extraction: "Gemini 2.5 Flash", solving: "Gemini 2.5 Flash" },
+      providers: { extraction: extractionModel, solving: "Internal Physics Engine" },
       processingTimeMs: processingTime,
+      modelUsed: modelUsed,
+      fallbackTriggered: fallbackTriggered,
       consistencyNote,
     };
 
