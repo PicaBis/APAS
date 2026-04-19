@@ -200,6 +200,20 @@ const FooterRobot: React.FC = () => {
           .rb-particle-3 { animation: rbParticle 4s ease-in-out infinite 1.4s; }
           .rb-particle-4 { animation: rbParticle 3.2s ease-in-out infinite 2.1s; }
           .rb-breath { animation: rbBreath 4s ease-in-out infinite; }
+          @keyframes rbWave {
+            0%, 2%   { transform: rotate(0deg); }
+            5%       { transform: rotate(-22deg); }
+            9%       { transform: rotate(14deg); }
+            13%      { transform: rotate(-22deg); }
+            17%      { transform: rotate(14deg); }
+            21%      { transform: rotate(-22deg); }
+            25%      { transform: rotate(0deg); }
+            100%     { transform: rotate(0deg); }
+          }
+          .rb-wave { animation: rbWave 4.5s ease-in-out infinite; transform-origin: 145px 140px; transform-box: fill-box; }
+          @supports not (transform-box: fill-box) {
+            .rb-wave { transform-origin: 145px 140px; }
+          }
           @keyframes rbLogoOrbit {
             0% { transform: rotate(0deg); transform-origin: center; }
             100% { transform: rotate(360deg); transform-origin: center; }
@@ -283,14 +297,16 @@ const FooterRobot: React.FC = () => {
           <circle cx="56" cy="167" r="6" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.6" />
           <circle cx="55" cy="166" r="2" fill="#f8fafc" opacity="0.4" />
 
-          {/* --- Right arm — extending to hold hologram display --- */}
-          <path d="M145 140 Q158 130 170 118" stroke="url(#rbArm)" strokeWidth="8" fill="none" strokeLinecap="round" />
-          {/* Shoulder joint ring */}
+          {/* --- Right arm — waves then holds then waves again --- */}
+          {/* Shoulder joint ring (stationary pivot) */}
           <circle cx="145" cy="140" r="5.5" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.8" />
           <circle cx="145" cy="140" r="2" fill="#6366f1" opacity="0.2" />
-          {/* Right hand — sphere */}
-          <circle cx="172" cy="116" r="5.5" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.6" />
-          <circle cx="171" cy="115" r="1.8" fill="#f8fafc" opacity="0.4" />
+          <g className="rb-wave" style={{ transformOrigin: '145px 140px' }}>
+            <path d="M145 140 Q158 130 170 118" stroke="url(#rbArm)" strokeWidth="8" fill="none" strokeLinecap="round" />
+            {/* Right hand — sphere */}
+            <circle cx="172" cy="116" r="5.5" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.6" />
+            <circle cx="171" cy="115" r="1.8" fill="#f8fafc" opacity="0.4" />
+          </g>
 
           {/* --- Head — large glossy sphere --- */}
           <circle cx="115" cy="95" r="35" fill="url(#rbHead)" />
