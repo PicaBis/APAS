@@ -9,6 +9,7 @@ const ComprehensiveGuideModal = lazy(() => import('@/components/apas/Comprehensi
 import BugReportButton from '@/components/apas/BugReportButton';
 import SupportButton from '@/components/apas/SupportButton';
 import ApasLogo from '@/components/apas/ApasLogo';
+import ApasTitle from '@/components/apas/ApasTitle';
 import SplashScreen from '@/components/apas/SplashScreen';
 import PageTransition from '@/components/apas/PageTransition';
 import WindParticlesBackground from '@/components/apas/WindParticlesBackground';
@@ -623,9 +624,9 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
         </div>
-        <h1 className="text-5xl sm:text-7xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent mb-3 animate-gradient-text">
-          {t.heroTitle}
-        </h1>
+        <div className="mb-3 flex justify-center">
+          <ApasTitle text={t.heroTitle} sizeClassName="text-5xl sm:text-7xl" />
+        </div>
         <h2 className="text-lg sm:text-xl font-semibold text-foreground/90 mb-4">{t.heroSubtitle}</h2>
         <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed">{t.heroDesc}</p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

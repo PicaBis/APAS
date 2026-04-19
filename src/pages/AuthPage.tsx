@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mail, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff, Sparkles, Globe, Info, BookOpen, Maximize, Shield } from 'lucide-react';
 import ApasLogo from '@/components/apas/ApasLogo';
+import ApasTitle from '@/components/apas/ApasTitle';
 import PageTransition from '@/components/apas/PageTransition';
 import AboutModal from '@/components/apas/AboutModal';
 import BugReportButton from '@/components/apas/BugReportButton';
@@ -299,9 +300,8 @@ export default function AuthPage() {
                 <div className="absolute -inset-2 sm:-inset-3 rounded-full bg-primary/10 blur-xl animate-pulse" />
                 <ApasLogo size={36} animated />
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-wider bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent animate-gradient-text">
-                APAS
-              </h1>
+              <ApasTitle sizeClassName="text-3xl sm:text-4xl" />
+
             </div>
             <p className="text-muted-foreground text-xs sm:text-sm">
               {T.subtitle}
