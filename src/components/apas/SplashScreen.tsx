@@ -360,17 +360,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ lang, onComplete }) => {
             }} />
           </div>
 
-          {/* Arabic name */}
-          <div className="flex items-center justify-center mt-3">
-            <div className="text-lg sm:text-xl md:text-2xl font-semibold tracking-[0.4em]"
-              style={{
-                fontFamily: "'Noto Sans Arabic', 'Cairo', sans-serif",
-                color: '#475569',
-                opacity: letterReveal >= 4 ? 1 : 0,
-                transform: letterReveal >= 4 ? 'translateY(0) scale(1)' : 'translateY(15px) scale(0.9)',
-                transition: 'all 0.8s cubic-bezier(0.25, 1, 0.5, 1) 0.5s',
-              }}>أبـــاس</div>
-          </div>
         </div>
 
         {/* App description */}
