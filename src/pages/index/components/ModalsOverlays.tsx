@@ -7,6 +7,7 @@ import SettingsPanel from '@/components/apas/SettingsPanel';
 import GuestRestrictionOverlay from '@/components/auth/GuestRestrictionOverlay';
 import KeyboardShortcutsHelp from '@/components/apas/KeyboardShortcutsHelp';
 import BugReportButton from '@/components/apas/BugReportButton';
+import SupportButton from '@/components/apas/SupportButton';
 
 const OnboardingTutorial = lazy(() => import('@/components/apas/OnboardingTutorial'));
 const WelcomeDialog = lazy(() => import('@/components/apas/WelcomeDialog'));
@@ -319,6 +320,7 @@ const ModalsOverlays: React.FC<ModalsOverlaysProps> = (props) => {
 
       <KeyboardShortcutsHelp lang={lang} muted={isMuted} />
       <BugReportButton lang={lang} />
+      <SupportButton lang={lang} />
     </>
   );
 };

@@ -6,6 +6,7 @@ import ApasLogo from '@/components/apas/ApasLogo';
 import PageTransition from '@/components/apas/PageTransition';
 import AboutModal from '@/components/apas/AboutModal';
 import BugReportButton from '@/components/apas/BugReportButton';
+import SupportButton from '@/components/apas/SupportButton';
 import SlideToVerify from '@/components/auth/SlideToVerify';
 import { playClick, playNav, playPageTransition, playLangSwitch } from '@/utils/sound';
 
@@ -495,6 +496,7 @@ export default function AuthPage() {
 
         {/* Bug Report Button */}
         <BugReportButton lang={lang} />
+        <SupportButton lang={lang} />
       </div>
     </PageTransition>
   );

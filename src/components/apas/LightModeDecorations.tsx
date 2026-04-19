@@ -201,19 +201,10 @@ const FooterRobot: React.FC = () => {
           .rb-particle-4 { animation: rbParticle 3.2s ease-in-out infinite 2.1s; }
           .rb-breath { animation: rbBreath 4s ease-in-out infinite; }
           @keyframes rbWave {
-            0%, 2%   { transform: rotate(0deg); }
-            5%       { transform: rotate(-22deg); }
-            9%       { transform: rotate(14deg); }
-            13%      { transform: rotate(-22deg); }
-            17%      { transform: rotate(14deg); }
-            21%      { transform: rotate(-22deg); }
-            25%      { transform: rotate(0deg); }
-            100%     { transform: rotate(0deg); }
+            0%, 100% { transform: rotate(-8deg); }
+            50%      { transform: rotate(8deg); }
           }
-          .rb-wave { animation: rbWave 4.5s ease-in-out infinite; transform-origin: 145px 140px; transform-box: fill-box; }
-          @supports not (transform-box: fill-box) {
-            .rb-wave { transform-origin: 145px 140px; }
-          }
+          .rb-wave { animation: rbWave 2.6s ease-in-out infinite; transform-origin: 145px 140px; }
           @keyframes rbLogoOrbit {
             0% { transform: rotate(0deg); transform-origin: center; }
             100% { transform: rotate(360deg); transform-origin: center; }

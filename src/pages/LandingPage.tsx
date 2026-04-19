@@ -7,6 +7,7 @@ import DevPrivilegesButton from '@/components/auth/DevPrivilegesButton';
 import AboutModal from '@/components/apas/AboutModal';
 const ComprehensiveGuideModal = lazy(() => import('@/components/apas/ComprehensiveGuideModal'));
 import BugReportButton from '@/components/apas/BugReportButton';
+import SupportButton from '@/components/apas/SupportButton';
 import ApasLogo from '@/components/apas/ApasLogo';
 import SplashScreen from '@/components/apas/SplashScreen';
 import PageTransition from '@/components/apas/PageTransition';
@@ -709,6 +710,7 @@ const LandingPage: React.FC = () => {
 
       {/* Bug Report Button */}
       <BugReportButton lang={lang} />
+      <SupportButton lang={lang} />
 
       {/* PWA Install Prompt Banner */}
       <PWAInstallPrompt lang={lang} />
