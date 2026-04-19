@@ -30,23 +30,8 @@ const WelcomeDialog: React.FC<WelcomeDialogProps> = ({ open, lang, onOpenGuide, 
           onPointerDownOutside={(e) => e.preventDefault()}
           className="fixed left-[50%] top-[50%] z-[61] w-[min(92vw,460px)] translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
         >
-          {/* Outer animated glow */}
           <div className="relative">
-            <div
-              aria-hidden="true"
-              className="absolute -inset-[6px] rounded-[28px] opacity-80 blur-xl pointer-events-none"
-              style={{
-                background:
-                  'conic-gradient(from 0deg, #6366f1, #a855f7, #ec4899, #f59e0b, #22d3ee, #6366f1)',
-                animation: 'apasWelcomeSpin 6s linear infinite',
-              }}
-            />
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 rounded-[24px] ring-1 ring-white/10 pointer-events-none"
-            />
-
-            <div className="relative rounded-[24px] overflow-hidden border border-white/10 bg-background shadow-[0_30px_80px_-10px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)]">
+            <div className="relative rounded-[24px] overflow-hidden border border-border bg-background shadow-[0_30px_80px_-10px_rgba(0,0,0,0.6)]">
               <DialogPrimitive.Title className="sr-only">
                 {t('مرحبا بك في APAS', 'Welcome to APAS', 'Bienvenue dans APAS')}
               </DialogPrimitive.Title>
@@ -161,13 +146,6 @@ const WelcomeDialog: React.FC<WelcomeDialogProps> = ({ open, lang, onOpenGuide, 
               </div>
             </div>
           </div>
-
-          <style>{`
-            @keyframes apasWelcomeSpin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
