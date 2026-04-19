@@ -1,6 +1,7 @@
 import React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { BookOpen, Lightbulb, X, Sparkles, ArrowRight, AlertCircle } from 'lucide-react';
+import { BookOpen, Lightbulb, X, ArrowRight, AlertCircle } from 'lucide-react';
+import ApasLogo from '@/components/apas/ApasLogo';
 
 interface WelcomeDialogProps {
   open: boolean;
@@ -50,11 +51,11 @@ const WelcomeDialog: React.FC<WelcomeDialogProps> = ({ open, lang, onOpenGuide, 
                   <X className="w-4 h-4" />
                 </button>
 
-                {/* Pulsing hero icon */}
+                {/* App logo — gentle breathe, no ping */}
                 <div className="relative mx-auto mb-3 w-16 h-16 flex items-center justify-center">
-                  <span aria-hidden="true" className="absolute inset-0 rounded-2xl bg-primary/30 animate-ping" />
-                  <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center shadow-lg shadow-primary/30">
-                    <Sparkles className="w-8 h-8 text-white" />
+                  <span aria-hidden="true" className="absolute inset-0 rounded-full bg-primary/25 blur-xl" />
+                  <div className="relative flex items-center justify-center">
+                    <ApasLogo size={64} animated />
                   </div>
                 </div>
 

@@ -435,118 +435,57 @@ const LandingPage: React.FC = () => {
         </div>
       </nav>
 
-      {/* Hero logo styles (outside section to avoid nth-child offset) */}
+      {/* Hero logo styles — calm, harmonized with title (navy/indigo palette) */}
       <style>{`
         .hero-logo-container {
           display: flex;
           align-items: center;
           justify-content: center;
-          filter: drop-shadow(0 12px 24px hsl(var(--primary) / 0.25));
+          filter: drop-shadow(0 10px 22px rgba(11, 20, 64, 0.28));
         }
-        /* Ambient radial glow that softly pulses */
+        /* Soft indigo glow — matches title palette */
         .hero-logo-glow {
-          background: radial-gradient(circle, hsl(var(--primary) / 0.22) 0%, hsl(var(--primary) / 0.06) 45%, transparent 75%);
-          animation: heroGlowBreath 5.5s ease-in-out infinite;
+          background: radial-gradient(circle,
+            rgba(99, 102, 241, 0.22) 0%,
+            rgba(30, 42, 138, 0.08) 50%,
+            transparent 75%);
+          animation: heroGlowBreath 6.5s ease-in-out infinite;
           filter: blur(4px);
         }
         @keyframes heroGlowBreath {
           0%, 100% { opacity: 0.55; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.15); }
+          50%      { opacity: 0.9;  transform: scale(1.08); }
         }
-        /* Ripple rings radiating outward */
-        .hero-logo-ripple {
-          border: 1.5px solid hsl(var(--primary) / 0.35);
-          animation: heroRipple 3.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-          opacity: 0;
-        }
-        .hero-logo-ripple.r2 { animation-delay: 1.27s; border-color: hsl(42 70% 54% / 0.35); }
-        .hero-logo-ripple.r3 { animation-delay: 2.54s; border-color: hsl(var(--primary) / 0.25); }
-        @keyframes heroRipple {
-          0%   { transform: scale(0.75); opacity: 0; }
-          18%  { opacity: 0.9; }
-          100% { transform: scale(1.7); opacity: 0; }
-        }
-        /* Outer dashed arc — slow cinematic rotation */
+        /* Single outer dashed arc — slow rotation */
         .hero-logo-arc {
-          animation: heroArcSpin 22s linear infinite;
+          animation: heroArcSpin 28s linear infinite;
         }
         @keyframes heroArcSpin {
-          0% { transform: rotate(0deg); }
+          0%   { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        /* Inner thin ring rotating the other way */
-        .hero-logo-arc-inner {
-          animation: heroArcSpinRev 14s linear infinite;
-        }
-        @keyframes heroArcSpinRev {
-          0% { transform: rotate(360deg); }
-          100% { transform: rotate(0deg); }
-        }
-        /* Orbiting ball + trail */
-        .hero-logo-orbit {
-          animation: heroOrbit 7s linear infinite;
-          transform-origin: 50% 50%;
-        }
-        @keyframes heroOrbit {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        /* Logo float + subtle tilt + 3D breathe */
+        /* Gentle breathe (no wobble) */
         .hero-logo-breathe {
-          animation: heroLogoBreathe 6s ease-in-out infinite;
-          transform-style: preserve-3d;
+          animation: heroLogoBreathe 7s ease-in-out infinite;
           will-change: transform;
         }
         @keyframes heroLogoBreathe {
-          0%, 100% { transform: scale(1) translateY(0) rotate(0deg); }
-          50%      { transform: scale(1.035) translateY(-5px) rotate(-1deg); }
+          0%, 100% { transform: scale(1) translateY(0); }
+          50%      { transform: scale(1.025) translateY(-3px); }
         }
-        /* Floating sparkle particles */
-        .hero-logo-spark {
-          position: absolute;
-          border-radius: 9999px;
-          background: radial-gradient(circle, #fff 0%, hsl(var(--primary) / 0.9) 35%, transparent 70%);
-          box-shadow: 0 0 8px hsl(var(--primary) / 0.9), 0 0 16px hsl(var(--primary) / 0.5);
-          animation: heroSparkle 4.2s ease-in-out infinite;
-          opacity: 0;
-          pointer-events: none;
-        }
-        @keyframes heroSparkle {
-          0%, 100% { opacity: 0; transform: translate(0,0) scale(0.6); }
-          40%      { opacity: 1; }
-          60%      { opacity: 1; }
-        }
-        /* Entry animation — runs once on first render */
+        /* One-time entry animation */
         .hero-logo-enter {
-          animation: heroLogoEnter 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation: heroLogoEnter 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         @keyframes heroLogoEnter {
-          0%   { opacity: 0; transform: scale(0.6) rotate(-18deg); filter: blur(10px); }
-          60%  { opacity: 1; filter: blur(0); }
-          100% { opacity: 1; transform: scale(1) rotate(0deg); filter: blur(0); }
-        }
-        /* Conic sheen sweeping over the ring */
-        .hero-logo-sheen {
-          background: conic-gradient(from 0deg, transparent 0deg, transparent 310deg, hsl(var(--primary) / 0.55) 340deg, transparent 360deg);
-          mask: radial-gradient(circle, transparent 46%, #000 48%, #000 54%, transparent 56%);
-          -webkit-mask: radial-gradient(circle, transparent 46%, #000 48%, #000 54%, transparent 56%);
-          animation: heroSheen 4.5s linear infinite;
-          filter: blur(0.4px);
-        }
-        @keyframes heroSheen {
-          0%   { transform: rotate(0deg); opacity: 0.9; }
-          50%  { opacity: 1; }
-          100% { transform: rotate(360deg); opacity: 0.9; }
+          0%   { opacity: 0; transform: scale(0.82); filter: blur(6px); }
+          70%  { opacity: 1; filter: blur(0); }
+          100% { opacity: 1; transform: scale(1);   filter: blur(0); }
         }
         @media (prefers-reduced-motion: reduce) {
           .hero-logo-glow,
-          .hero-logo-ripple,
           .hero-logo-arc,
-          .hero-logo-arc-inner,
-          .hero-logo-orbit,
           .hero-logo-breathe,
-          .hero-logo-spark,
-          .hero-logo-sheen,
           .hero-logo-enter { animation: none !important; }
         }
       `}</style>
@@ -555,72 +494,24 @@ const LandingPage: React.FC = () => {
       <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 text-center hero-stagger">
         <div className="flex justify-center mb-6">
           <div className="relative hero-logo-container hero-logo-enter">
-            {/* Ambient glow */}
-            <div className="absolute -inset-10 rounded-full hero-logo-glow pointer-events-none" />
+            {/* Soft indigo halo */}
+            <div className="absolute -inset-8 rounded-full hero-logo-glow pointer-events-none" />
 
-            {/* Ripple rings */}
-            <div className="absolute inset-0 m-auto w-[100px] h-[100px] rounded-full hero-logo-ripple pointer-events-none" />
-            <div className="absolute inset-0 m-auto w-[100px] h-[100px] rounded-full hero-logo-ripple r2 pointer-events-none" />
-            <div className="absolute inset-0 m-auto w-[100px] h-[100px] rounded-full hero-logo-ripple r3 pointer-events-none" />
-
-            {/* Conic sheen sweeping over the ring */}
-            <div className="absolute -inset-4 rounded-full hero-logo-sheen pointer-events-none" />
-
-            {/* Outer dashed arc */}
+            {/* Single dashed arc in the title's indigo-navy palette */}
             <svg className="absolute -inset-4 hero-logo-arc pointer-events-none" viewBox="0 0 120 120" fill="none">
-              <circle cx="60" cy="60" r="56" stroke="url(#heroArcGrad)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="20 15 8 15" />
+              <circle cx="60" cy="60" r="56" stroke="url(#heroArcGrad)" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="22 14" />
               <defs>
                 <linearGradient id="heroArcGrad" x1="0" y1="0" x2="120" y2="120">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.7" />
-                  <stop offset="50%" stopColor="hsl(42 70% 54%)" stopOpacity="0.45" />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.1" />
+                  <stop offset="0%"   stopColor="#6366f1" stopOpacity="0.55" />
+                  <stop offset="55%"  stopColor="#4f46e5" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#1e2a8a" stopOpacity="0.15" />
                 </linearGradient>
               </defs>
             </svg>
 
-            {/* Inner thin counter-rotating ring */}
-            <svg className="absolute -inset-1 hero-logo-arc-inner pointer-events-none" viewBox="0 0 120 120" fill="none">
-              <circle cx="60" cy="60" r="52" stroke="hsl(var(--primary) / 0.25)" strokeWidth="0.8" strokeDasharray="3 6" />
-            </svg>
-
-            {/* Orbiting particles around the logo */}
-            <svg className="absolute -inset-4 hero-logo-orbit pointer-events-none" viewBox="0 0 120 120" fill="none">
-              <defs>
-                <radialGradient id="heroOrbBall" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="45%" stopColor="hsl(42 90% 60%)" />
-                  <stop offset="100%" stopColor="hsl(42 70% 48%)" />
-                </radialGradient>
-                <radialGradient id="heroOrbBall2" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="45%" stopColor="hsl(var(--primary))" />
-                  <stop offset="100%" stopColor="hsl(var(--primary) / 0.6)" />
-                </radialGradient>
-                <filter id="heroOrbGlow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="2" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              {/* Primary accent ball with glow + trail */}
-              <circle cx="60" cy="4" r="3.2" fill="url(#heroOrbBall)" filter="url(#heroOrbGlow)" />
-              <circle cx="60" cy="4" r="1.6" fill="#ffffff" opacity="0.9" />
-              {/* Tiny counter ball at 180° */}
-              <circle cx="60" cy="116" r="1.8" fill="url(#heroOrbBall2)" filter="url(#heroOrbGlow)" opacity="0.9" />
-            </svg>
-
-            {/* Floating sparkle particles */}
-            <span className="hero-logo-spark" style={{ width: 5, height: 5, top: '-4px', left: '18%', animationDelay: '0s' }} />
-            <span className="hero-logo-spark" style={{ width: 4, height: 4, top: '30%', right: '-8px', animationDelay: '0.7s' }} />
-            <span className="hero-logo-spark" style={{ width: 4, height: 4, bottom: '8%', left: '-6px', animationDelay: '1.4s' }} />
-            <span className="hero-logo-spark" style={{ width: 3, height: 3, bottom: '-4px', right: '22%', animationDelay: '2.1s' }} />
-            <span className="hero-logo-spark" style={{ width: 3, height: 3, top: '12%', left: '-6px', animationDelay: '2.8s' }} />
-
-            {/* Logo with float + breathe */}
+            {/* Logo with gentle breathe */}
             <div className="hero-logo-breathe relative z-10">
-              <ApasLogo size={100} animated />
+              <ApasLogo size={100} />
             </div>
           </div>
         </div>
