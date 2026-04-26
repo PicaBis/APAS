@@ -435,7 +435,7 @@ const LandingPage: React.FC = () => {
         </div>
       </nav>
 
-      {/* Hero logo styles — calm, harmonized with title (navy/indigo palette) */}
+      {/* Hero logo styles — calm, harmonized with title (navy palette) */}
       <style>{`
         .hero-logo-container {
           display: flex;
@@ -443,11 +443,11 @@ const LandingPage: React.FC = () => {
           justify-content: center;
           filter: drop-shadow(0 10px 22px rgba(11, 20, 64, 0.28));
         }
-        /* Soft indigo glow — matches title palette */
+        /* Soft primary glow — matches title palette */
         .hero-logo-glow {
           background: radial-gradient(circle,
-            rgba(99, 102, 241, 0.22) 0%,
-            rgba(30, 42, 138, 0.08) 50%,
+            hsl(var(--primary) / 0.22) 0%,
+            hsl(var(--primary) / 0.08) 50%,
             transparent 75%);
           animation: heroGlowBreath 6.5s ease-in-out infinite;
           filter: blur(4px);
