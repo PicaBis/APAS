@@ -16,7 +16,7 @@ interface ApasTitleProps {
  *
  * Design goals (per user direction):
  *   - scientific / editorial feel (not arcade / gaming)
- *   - single, calm indigo→navy gradient (no 3D extrude, no thick outer stroke)
+ *   - single, calm navy-blue gradient using CSS --primary (no 3D extrude, no thick outer stroke)
  *   - generous letter tracking with a refined weight (700)
  *   - one discreet gold accent: a thin underline with a small gold dot,
  *     echoing the gold dot on the logo without shouting
@@ -56,18 +56,18 @@ const ApasTitle: React.FC<ApasTitleProps> = ({
           unicode-bidi: isolate;
           font-weight: 700;
           letter-spacing: 0.14em;
-          /* Subtle vertical gradient — indigo highlight to navy base */
-          background: linear-gradient(180deg,
-            #6366f1 0%,
-            #4f46e5 55%,
-            #1e2a8a 100%);
+          /* Horizontal primary (navy) gradient — matches brand palette */
+          background: linear-gradient(90deg,
+            hsl(var(--primary)) 0%,
+            hsl(var(--primary) / 0.8) 50%,
+            hsl(var(--primary) / 0.5) 100%);
           -webkit-background-clip: text;
                   background-clip: text;
           color: transparent;
           /* A whisper-thin stroke just to crisp up edges on light bg */
-          -webkit-text-stroke: 0.006em rgba(30, 42, 138, 0.35);
+          -webkit-text-stroke: 0.006em hsl(var(--primary) / 0.35);
           /* Soft elevation, not a poster shadow */
-          filter: drop-shadow(0 2px 6px rgba(30, 42, 138, 0.18));
+          filter: drop-shadow(0 2px 6px hsl(var(--primary) / 0.18));
         }
 
         /* Tiny gold accent under the word: —— · —— */

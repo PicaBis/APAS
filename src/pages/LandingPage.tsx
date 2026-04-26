@@ -494,17 +494,17 @@ const LandingPage: React.FC = () => {
       <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 text-center hero-stagger">
         <div className="flex justify-center mb-6">
           <div className="relative hero-logo-container hero-logo-enter">
-            {/* Soft indigo halo */}
+            {/* Soft primary halo */}
             <div className="absolute -inset-8 rounded-full hero-logo-glow pointer-events-none" />
 
-            {/* Single dashed arc in the title's indigo-navy palette */}
+            {/* Single dashed arc in the title's navy palette */}
             <svg className="absolute -inset-4 hero-logo-arc pointer-events-none" viewBox="0 0 120 120" fill="none">
               <circle cx="60" cy="60" r="56" stroke="url(#heroArcGrad)" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="22 14" />
               <defs>
                 <linearGradient id="heroArcGrad" x1="0" y1="0" x2="120" y2="120">
-                  <stop offset="0%"   stopColor="#6366f1" stopOpacity="0.55" />
-                  <stop offset="55%"  stopColor="#4f46e5" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#1e2a8a" stopOpacity="0.15" />
+                  <stop offset="0%"   stopColor="hsl(var(--primary))" stopOpacity="0.55" />
+                  <stop offset="55%"  stopColor="hsl(var(--primary))" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
                 </linearGradient>
               </defs>
             </svg>
